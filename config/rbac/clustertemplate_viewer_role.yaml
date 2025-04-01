@@ -1,0 +1,23 @@
+# permissions for end users to view clustertemplates.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: template-controller
+    app.kubernetes.io/managed-by: kustomize
+  name: clustertemplate-viewer-role
+rules:
+- apiGroups:
+  - edge-orchestrator.intel.com
+  resources:
+  - clustertemplates
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - edge-orchestrator.intel.com
+  resources:
+  - clustertemplates/status
+  verbs:
+  - get

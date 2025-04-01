@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{template "cluster-manager.fullname" .}}
+  namespace: {{.Release.Namespace}}
+  labels:
+    app: "{{.Chart.Name}}-cm"
+spec:
+  selector:
+    app: "{{.Chart.Name}}-cm"
+  type: {{.Values.clusterManager.service.type}}
+  ports:
+    - name: "rest"
+      port: {{.Values.clusterManager.service.rest.port}}
+
+{{- if .Values.openpolicyagent.enabled -}}
+{{- if .Values.service.opa.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cluster-manager.fullname" . }}-opa
+  labels:
+    {{- include "cluster-manager.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.opa.type }}
+  ports:
+    - port: {{ .Values.service.opa.port }}
+      targetPort: opa
+      protocol: TCP
+      name: http-opa
+  selector:
+    {{- include "cluster-manager.selectorLabels" . | nindent 4 }}
+{{- end}}
+{{- end}}

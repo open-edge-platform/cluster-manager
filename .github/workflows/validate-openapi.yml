@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+---
+
+name: Validate and Generate OpenAPI
+
+on:
+  pull_request:
+    paths:
+      - 'api/openapi/openapi.yaml'
+
+jobs:
+  check-generate:
+    runs-on: ${{ github.repository_owner == 'intel' && 'intel-ubuntu-latest' || 'ubuntu-latest' }}
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Bootstrap CI environment
+      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@main
+      with:
+        gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
+
+    - name: Generate OpenAPI
+      run: |
+        make generate-api
+
+    - name: Check for changes
+      run: |
+        if [[ `git status --porcelain` ]]; then
+          echo "### Error: Changes detected after running `mage generate`" >> $GITHUB_STEP_SUMMARY
+          exit 1
+        else
+          echo "No changes detected - OpenAPI is up to date" >> $GITHUB_STEP_SUMMARY
+        fi

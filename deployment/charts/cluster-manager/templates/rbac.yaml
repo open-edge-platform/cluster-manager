@@ -1,0 +1,114 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{include "cluster-manager.fullname" .}}
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "namespaces"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["authentication.k8s.io"]
+  resources: ["tokenreviews"]
+  verbs: ["create"]
+- apiGroups: ["authorization.k8s.io"]
+  resources: ["subjectaccessreviews"]
+  verbs: ["create"]
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["cluster.x-k8s.io"]
+  resources: ["clusters", "machines"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+- apiGroups: ["cluster.x-k8s.io"]
+  resources: ["clusterclasses"]
+  verbs: ["create", "delete", "get", "list", "watch"]
+- apiGroups: ["cluster.x-k8s.io"]
+  resources: ["machines"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["controlplane.cluster.x-k8s.io"]
+  resources: ["kubeadmcontrolplanetemplates", "rke2controlplanetemplates"]
+  verbs: ["create", "delete", "get", "list", "watch"]
+- apiGroups: ["infrastructure.cluster.x-k8s.io"]
+  resources: ["dockerclustertemplates", "dockermachinetemplates", "dockermachines", "intelclustertemplates", "intelmachinebindings", "intelmachinetemplates", "intelmachines"]
+  verbs: ["create", "delete", "get", "list", "watch", "patch"]
+- apiGroups: ["apimappingconfig.edge-orchestrator.intel.com"]
+  resources: ["apimappingconfigs", "apimappingconfigs/status"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["config.edge-orchestrator.intel.com"]
+  resources: ["configs", "configs/status"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["folder.edge-orchestrator.intel.com"]
+  resources: ["folders", "folders/status"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["license.edge-orchestrator.intel.com"]
+  resources: ["licenses", "licenses/status"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["network.edge-orchestrator.intel.com"]
+  resources: ["networks", "networks/status"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["org.edge-orchestrator.intel.com"]
+  resources: ["orgs", "orgs/status"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["orgactivewatcher.edge-orchestrator.intel.com"]
+  resources: ["orgactivewatchers", "orgactivewatchers/status"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["project.edge-orchestrator.intel.com"]
+  resources: ["projects", "projects/status"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["projectactivewatcher.edge-orchestrator.intel.com"]
+  resources: ["projectactivewatchers", "projectactivewatchers/status"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["projectwatcher.edge-orchestrator.intel.com"]
+  resources: ["projectwatchers", "projectwatchers/status"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["runtime.edge-orchestrator.intel.com"]
+  resources: ["runtimes", "runtimes/status"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["runtimefolder.edge-orchestrator.intel.com"]
+  resources: ["runtimefolders", "runtimefolders/status"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["runtimeorg.edge-orchestrator.intel.com"]
+  resources: ["runtimeorgs", "runtimeorgs/status"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["runtimeproject.edge-orchestrator.intel.com"]
+  resources: ["runtimeprojects", "runtimeprojects/status"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["orgwatcher.edge-orchestrator.intel.com"]
+  resources: ["orgwatchers", "orgwatchers/status"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["tenancy.edge-orchestrator.intel.com"]
+  resources: ["multitenancies", "multitenancies/status"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["edge-orchestrator.intel.com"]
+  resources: ["clustertemplates"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+- apiGroups: ["edge-orchestrator.intel.com"]
+  resources: ["clustertemplates/status"]
+  verbs: ["get", "patch", "update"]
+- apiGroups: ["edge-orchestrator.intel.com"]
+  resources: ["clustertemplates/finalizers"]
+  verbs: ["update"]
+- nonResourceURLs: ["/metrics"]
+  verbs: ["get"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{include "cluster-manager.fullname" .}}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{include "cluster-manager.fullname" .}}
+subjects:
+  - kind: ServiceAccount
+    name: {{include "cluster-manager.fullname" .}}
+    namespace: {{.Release.Namespace}}

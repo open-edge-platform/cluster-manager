@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+---
+{{- if .Values.webhookService.enabled -}}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: cluster-template-controller-validating-webhook-configuration
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/cluster-template-controller-serving-cert
+  labels:
+    app: "{{.Chart.Name}}-controller"
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: 'cluster-template-controller-webhook-service'
+      namespace: '{{ .Release.Namespace }}'
+      path: /validate-edge-orchestrator-intel-com-v1alpha1-clustertemplate
+  failurePolicy: Fail
+  name: vclustertemplate-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - edge-orchestrator.intel.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - clustertemplates
+  sideEffects: None
+{{- end -}}

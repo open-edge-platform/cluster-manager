@@ -1,0 +1,139 @@
+# yamllint disable-file
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
+{{- $registry := .Values.global.registry -}}
+{{- if .Values.clusterManager.image.registry -}}
+{{- $registry = .Values.clusterManager.image.registry -}}
+{{- end -}}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "cluster-manager.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: "{{.Chart.Name}}-cm"
+spec:
+  replicas: {{ .Values.clusterManager.replicaCount }}
+  selector:
+    matchLabels:
+      app: "{{.Chart.Name}}-cm"
+  template:
+    metadata:
+      labels:
+        app: "{{.Chart.Name}}-cm"
+      annotations:
+        checksum/configmap: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name | default (include "cluster-manager.serviceAccountName" .) }}
+      containers:
+      - name: cluster-manager
+        {{- with .Values.clusterManager.image }}
+        image: '{{- if hasKey $registry "name" }}{{ $registry.name }}/{{- end -}}{{ .repository }}:{{ default $.Chart.AppVersion .tag }}'
+        {{- end }}
+        imagePullPolicy: {{ .Values.clusterManager.image.pullPolicy }}
+        args:
+        - '-loglevel={{ .Values.clusterManager.args.loglevel }}'
+        - '-logformat={{ .Values.clusterManager.args.logformat }}'
+        - '-clusterdomain={{ .Values.clusterManager.args.clusterdomain }}'
+        - '-username={{ .Values.clusterManager.args.username }}'
+        {{- if .Values.clusterManager.args.systemLabelsPrefixes }}
+        - '-system-labels-prefixes={{ .Values.clusterManager.args.systemLabelsPrefixes }}'
+        {{- end }}
+        {{- if .Values.clusterManager.args.inventory }}
+        - '-inventory-endpoint={{ .Values.clusterManager.args.inventory }}'
+        {{- end }}
+        {{- range $key, $value := .Values.clusterManager.extraArgs }}
+        - -{{ $key }}={{ $value }}
+        {{- end }}
+        ports:
+        - containerPort: {{ .Values.clusterManager.service.rest.port }}
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.clusterManager.readinessProbe.httpGet.path }}
+            port: {{ .Values.clusterManager.readinessProbe.httpGet.port }}
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        resources:
+          limits:
+            cpu: {{ .Values.clusterManager.resources.limits.cpu }}
+            memory: {{ .Values.clusterManager.resources.limits.memory }}
+          requests:
+            cpu: {{ .Values.clusterManager.resources.requests.cpu }}
+            memory: {{ .Values.clusterManager.resources.requests.memory }}
+        securityContext:
+          allowPrivilegeEscalation: {{ .Values.clusterManager.containerSecurityContext.allowPrivilegeEscalation }}
+          readOnlyRootFilesystem: {{ .Values.clusterManager.containerSecurityContext.readOnlyRootFilesystem }}
+          seccompProfile:
+            type: {{ .Values.clusterManager.containerSecurityContext.seccompProfile.type }}
+          capabilities:
+            drop:
+            - {{ .Values.clusterManager.containerSecurityContext.capabilities.drop | join ", " }}
+        volumeMounts:
+        - name: default-templates
+          mountPath: /default-templates
+        env:
+        - name: OIDC_SERVER_URL
+          value: {{ .Values.openidc.issuer }}
+        - name: OIDC_TLS_INSECURE_SKIP_VERIFY
+          value: {{ .Values.openidc.insecureSkipVerify | quote }}
+        - name: RATE_LIMITER_QPS
+          value: "{{ .Values.clusterManager.clientRateLimiter.qps }}"
+        - name: RATE_LIMITER_BURST
+          value: "{{ .Values.clusterManager.clientRateLimiter.burst }}"
+        {{- if .Values.openpolicyagent.enabled }}
+        - name: OPA_ENABLED
+          value: {{ .Values.openpolicyagent.enabled | quote }}
+        - name: OPA_PORT
+          value: {{ .Values.openpolicyagent.port | quote }}
+        {{- end}}
+      {{- if .Values.openpolicyagent.enabled }}
+      - name: openpolicyagent
+        {{- with .Values.openpolicyagent }}
+        image: '{{- if .registry -}}{{ .registry }}/{{- end -}}{{ .image }}:{{ .tag }}'
+        securityContext:
+            {{- toYaml .security | nindent 12 }}
+        ports:
+        - name: opa
+          containerPort: {{ .port }}
+        imagePullPolicy: IfNotPresent
+        args:
+        - 'run'
+        - '--server'
+        - '--addr=0.0.0.0:{{ .port }}'
+        - '--bundle'
+        - /opt/cluster-manager/rego/v1
+        - '--disable-telemetry'
+        livenessProbe:
+          httpGet:
+            path: /health?bundle=true  # Include bundle activation in readiness
+            scheme: HTTP
+            port: {{ .port }}
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health?bundle=true  # Include bundle activation in readiness
+            scheme: HTTP
+            port: {{ .port }}
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        volumeMounts:
+          - name: openpolicyagent-v1
+            mountPath: /opt/cluster-manager/rego/v1
+            readOnly: true
+        {{- end}}
+      {{- end }}
+      volumes:
+      - name: default-templates
+        configMap:
+          name: {{ include "cluster-manager.fullname" . }}-default-templates
+      {{- if .Values.openpolicyagent.enabled }}
+      - name: openpolicyagent-v1
+        configMap:
+            name: {{ include "cluster-manager.fullname" . }}-opa-rego-v1
+      {{- end }}

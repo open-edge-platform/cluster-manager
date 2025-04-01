@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+---
+
+name: CO Integration test CI Pipeline
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release-*
+  workflow_dispatch:
+
+jobs:
+  integration-smoke-test:
+    runs-on: ubuntu-24.04-16core-64GB
+    env:
+      VERSION: ${{ github.head_ref }}  # Use the component branch that triggered the action for the test
+    steps:
+      - name: Checkout orch ci
+        uses: actions/checkout@v4
+        with:
+          repository: open-edge-platform/orch-ci
+          path: ci
+          ref: "main"
+          token: ${{ secrets.SYS_ORCH_GITHUB }}
+
+      - name: Checkout cluster-tests for integration tests
+        uses: actions/checkout@v4
+        with:
+          repository: open-edge-platform/cluster-tests
+          path: cluster-tests
+          ref: "main"
+          token: ${{ secrets.SYS_ORCH_GITHUB }}
+
+      - name: Bootstrap CI environment
+        uses: ./ci/.github/actions/bootstrap
+        with:
+          gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
+
+      - name: Run make test with additional config
+        run: |
+          cd cluster-tests
+          ADDITIONAL_CONFIG="{\"components\":[{\"name\":\"cluster-manager\", \"skip-local-build\": false, \"git-repo\": {\"version\":\"${{ env.VERSION }}\"}}]}" make test

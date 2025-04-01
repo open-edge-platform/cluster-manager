@@ -1,0 +1,94 @@
+# yamllint disable-file
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
+{{- $registry := .Values.global.registry -}}
+{{- if .Values.templateController.image.registry -}}
+{{- $registry = .Values.templateController.image.registry -}}
+{{- end -}}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-template-controller
+  {{- with .Values.templateController.podAnnotations }}
+  annotations:
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app: "{{.Chart.Name}}-controller"
+  replicas: {{ .Values.templateController.replicaCount }}
+  template:
+    metadata:
+      labels:
+        app: "{{.Chart.Name}}-controller"
+    spec:
+      securityContext:
+        {{- toYaml .Values.templateController.podSecurityContext | nindent 8 }}
+      {{- with $registry.imagePullSecrets }}
+      imagePullSecrets:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: template-controller
+        command:
+        - /template-controller
+        args:
+          - --leader-elect
+          - --health-probe-bind-address=:8081
+          - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
+        {{- with .Values.templateController.extraArgs }}
+        {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.templateController.image }}
+        image: "{{- if hasKey $registry "name" }}{{ $registry.name }}/{{- end -}}{{ .repository }}:{{ default $.Chart.AppVersion .tag }}"
+        {{- end }}
+        imagePullPolicy: {{ .Values.templateController.image.pullPolicy }}
+        env:
+        {{- with .Values.templateController.agentConfigEnv }}
+        {{- range $key, $value := . }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        {{- end }}
+        {{- with .Values.templateController.extraEnv }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        ports: 
+          - containerPort: 9443
+            name: webhook-server
+            protocol: TCP
+        securityContext:
+          {{- toYaml .Values.templateController.containerSecurityContext | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        {{- with .Values.templateController.resources }}
+        resources:
+        {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- if .Values.webhookService.enabled }}
+        volumeMounts:
+          - mountPath: /tmp/k8s-webhook-server/serving-certs
+            name: webhook-certs
+            readOnly: true
+      volumes: 
+        - name: webhook-certs
+          secret:
+            secretName: webhook-server-cert
+        {{- end }}
+      serviceAccountName: {{ template "cluster-manager.serviceAccountName" . }}
+      terminationGracePeriodSeconds: 10

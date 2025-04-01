@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+---
+{{- if .Values.webhookService.enabled -}}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cluster-template-controller-serving-cert
+  labels:
+    app: "{{.Chart.Name}}-controller"
+spec:
+  dnsNames:
+  - 'cluster-template-controller-webhook-service.{{ .Release.Namespace }}.svc'
+  - 'cluster-template-controller-webhook-service.{{ .Release.Namespace }}.svc.{{
+    .Values.kubernetesClusterDomain }}'
+  issuerRef:
+    kind: Issuer
+    name: 'cluster-template-controller-selfsigned-issuer'
+  secretName: webhook-server-cert
+{{- end -}}

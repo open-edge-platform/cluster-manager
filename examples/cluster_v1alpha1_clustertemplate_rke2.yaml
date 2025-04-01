@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: edge-orchestrator.intel.com/v1alpha1
+kind: ClusterTemplate
+metadata:
+  labels:
+    app.kubernetes.io/name: template-controller
+    app.kubernetes.io/managed-by: kustomize
+  name: clustertemplate-sample-rke2-v0.1.0
+spec:
+  controlPlaneProviderType: rke2
+  infraProviderType: docker
+  kubernetesVersion: v1.30.6+rke2r1
+  clusterConfiguration: |
+    {
+      "kind": "RKE2ControlPlaneTemplate",
+      "apiVersion": "controlplane.cluster.x-k8s.io/v1beta1",
+      "spec": {
+        "template": {
+          "spec": {
+            "serverConfig": {
+              "cni": "calico",
+              "disableComponents": {
+                "kubernetesComponents": [
+                  "cloudController"
+                ]
+              }
+            },
+            "nodeDrainTimeout": "2m",
+            "rolloutStrategy": {
+              "type": "RollingUpdate",
+              "rollingUpdate": {
+                "maxSurge": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+      - 10.42.0.0/16
+    services:
+      cidrBlocks:
+      - 10.43.0.0/16
+  clusterLabels:
+    default-extension: baseline

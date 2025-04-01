@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: edge-orchestrator.intel.com/v1alpha1
+kind: ClusterTemplate
+metadata:
+  name: clustertemplate-sample-kubeadm-v0.1.0
+  labels:
+    app.kubernetes.io/name: template-controller
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  controlPlaneProviderType: kubeadm
+  infraProviderType: docker
+  kubernetesVersion: v1.30.6
+  clusterConfiguration: |
+    {
+      "apiVersion": "controlplane.cluster.x-k8s.io/v1beta1",
+      "kind": "KubeadmControlPlaneTemplate",
+      "metadata": {
+        "name": "kubeadm-control-plane-template-v0.1.0"
+      },
+      "spec": {
+        "template": {
+          "spec": {
+            "kubeadmConfigSpec": {
+              "clusterConfiguration": {
+                "apiServer": {
+                  "certSANs": [
+                    "localhost",
+                    "127.0.0.1",
+                    "0.0.0.0",
+                    "host.docker.internal"
+                  ]
+                }
+              },
+              "postKubeadmCommands": [
+                "kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/calico.yaml"
+              ]
+            }
+          }
+        }
+      }
+    }
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+      - 10.42.0.0/16
+    services:
+      cidrBlocks:
+      - 10.43.0.0/16
+  clusterLabels:
+    default-extension: baseline

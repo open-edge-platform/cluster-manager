@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cluster-manager.fullname" . }}-default-templates
+  labels:
+    {{- include "cluster-manager.labels" . | nindent 4 }}
+data:
+{{- if .Values.customDefaultTemplates }}
+{{- .Values.customDefaultTemplates | toYaml | nindent 2 }}
+{{- else }}
+{{- range $path, $_ :=  .Files.Glob  "files/default-cluster-templates/*.json" }}
+{{ $path | base | indent 2 }}: |- 
+{{ $.Files.Get $path | indent 4}}
+{{- end }}
+{{- end }}
+
+{{ if .Values.openpolicyagent.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "cluster-manager.fullname" . }}-opa-rego-v1
+  labels:
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+data:
+{{ (.Files.Glob "files/openpolicyagent/v1/*.rego").AsConfig | indent 2 }}
+{{- end}}

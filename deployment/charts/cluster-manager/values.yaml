@@ -1,0 +1,184 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
+global:
+  registry: {} # TODO: Add correct registry
+  # name:
+  imagePullSecrets: []
+
+# This is to override the chart name.
+nameOverride: ""
+fullNameOverride: ""
+registry: {}
+# This section builds out the service account more information can be found here: https://kubernetes.io/docs/concepts/security/service-accounts/
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template.
+  name: ""
+
+clusterManager:
+  image:
+    registry:
+      name: registry-rs.edgeorchestration.intel.com
+    #  name:
+    #  imagePullSecrets: []
+    repository: edge-orch/cluster/cluster-manager
+    pullPolicy: IfNotPresent
+    tag: ""
+
+  replicaCount: 1
+
+  resources:
+    limits:
+      cpu: 1
+      memory: 512Mi
+    requests:
+      cpu: 10m
+      memory: 128Mi
+
+  readinessProbe:
+    httpGet:
+      path: /v2/healthz
+      port: 8080
+
+  clientRateLimiter:
+    qps: "30"
+    burst: "100"
+
+  # This is for setting Kubernetes Annotations to a Pod.
+  podAnnotations: {}
+
+  # This is for setting Kubernetes Labels to a Pod.
+  podLabels: {}
+
+  ## Configure Pods Security Context
+  podSecurityContext:
+    #runAsGroup:
+    runAsNonRoot: true
+
+  ## Configure Container Security Context (only main container)
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    seccompProfile:
+      type: RuntimeDefault
+    capabilities:
+      drop:
+      - "ALL"
+
+  # Additional command line flags to pass.
+  extraArgs:
+    disable-auth: false
+    disable-mt: false
+    disable-inventory: false
+
+  extraEnv: []
+
+  args:
+    loglevel: 0
+    logformat: human
+    # systemLabelsPrefixes: edge-orchestrator.intel.com,cluster.x-k8s.io,topology.cluster.x-k8s.io,fluentBitLoggingHost,prometheusMetricsURL
+    clusterdomain: kind.internal
+    username: admin
+    inventory: inventory.orch-infra.svc.cluster.local:50051
+
+  service:
+    rest:
+      port: 8080
+
+templateController:
+  image:
+    registry:
+      name: registry-rs.edgeorchestration.intel.com
+    #  name:
+    #  imagePullSecrets: []
+    repository: edge-orch/cluster/template-controller
+    pullPolicy: IfNotPresent
+    tag: ""
+
+  replicaCount: 1
+
+  resources:
+    limits:
+      cpu: 1
+      memory: 512Mi
+    requests:
+      cpu: 10m
+      memory: 128Mi
+
+  # This is for setting Kubernetes Annotations to a Pod.
+  podAnnotations: {}
+
+  # This is for setting Kubernetes Labels to a Pod.
+  podLabels: {}
+
+  ## Configure Pods Security Context
+  podSecurityContext:
+    #runAsGroup:
+    runAsNonRoot: true
+
+  ## Configure Container Security Context (only main container)
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    seccompProfile:
+      type: RuntimeDefault
+    capabilities:
+      drop:
+        - "ALL"
+
+  # Additional command line flags to pass.
+  extraArgs:
+    - "--webhook-enabled=false"
+
+
+  extraEnv: []
+
+  args:
+    loglevel: "-loglevel=0"
+    logformat: "-logformat=human"
+
+webhookService:
+  enabled: false
+  type: ClusterIP
+  ports:
+    - name: webhook-server
+      port: 443
+      targetPort: 9443
+      protocol: TCP
+
+customDefaultTemplates:
+# my-custom-template.json: |-
+#   {
+#     "name": "sample",
+#     "version": "v1.0.0",
+#     **etc**
+#   }
+
+service:
+  opa:
+    enabled: true
+    type: ClusterIP
+    port: 8111
+
+
+openidc:
+  issuer: http://platform-keycloak.orch-platform.svc/realms/master
+  insecureSkipVerify: false
+
+openpolicyagent:
+  enabled: true
+  port: 8181
+  image: openpolicyagent/opa
+  tag: 1.2.0
+  security:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    seccompProfile:
+      type: RuntimeDefault
+    capabilities:
+      drop:
+        - "ALL"

@@ -1,0 +1,1078 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+---
+openapi: 3.0.3
+info:
+  title: Cluster Manager 2.0
+  description: This document defines the schema for the Cluster Manager 2.0 REST API.
+  version: 2.0.0
+
+security:
+  - HTTP: []
+
+paths:
+  /v2/clusters:
+    parameters:
+    - $ref: '#/components/parameters/ActiveProjectIdHeader'
+    get:
+      description: Gets all clusters' information.
+      parameters:
+        - in: query
+          name: pageSize
+          schema:
+            default: 20
+            type: integer
+            minimum: 0
+            maximum: 100
+          description: The maximum number of items to return.
+          example: /v2/clusters?pageSize=20
+        - in: query
+          name: offset
+          schema:
+            default: 0
+            type: integer
+            minimum: 0
+          description: Index of the first item to return. It is almost always used in conjunction with the 'pageSize' query.
+          example: /v2/clusters?pageSize=20&offset=10
+        - name: orderBy
+          in: query
+          description: The ordering of the entries. "asc" and "desc" are valid values. If none is specified, "asc" is used.
+          schema:
+            type: string
+          examples:
+            ascending:
+              value: /v2/clusters?orderBy="name asc"
+              description: sort the entries by name entry in ascending order
+            descending:
+              value: /v2/clusters?orderBy="name desc"
+              description: sort the entries by name entry in descending order
+            default:
+              value: /v2/clusters?orderBy="name"
+              description: Sorts the entries by name in ascending order as default when no order is specified.
+        - name: filter
+          in: query
+          description: Filters the entries based on the filter provided.
+          schema:
+            type: string
+          examples:
+            single_filter_with_search_prefix:
+              value: /v2/clusters?filter="name=foo*"
+              description: filter clusters whose cluster prefix has foo
+            single_filter_without_search_prefix:
+              value: /v2/clusters?filter="name=foo"
+              description: Filter by the cluster name "foo".
+            multiple_filter:
+              value: /v2/clusters?filter="name=foo* OR kubernetes_version=v2.27.5"
+              description: filter by cluster name with the prefix "foo" or with Kubernetes software v1.27.5.
+      tags:
+        - Clusters
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - totalElements
+                properties:
+                  clusters:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ClusterInfo'
+                  totalElements:
+                    type: integer
+                    description: The count of items in the entire list, regardless of pagination.
+                    format: int32
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+    post:
+      description: Creates a cluster.
+      tags:
+        - Clusters
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterSpec'
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+  /v2/clusters/summary:
+    parameters:
+      - $ref: '#/components/parameters/ActiveProjectIdHeader'
+    get:
+      description: Gets all clusters' summarized by their state.
+      tags:
+        - Clusters
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterSummary'
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+
+  /v2/clusters/{name}:
+    parameters:
+      - $ref: '#/components/parameters/ActiveProjectIdHeader'
+      - name: name
+        in: path
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 63
+          pattern: '^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$'
+        required: true
+        example: ""
+    get:
+      description: Gets the cluster {name} information.
+      tags:
+        - Clusters
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterDetailInfo'
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+    delete:
+      description: Deletes the cluster {name}.
+      tags:
+        - Clusters
+      responses:
+        "204":
+          description: OK
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+  /v2/clusters/{nodeId}/clusterdetail:
+    parameters:
+      - $ref: '#/components/parameters/ActiveProjectIdHeader'
+      - name: nodeId
+        in: path
+        schema:
+          type: string
+          pattern: '^[{]?[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}[}]?$'
+        required: true
+        example: "64e797f6-db22-445e-b606-4228d4f1c2bd"
+    get:
+      description: Gets cluster detailed information by {nodeId}.
+      tags:
+        - Clusters
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterDetailInfo'
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+  /v2/clusters/{name}/nodes:
+    parameters:
+      - $ref: '#/components/parameters/ActiveProjectIdHeader'
+      - name: name
+        in: path
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 63
+          pattern: '^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$'
+        required: true
+        example: ""
+    put:
+      description: Updates cluster {name} nodes.
+      tags:
+        - Clusters
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/NodeSpec'
+      responses:
+        "200":
+          description: The cluster nodes are updated successfully.
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+  /v2/clusters/{name}/nodes/{nodeId}:
+    parameters:
+      - $ref: '#/components/parameters/ActiveProjectIdHeader'
+      - name: name
+        in: path
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 63
+          pattern: '^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$'
+        required: true
+        example: ""
+      - name: nodeId
+        in: path
+        schema:
+          type: string
+          pattern: '^[{]?[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}[}]?$'
+        required: true
+        example: "64e797f6-db22-445e-b606-4228d4f1c2bd"
+      - name: force
+        in: query
+        schema:
+          type: boolean
+          default: false
+        description: "When set to true, force deletes the edge node."
+        example: /v2/clusters/{name}/nodes/{nodeId}?force=true
+    delete:
+      description: Deletes the cluster {name} node {nodeId}.
+      tags:
+        - Clusters
+      responses:
+        "200":
+          description: The cluster node is operated successfully.
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+  /v2/clusters/{name}/labels:
+    parameters:
+      - $ref: '#/components/parameters/ActiveProjectIdHeader'
+      - name: name
+        in: path
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 63
+          pattern: '^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$'
+        required: true
+        example: ""
+    put:
+      description: Updates cluster {name} labels.
+      tags:
+        - Clusters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterLabels'
+      responses:
+        "200":
+          description: The cluster labels are updated successfully.
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+  /v2/clusters/{name}/template:
+    parameters:
+      - $ref: '#/components/parameters/ActiveProjectIdHeader'
+      - name: name
+        in: path
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 63
+          pattern: '^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$'
+        required: true
+        example: ""
+    put:
+      description: Updates the cluster {name} template.
+      tags:
+        - Clusters
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterTemplateInfo'
+      responses:
+        "202":
+          description: The cluster template update request is accepted.
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+        "501":
+          $ref: '#/components/responses/501-NotImplemented'
+
+  /v2/clusters/{name}/kubeconfigs:
+    parameters:
+      - $ref: '#/components/parameters/ActiveProjectIdHeader'
+      - name: name
+        in: path
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 100
+          pattern: '^[a-zA-Z-_0-9. ]+$'
+        required: true
+        example: ""
+      - name: Authorization
+        in: header
+        required: true
+        schema:
+          type: string
+          format: JWT
+          example: Bearer <JWT>
+    get:
+      description: Gets the cluster's kubeconfig file by its name {name}.
+      tags:
+        - Kubeconfigs
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubeconfigInfo'
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "401":
+          $ref: '#/components/responses/401-Unauthorized'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+  /v2/healthz:
+    get:
+      description: Gets the Cluster Manager REST API healthz status.
+      security: [] # skips authentication
+      tags:
+        - Health Check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+  /v2/templates:
+    parameters:
+      - $ref: '#/components/parameters/ActiveProjectIdHeader'
+    get:
+      description: Gets all templates' information
+      tags:
+        - Cluster Templates
+      parameters:
+        - name: default
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: "When set to true, gets only the default template information"
+          example: /v2/templates?default=true
+        - name: pageSize
+          in: query
+          schema:
+            default: 20
+            type: integer
+            minimum: 0
+            maximum: 100
+          description: The maximum number of items to return.
+          example: /v2/templates?pageSize=20
+        - name: offset
+          in: query
+          schema:
+            default: 0
+            type: integer
+            minimum: 0
+          description: Index of the first item to return. It is almost always used in conjunction with the 'pageSize' query.
+          example: /v2/templates?pageSize=20&offset=10
+        - name: orderBy
+          in: query
+          description: The ordering of the entries. "asc" and "desc" are valid values. If none is specified, "asc" is used.
+          schema:
+            type: string
+          examples:
+            ascending:
+              value: /v2/templates?orderBy="name asc"
+              description: sort the entries by name entry in ascending order
+            descending:
+              value: /v2/templates?orderBy="name desc"
+              description: sort the entries by name entry in descending order
+            default:
+              value: /v2/templates?orderBy="name"
+              description: Sorts the entries by name in ascending order as default when no order is specified.
+        - name: filter
+          in: query
+          description: Filters the entries based on the filter provided.
+          schema:
+            type: string
+          examples:
+            single_filter_with_search_prefix:
+              value: /v2/templates?filter="name=foo*"
+              description: filter templates whose template prefix has foo
+            single_filter_without_search_prefix:
+              value: /v2/templates?filter="name=foo"
+              description: Filter by the template name "foo".
+            multiple_filter:
+              value: /v2/templates?filter="name=foo* OR version=v0.0.23"
+              description: filter by template name with the prefix "foo" or with version v0.0.23
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateInfoList'
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+    post:
+      description: Import templates
+      tags:
+        - Cluster Templates
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateInfo'
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "409":
+          $ref: '#/components/responses/409-Conflict'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+  /v2/templates/{name}/{version}:
+    parameters:
+      - $ref: '#/components/parameters/ActiveProjectIdHeader'
+      - name: name
+        description: "Name of the template"
+        in: path
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
+        required: true
+        example: "baseline"
+      - name: version
+        description: "Version of the template in the format of 'vX.Y.Z'"
+        in: path
+        schema:
+          type: string
+          pattern: "^v(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$"
+        required: true
+        example: "v0.1.0"
+    get:
+      description: Gets a specific template information
+      tags:
+        - Cluster Templates
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateInfo'
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+    delete:
+      description: Deletes a specific template
+      tags:
+        - Cluster Templates
+      responses:
+        "204":
+          description: OK
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+  /v2/templates/{name}/versions:
+    parameters:
+      - $ref: '#/components/parameters/ActiveProjectIdHeader'
+      - name: name
+        description: "Name of the template"
+        in: path
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
+        required: true
+        example: "baseline"
+    get:
+      description: Gets all versions of templates matching a particular template name
+      tags:
+        - Cluster Templates
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionList'
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+  /v2/templates/{name}/default:
+     parameters:
+      - $ref: '#/components/parameters/ActiveProjectIdHeader'
+      - name: name
+        description: "Name of the template"
+        in: path
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
+        required: true
+        example: "baseline"
+     put:
+      description: Updates this template as the default template
+      tags:
+        - Cluster Templates
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DefaultTemplateInfo'
+      responses:
+        "200":
+          description: OK
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+components:
+  securitySchemes:
+    HTTP:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ClusterInfo:
+      type: object
+      properties:
+        name:
+          type: string
+        kubernetesVersion:
+          type: string
+        labels:
+          type: object
+        lifecyclePhase:
+          description: The current phase in the cluster's lifecycle.
+          readOnly: true
+          $ref: '#/components/schemas/GenericStatus'
+        providerStatus:
+          description: The cluster status reported by the cluster provider.
+          readOnly: true
+          $ref: '#/components/schemas/GenericStatus'
+        controlPlaneReady:
+          description: The controlplane status reported by the cluster's controlplane provider.
+          readOnly: true
+          $ref: '#/components/schemas/GenericStatus'
+        infrastructureReady:
+          description: The infrastructure status reported by the cluster's infrastructure provider.
+          readOnly: true
+          $ref: '#/components/schemas/GenericStatus'
+        nodeHealth:
+          description: The health summary for the cluster's nodes.
+          readOnly: true
+          $ref: '#/components/schemas/GenericStatus'
+        nodeQuantity:
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 1
+    ClusterDetailInfo:
+      type: object
+      properties:
+        name:
+          type: string
+        kubernetesVersion:
+          type: string
+        template:
+          type: string
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeInfo'
+        labels:
+          type: object
+        lifecyclePhase:
+          description: The current phase in the cluster's lifecycle.
+          readOnly: true
+          $ref: '#/components/schemas/GenericStatus'
+        providerStatus:
+          description: The cluster status reported by the cluster provider.
+          readOnly: true
+          $ref: '#/components/schemas/GenericStatus'
+        controlPlaneReady:
+          description: The controlplane status reported by the cluster's controlplane provider.
+          readOnly: true
+          $ref: '#/components/schemas/GenericStatus'
+        infrastructureReady:
+          description: The infrastructure status reported by the cluster's infrastructure provider.
+          readOnly: true
+          $ref: '#/components/schemas/GenericStatus'
+        nodeHealth:
+          description: The health summary of the cluster's nodes.
+          readOnly: true
+          $ref: '#/components/schemas/GenericStatus'
+    ClusterSummary:
+      type: object
+      required:
+        - totalClusters
+        - ready
+        - error
+        - inProgress
+        - unknown
+      properties:
+        totalClusters:
+          type: integer
+          description: The total number of clusters.
+          format: int32
+        ready:
+          type: integer
+          description: The number of clusters that are ready.
+          format: int32
+        error:
+          type: integer
+          description: The number of clusters that are in error state.
+          format: int32
+        inProgress:
+          type: integer
+          description: The number of clusters that are in progess state (provisioning/deleting).
+          format: int32
+        unknown:
+          type: integer
+          description: The number of clusters that are in unknown state.
+          format: int32
+    NodeInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          description: "The unique identifier of this host."
+        role:
+          type: string
+        status:
+          $ref: '#/components/schemas/StatusInfo'
+    ClusterSpec:
+      required:
+        - nodes
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 0
+          maxLength: 63
+          pattern: '^$|^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$'
+        template:
+          type: string
+          minLength: 0
+          maxLength: 63
+          pattern: '^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeSpec'
+        labels:
+          description: "Labels are key/value pairs that need to conform to https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set"
+          type: object
+          additionalProperties:
+            type: string
+            minLength: 0
+            maxLength: 63
+            pattern: '^$|^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$'
+            description: "The pattern for the label values. Label key patterns are validated as part of the request handler."
+          example:
+            "key-1": "value-1"
+            "dns.sub.domain/key-2": "value-2.with.dots"
+    ClusterLabels:
+      properties:
+        labels:
+          type: object
+          description: "Labels are key/value pairs that need to conform to https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set"
+          additionalProperties:
+            type: string
+            minLength: 0
+            maxLength: 63
+            pattern: '^$|^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$'
+            description: "The pattern for the label values. Label key patterns are validated as part of the request handler"
+          example:
+            "key-1": "value-1"
+            "dns.sub.domain/key-2": "value-2.with.dots"
+    ClusterTemplateInfo:
+      required:
+        - name
+        - version
+      type: object
+      properties:
+        name:
+          description: "Name of the template"
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
+          example: "baseline"
+        version:
+          description: "Cluster template version in the format of 'vX.Y.Z'"
+          type: string
+          minLength: 1
+          maxLength: 63
+          pattern: "^v(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-dev)?$"
+          example: "v0.1.0"
+    NodeSpec:
+      required:
+        - id
+        - role
+      type: object
+      properties:
+        id:
+          type: string
+          description: "The unique identifier of this host."
+        role:
+          type: string
+          format: enum
+          enum:
+            - all
+            - controlplane
+            - worker
+          default: all
+    KubeconfigInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        kubeconfig:
+          type: string
+    StatusInfo:
+      type: object
+      properties:
+        timestamp:
+          type: string
+        condition:
+          enum:
+            - STATUS_CONDITION_UNKNOWN
+            - STATUS_CONDITION_READY
+            - STATUS_CONDITION_NOTREADY
+            - STATUS_CONDITION_PROVISIONING
+            - STATUS_CONDITION_REMOVING
+          type: string
+          format: enum
+        reason:
+          type: string
+    StatusIndicator:
+      description: The status indicator.
+      readOnly: true
+      type: string
+      format: enum
+      enum:
+        - STATUS_INDICATION_UNSPECIFIED
+        - STATUS_INDICATION_ERROR
+        - STATUS_INDICATION_IN_PROGRESS   # In future could add WARNING
+        - STATUS_INDICATION_IDLE          # I.e., READY
+    GenericStatus:
+      description: A generic status object.
+      type: object
+      readOnly: true
+      required:
+        - message
+        - indicator
+        - timestamp
+      properties:
+        message:
+          description: A human-readable status message.
+          type: string
+          readOnly: true
+          maxLength: 1024
+          pattern: '^$|^[a-zA-Z-_0-9./:;=?@!#,<>*() ]+$'
+        indicator:
+          readOnly: true
+          $ref: '#/components/schemas/StatusIndicator'
+        timestamp:
+          description: 'A Unix, UTC timestamp when the status was last updated.'
+          readOnly: true
+          type: integer
+          format: uint64
+    ProblemDetails:
+      type: object
+      properties:
+        message:
+          description: error message
+          type: string
+    TemplateInfoList:
+      type: object
+      properties:
+        defaultTemplateInfo:
+          $ref: '#/components/schemas/DefaultTemplateInfo'
+        templateInfoList:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateInfo'
+        totalElements:
+          type: integer
+          description: The count of items in the entire list, regardless of pagination.
+          format: int32
+    TemplateInfo:
+      required:
+        - name
+        - version
+        - kubernetesVersion
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 63
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
+        version:
+          type: string
+          minLength: 1
+          maxLength: 63
+          pattern: "^v(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-dev)?$"
+        kubernetesVersion:
+          type: string
+          minLength: 1
+          maxLength: 63
+          pattern: "^v(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+        description:
+          type: string
+          minLength: 1
+          maxLength: 4096
+        controlplaneprovidertype:
+          type: string
+          enum:
+            - kubeadm
+            - rke2
+          default: rke2
+        infraprovidertype:
+          type: string
+          enum:
+            - docker
+            - intel
+          default: intel
+        clusterconfiguration:
+          type: object
+          example:
+            {
+              "apiVersion": "controlplane.cluster.x-k8s.io/v1beta1",
+              "kind": "RKE2ControlPlaneTemplate",
+              "metadata": {
+                "name": "baseline"
+              },
+              "spec": {
+                "version": "v1.30.6+rke2r1",
+                "agentConfig": {
+                  "kubelet": {
+                    "extraArgs": [
+                      "--topology-manager-policy=best-effort",
+                      "--cpu-manager-policy=static",
+                      "--reserved-cpus=1",
+                      "--max-pods=250",
+                      "--tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"
+                    ]
+                  }
+                },
+                "serverConfig": {
+                  "cni": "calico",
+                  "disableComponents": {
+                    "kubernetesComponents": [
+                      "cloudController"
+                    ]
+                  },
+                  "kubeApiServer": {
+                    "extraArgs": [
+                      "--feature-gates=PortForwardWebsockets=true",
+                      "--tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"
+                    ]
+                  },
+                  "kubeControllerManager": {
+                    "extraArg": null
+                  },
+                  "kubeScheduler": {
+                    "extraArg": null
+                  },
+                  "etcd": {
+                    "backupConfig": {},
+                    "extraArgs": [
+                      "--cipher-suites=[TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_AES_128_GCM_SHA256,TLS_CHACHA20_POLY1305_SHA256]"
+                    ]
+                  }
+                }
+              }
+            }
+        clusterNetwork:
+            $ref: "#/components/schemas/clusterNetwork"
+        cluster-labels:
+          type: object
+          description: "Allows users to specify a list of key/value pairs to be attached to a cluster created with the template. These pairs need to conform to https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set"
+          additionalProperties:
+            type: string
+            minLength: 0
+            maxLength: 63
+            pattern: '^$|^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$'
+          example:
+            "key-1": "value-1"
+            "dns.sub.domain/key-2": "value-2.with.dots"
+            "default-extension": "demo"
+    VersionList:
+      type: object
+      properties:
+        versionList:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 2048
+    clusterNetwork:
+      description: Cluster network configuration, including pod and service CIDR blocks.
+      type: object
+      properties:
+        pods:
+          $ref: "#/components/schemas/NetworkRanges"
+        services:
+          $ref: "#/components/schemas/NetworkRanges"
+    NetworkRanges:
+      properties:
+        cidrBlocks:
+          type: array
+          items:
+            type: string
+            pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}/(?:[0-9]|[1-2][0-9]|3[0-2])$"
+          description: A list of CIDR blocks in valid CIDR notation.
+      required:
+        - cidrBlocks
+    DefaultTemplateInfo:
+        required:
+        - version
+        type: object
+        properties:
+          name:
+            description: "Name of the template. Not required when setting the default, is available in GET /v1/templates."
+            type: string
+            minLength: 1
+            maxLength: 50
+            pattern: '^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$'
+            example: "baseline"
+          version:
+            description: Template version. If set to empty, the latest version will be used as default.
+            type: string
+            minLength: 0
+            maxLength: 63
+            pattern: "^$|^v(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$"
+            example: "v0.1.0"
+  parameters:
+    ActiveProjectIdHeader:
+      name: Activeprojectid
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+      example: 655a6892-4280-4c37-97b1-31161ac0b99e
+  responses:
+    400-BadRequest:
+      description: Object in payload is not properly formulated or not related to the method.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    401-Unauthorized:
+      description: Authentication information is missing or invalid.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    404-NotFound:
+      description: No resource is found at the URI.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    409-Conflict:
+      description: Request could not be processed in the current state of the resource.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    500-InternalServerError:
+      description: "The provider is currently unable to handle the request due to an internal error"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    501-NotImplemented:
+      description: The requested operation is not implemented.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+tags:
+  - name: Clusters
+    description: Operations related to managing clusters
+  - name: Kubeconfigs
+    description: Operations related to managing kubeconfig files of created clusters
+  - name: Cluster Templates
+    description: Operations related to managing cluster templates
+  - name: Health Check
+    description: Operations related to checking the health status of the CM REST API

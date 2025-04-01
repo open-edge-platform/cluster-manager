@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+dir: "internal/mocks/{{.PackageName | lower}}"
+outpkg: "{{.PackageName | lower}}"
+filename: "mock_{{.InterfaceName | lower}}.go"
+mockname: "Mock{{.InterfaceName}}"
+with-expecter: true
+packages:
+  k8s.io/client-go/dynamic:
+    interfaces:
+      Interface:
+      NamespaceableResourceInterface:
+      APIPathResolverFunc:
+      ResourceInterface:
+  github.com/open-edge-platform/infra-core/inventory/v2/pkg/client:
+    interfaces:
+      TenantAwareInventoryClient:

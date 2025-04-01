@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+---
+{{- if .Values.webhookService.enabled -}}
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: cluster-template-controller-selfsigned-issuer
+  labels:
+    app: "{{.Chart.Name}}-controller"
+spec:
+  selfSigned: {}
+{{- end -}}

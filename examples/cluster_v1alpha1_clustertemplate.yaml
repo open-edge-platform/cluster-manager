@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: edge-orchestrator.intel.com/v1alpha1
+kind: ClusterTemplate
+metadata:
+  labels:
+    app.kubernetes.io/name: template-controller
+    app.kubernetes.io/managed-by: kustomize
+  name: clustertemplate-sample
+spec:
+  controlPlaneProviderType: rke2
+  infraProviderType: intel
+  kubernetesVersion: v1.30.6+rke2r1
+  clusterConfiguration: ""
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+      - 10.42.0.0/16
+    services:
+      cidrBlocks:
+      - 10.43.0.0/16
+  clusterLabels:
+    default-extension: baseline

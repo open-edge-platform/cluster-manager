@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+---
+{{- if .Values.webhookService.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: cluster-template-controller-webhook-service
+  labels:
+    app: "{{.Chart.Name}}-controller"
+spec:
+  type: {{ .Values.webhookService.type }}
+  selector:
+    app: "{{.Chart.Name}}-controller"
+  ports:
+  {{- .Values.webhookService.ports | toYaml | nindent 2 }}
+{{- end -}}

@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+extends: default
+
+rules:
+  document-start: disable
+  indentation: disable
+  line-length: disable
+    # max: 99
+    # level: warning
+
+  # Kubebuilder comments don't have leading space
+  comments:
+    require-starting-space: false
+    min-spaces-from-content: 1
+
+ignore: |
+  .github/
+  config/
+  vendor/
+  deployment/
+  ci/
+  .cache/
