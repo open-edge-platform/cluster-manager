@@ -97,11 +97,11 @@ var _ = BeforeSuite(func() {
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{filepath.Join("..", "..", "config", "crd", "bases"),
-			filepath.Join(build.Default.GOPATH, "pkg", "mod", "github.com", "rancher", "cluster-api-provider-rke2@v0.9.0", "controlplane", "config", "crd", "bases"),
+			filepath.Join(build.Default.GOPATH, "pkg", "mod", "github.com", "rancher", "cluster-api-provider-rke2@v0.12.0", "controlplane", "config", "crd", "bases"),
 			filepath.Join(build.Default.GOPATH, "pkg", "mod", "sigs.k8s.io", "cluster-api@v1.9.3", "controlplane", "kubeadm", "config", "crd", "bases"),
 			filepath.Join(build.Default.GOPATH, "pkg", "mod", "sigs.k8s.io", "cluster-api@v1.9.3", "config", "crd", "bases"),
 			filepath.Join(build.Default.GOPATH, "pkg", "mod", "sigs.k8s.io", "cluster-api", "test@v1.8.5", "infrastructure", "docker", "config", "crd", "bases"),
-			filepath.Join(build.Default.GOPATH, "pkg", "mod", "github.com", "open-edge-platform", "cluster-api-provider-intel@v0.3.14", "config", "crd", "bases"),
+			filepath.Join(build.Default.GOPATH, "pkg", "mod", "github.com", "open-edge-platform", "cluster-api-provider-intel@v1.0.1", "config", "crd", "bases"),
 		},
 		ErrorIfCRDPathMissing: true,
 
