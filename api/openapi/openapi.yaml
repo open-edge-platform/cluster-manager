@@ -711,7 +711,8 @@ components:
       properties:
         id:
           type: string
-          description: "The unique identifier of this host."
+          description: "Host resource id"
+          example: "host-15efd22c"
         role:
           type: string
         status:
@@ -789,7 +790,8 @@ components:
       properties:
         id:
           type: string
-          description: "The unique identifier of this host."
+          description: "UUID of the host."
+          example: "6e6422c3-625e-507a-bc8a-bd2330e07e7e"
         role:
           type: string
           format: enum
