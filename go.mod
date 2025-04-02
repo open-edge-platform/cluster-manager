@@ -17,7 +17,7 @@ require (
 	github.com/oapi-codegen/runtime v1.1.1
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
-	github.com/open-edge-platform/cluster-api-provider-intel v0.3.14
+	github.com/open-edge-platform/cluster-api-provider-intel v1.0.0
 	github.com/open-edge-platform/infra-core/inventory/v2 v2.19.1
 	github.com/open-edge-platform/orch-library/go v0.5.29
 	github.com/open-edge-platform/orch-utils/tenancy-datamodel v0.0.0-20250312121040-f4b11832045f
