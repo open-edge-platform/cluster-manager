@@ -16,8 +16,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	clusterv1alpha1 "github.com/open-edge-platform/cluster-manager/api/v1alpha1"
-	"github.com/open-edge-platform/cluster-manager/pkg/api"
+	clusterv1alpha1 "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
+	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 	rke2cpv1beta1 "github.com/rancher/cluster-api-provider-rke2/controlplane/api/v1beta1"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	kubeadmcp "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"

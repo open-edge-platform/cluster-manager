@@ -10,9 +10,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/open-edge-platform/cluster-manager/internal/convert"
-	"github.com/open-edge-platform/cluster-manager/internal/core"
-	"github.com/open-edge-platform/cluster-manager/internal/k8s"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	intelProvider "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
-	"github.com/open-edge-platform/cluster-manager/pkg/api"
+	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

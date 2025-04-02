@@ -19,9 +19,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	clustertemplatev1alpha1 "github.com/open-edge-platform/cluster-manager/api/v1alpha1"
-	"github.com/open-edge-platform/cluster-manager/internal/common"
-	capiProvider "github.com/open-edge-platform/cluster-manager/internal/providers"
+	clustertemplatev1alpha1 "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/common"
+	capiProvider "github.com/open-edge-platform/cluster-manager/v2/internal/providers"
 )
 
 // ClusterTemplateReconciler reconciles a ClusterTemplate object

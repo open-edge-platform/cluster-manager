@@ -5,7 +5,7 @@ package rest
 import (
 	"context"
 
-	"github.com/open-edge-platform/cluster-manager/pkg/api"
+	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 )
 
 // (GET /v2/healthz)

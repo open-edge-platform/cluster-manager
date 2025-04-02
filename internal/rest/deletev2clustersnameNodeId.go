@@ -10,9 +10,9 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	intelProvider "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
-	"github.com/open-edge-platform/cluster-manager/internal/core"
-	"github.com/open-edge-platform/cluster-manager/internal/k8s"
-	"github.com/open-edge-platform/cluster-manager/pkg/api"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
+	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

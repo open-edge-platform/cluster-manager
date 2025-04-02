@@ -8,12 +8,12 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/open-edge-platform/cluster-manager/internal/convert"
-	"github.com/open-edge-platform/cluster-manager/internal/core"
-	"github.com/open-edge-platform/cluster-manager/internal/k8s"
-	. "github.com/open-edge-platform/cluster-manager/internal/pagination"
-	"github.com/open-edge-platform/cluster-manager/internal/template"
-	"github.com/open-edge-platform/cluster-manager/pkg/api"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
+	. "github.com/open-edge-platform/cluster-manager/v2/internal/pagination"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/template"
+	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 )
 
 // (GET /v2/templates)

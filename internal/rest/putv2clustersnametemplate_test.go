@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/open-edge-platform/cluster-manager/internal/rest"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/rest"
 	"github.com/stretchr/testify/require"
 )
 

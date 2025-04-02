@@ -13,8 +13,8 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/open-edge-platform/cluster-manager/internal/core"
-	"github.com/open-edge-platform/cluster-manager/pkg/api"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
+	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 )
 
 // (PUT /v2/templates/{name}/default)

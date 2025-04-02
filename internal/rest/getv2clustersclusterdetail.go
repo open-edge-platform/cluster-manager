@@ -8,10 +8,10 @@ import (
 
 	"log/slog"
 
-	"github.com/open-edge-platform/cluster-manager/internal/convert"
-	"github.com/open-edge-platform/cluster-manager/internal/core"
-	"github.com/open-edge-platform/cluster-manager/internal/labels"
-	"github.com/open-edge-platform/cluster-manager/pkg/api"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
+	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"

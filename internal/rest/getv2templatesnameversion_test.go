@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
-	"github.com/open-edge-platform/cluster-manager/api/v1alpha1"
-	"github.com/open-edge-platform/cluster-manager/pkg/api"
+	"github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
+	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"

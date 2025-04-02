@@ -8,11 +8,11 @@ import (
 	"log/slog"
 	"regexp"
 
-	"github.com/open-edge-platform/cluster-manager/internal/cluster"
-	"github.com/open-edge-platform/cluster-manager/internal/convert"
-	"github.com/open-edge-platform/cluster-manager/internal/k8s"
-	"github.com/open-edge-platform/cluster-manager/internal/labels"
-	"github.com/open-edge-platform/cluster-manager/pkg/api"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/cluster"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
+	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 )
 
 // (GET /v2/clusters/{name})

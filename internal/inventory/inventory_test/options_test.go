@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/open-edge-platform/cluster-manager/internal/inventory"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/inventory"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -6,7 +6,7 @@ domain: intel.com
 layout:
 - go.kubebuilder.io/v4
 projectName: template-controller
-repo: github.com/open-edge-platform/cluster-manager/template-controller
+repo: github.com/open-edge-platform/cluster-manager/v2/template-controller
 resources:
 - api:
     crdVersion: v1
@@ -15,7 +15,7 @@ resources:
   domain: intel.com
   group: edge-orchestrator
   kind: ClusterTemplate
-  path: github.com/open-edge-platform/cluster-manager/template-controller/api/v1alpha1
+  path: github.com/open-edge-platform/cluster-manager/v2/template-controller/api/v1alpha1
   version: v1alpha1
   webhooks:
     validation: true
