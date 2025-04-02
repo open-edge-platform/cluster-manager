@@ -169,7 +169,7 @@ type NetworkRanges struct {
 
 // NodeInfo defines model for NodeInfo.
 type NodeInfo struct {
-	// Id The unique identifier of this host.
+	// Id Host resource id
 	Id     *string     `json:"id,omitempty"`
 	Role   *string     `json:"role,omitempty"`
 	Status *StatusInfo `json:"status,omitempty"`
@@ -177,7 +177,7 @@ type NodeInfo struct {
 
 // NodeSpec defines model for NodeSpec.
 type NodeSpec struct {
-	// Id The unique identifier of this host.
+	// Id UUID of the host.
 	Id   string       `json:"id"`
 	Role NodeSpecRole `json:"role"`
 }
