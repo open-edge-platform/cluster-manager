@@ -5,6 +5,8 @@ module github.com/open-edge-platform/cluster-manager
 
 go 1.24.1
 
+replace github.com/google/cel-go => github.com/google/cel-go v0.22.1
+
 require (
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/getkin/kin-openapi v0.128.0
@@ -21,7 +23,7 @@ require (
 	github.com/open-edge-platform/infra-core/inventory/v2 v2.23.0
 	github.com/open-edge-platform/orch-library/go v0.5.29
 	github.com/open-edge-platform/orch-utils/tenancy-datamodel v0.0.0-20250312121040-f4b11832045f
-	github.com/rancher/cluster-api-provider-rke2 v0.9.0
+	github.com/rancher/cluster-api-provider-rke2 v0.12.0
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/mock v0.5.0
 	google.golang.org/protobuf v1.36.6
@@ -31,7 +33,7 @@ require (
 	k8s.io/client-go v0.32.2
 	k8s.io/kubectl v0.32.1
 	sigs.k8s.io/cluster-api v1.9.5
-	sigs.k8s.io/cluster-api/test v1.8.5
+	sigs.k8s.io/cluster-api/test v1.9.5
 	sigs.k8s.io/controller-runtime v0.20.2
 )
 
