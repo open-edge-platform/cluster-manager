@@ -9,7 +9,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/getkin/kin-openapi v0.128.0
 	github.com/go-logr/logr v1.4.2
-	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/lestrrat-go/jwx/v2 v2.1.3
@@ -19,7 +19,7 @@ require (
 	github.com/onsi/gomega v1.36.2
 	github.com/open-edge-platform/cluster-api-provider-intel v0.3.14
 	github.com/open-edge-platform/infra-core/inventory/v2 v2.19.1
-	github.com/open-edge-platform/orch-library/go v0.5.25
+	github.com/open-edge-platform/orch-library/go v0.5.29
 	github.com/open-edge-platform/orch-utils/tenancy-datamodel v0.0.0-20250312121040-f4b11832045f
 	github.com/rancher/cluster-api-provider-rke2 v0.9.0
 	github.com/stretchr/testify v1.10.0
@@ -35,6 +35,8 @@ require (
 	sigs.k8s.io/controller-runtime v0.19.6
 )
 
+require github.com/open-edge-platform/orch-library/go/dazl v0.5.1 // indirect
+
 require (
 	ariga.io/atlas v0.30.0 // indirect
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.33.0-20240401165935-b983156c5e99.1 // indirect
@@ -49,7 +51,6 @@ require (
 	github.com/apparentlymart/go-textseg/v13 v13.0.0 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
-	github.com/atomix/dazl v1.1.4 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/bmatcuk/doublestar v1.3.4 // indirect
