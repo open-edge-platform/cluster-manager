@@ -21,7 +21,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	clusterv1alpha1 "github.com/open-edge-platform/cluster-manager/api/v1alpha1"
+	clusterv1alpha1 "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 
 	// Imports for CAPI resources
