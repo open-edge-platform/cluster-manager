@@ -22,6 +22,7 @@ jobs:
       run_dep_version_check: true
       cache_go: true
       run_version_tag: true
+      remove_cache_go: true
       run_docker_build: true
       run_docker_push: true
       run_helm_build: true
