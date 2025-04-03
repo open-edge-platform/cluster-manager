@@ -21,6 +21,8 @@ jobs:
       run_version_check: true
       run_dep_version_check: true
       cache_go: true
+      run_lint: true
+      run_test: true
       run_version_tag: true
       remove_cache_go: true
       run_docker_build: true
