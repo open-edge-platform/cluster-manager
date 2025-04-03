@@ -3,7 +3,7 @@
 
 ---
 
-name: Run service test
+name: Pre-Merge CI Pipeline
 
 on:
   pull_request:
