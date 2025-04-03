@@ -110,7 +110,6 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 
 	Context("CM is ready to serve API requests", func() {
 		var clusterName = "test-cluster"
-		// var templateName = "baseline-v2.0.0"
 		var templateName string
 
 		It("Should return 200 and list of available templates", func() {
