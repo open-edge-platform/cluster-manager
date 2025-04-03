@@ -23,12 +23,12 @@ import (
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 
 	intelv1alpha1 "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
-	clusterv1alpha1 "github.com/open-edge-platform/cluster-manager/api/v1alpha1"
-	"github.com/open-edge-platform/cluster-manager/internal/config"
-	"github.com/open-edge-platform/cluster-manager/internal/convert"
-	"github.com/open-edge-platform/cluster-manager/internal/core"
-	"github.com/open-edge-platform/cluster-manager/internal/k8s"
-	"github.com/open-edge-platform/cluster-manager/pkg/api"
+	clusterv1alpha1 "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
+	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 )
 
 func TestPostV2Clusters201(t *testing.T) {

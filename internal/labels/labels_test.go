@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/open-edge-platform/cluster-manager/internal/labels"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
 )
 
 func TestFilter(t *testing.T) {

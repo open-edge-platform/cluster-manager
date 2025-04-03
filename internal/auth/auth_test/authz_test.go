@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
-	"github.com/open-edge-platform/cluster-manager/internal/auth"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 	opa "github.com/open-edge-platform/orch-library/go/pkg/openpolicyagent"
 )
 

@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v2"
 
-	clusterv1alpha1 "github.com/open-edge-platform/cluster-manager/api/v1alpha1"
+	clusterv1alpha1 "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 )
 
 var _ = Describe("ClusterTemplate Webhook", func() {

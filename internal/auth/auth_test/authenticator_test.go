@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3filter"
-	"github.com/open-edge-platform/cluster-manager/internal/auth"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 	"github.com/stretchr/testify/assert"
 )
 

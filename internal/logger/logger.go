@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/open-edge-platform/cluster-manager/internal/config"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
 )
 
 // initializeLogger initializes the logger with the given config

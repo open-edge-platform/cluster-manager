@@ -15,8 +15,8 @@ import (
 	computev1 "github.com/open-edge-platform/infra-core/inventory/v2/pkg/api/compute/v1"
 	osv1 "github.com/open-edge-platform/infra-core/inventory/v2/pkg/api/os/v1"
 
-	"github.com/open-edge-platform/cluster-manager/internal/inventory"
-	mocks "github.com/open-edge-platform/cluster-manager/internal/mocks/client"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/inventory"
+	mocks "github.com/open-edge-platform/cluster-manager/v2/internal/mocks/client"
 	"github.com/open-edge-platform/infra-core/inventory/v2/pkg/client"
 )
 

@@ -211,7 +211,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 
 .PHONY: vendor
 vendor:  ## Build vendor directory of module dependencies.
-	GOPRIVATE=github.com/intel/*,github.com/open-edge-platform/* go mod vendor
+	GOPRIVATE=github.com/open-edge-platform/* go mod vendor
 
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64). However, you must enable docker buildKit for it.

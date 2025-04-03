@@ -14,7 +14,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/open-edge-platform/cluster-manager/internal/auth"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 )
 
 func TestAuthN(t *testing.T) {

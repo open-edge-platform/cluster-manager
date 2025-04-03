@@ -8,12 +8,12 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/open-edge-platform/cluster-manager/internal/config"
-	"github.com/open-edge-platform/cluster-manager/internal/k8s"
-	"github.com/open-edge-platform/cluster-manager/internal/labels"
-	"github.com/open-edge-platform/cluster-manager/internal/logger"
-	"github.com/open-edge-platform/cluster-manager/internal/multitenancy"
-	"github.com/open-edge-platform/cluster-manager/internal/rest"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/logger"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/multitenancy"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/rest"
 )
 
 // version injected at build time

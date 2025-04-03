@@ -15,10 +15,10 @@ import (
 	httpmid "github.com/oapi-codegen/nethttp-middleware"
 	"k8s.io/client-go/dynamic"
 
-	"github.com/open-edge-platform/cluster-manager/internal/auth"
-	"github.com/open-edge-platform/cluster-manager/internal/config"
-	"github.com/open-edge-platform/cluster-manager/internal/inventory"
-	"github.com/open-edge-platform/cluster-manager/pkg/api"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/inventory"
+	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 )
 
 var (
