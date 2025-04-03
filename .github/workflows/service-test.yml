@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+---
+
+name: Run service tests
+  
+on:
+  pull_request:
+    branches:
+      - main
+      - release-*
+  workflow_dispatch: 
+  
+jobs:
+  integration-smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout orch ci
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.head_ref }}
+
+    - name: Bootstrap CI environment
+      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@main
+      with:
+        gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
+
+    - name: Run service test
+      run: make run-service-test
