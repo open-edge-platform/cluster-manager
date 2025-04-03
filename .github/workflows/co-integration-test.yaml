@@ -15,7 +15,7 @@ on:
 jobs:
   integration-smoke-test:
     runs-on: ubuntu-24.04-16core-64GB
-    if: false
+    if: true
     env:
       VERSION: ${{ github.head_ref }}  # Use the component branch that triggered the action for the test
     steps:
