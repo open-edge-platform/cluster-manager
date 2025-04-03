@@ -20,6 +20,7 @@ jobs:
       run_security_scans: true
       run_version_check: true
       run_dep_version_check: true
+      cache_go: true
       run_version_tag: true
       run_docker_build: true
       run_docker_push: true
