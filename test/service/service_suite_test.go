@@ -110,7 +110,20 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 
 	Context("CM is ready to serve API requests", func() {
 		var clusterName = "test-cluster"
-		var templateName = "baseline-v2.0.0"
+		// var templateName = "baseline-v2.0.0"
+		var templateName string
+
+		It("Should return 200 and list of available templates", func() {
+			params := api.GetV2TemplatesParams{}
+			params.Activeprojectid = testTenantID
+			resp, err := cli.GetV2TemplatesWithResponse(context.Background(), &params)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(200))
+			Expect(*resp.JSON200.TotalElements).To(Equal(int32(1)))
+			Expect(*resp.JSON200.TemplateInfoList).To(HaveLen(1))
+			templateInfo := resp.JSON200.DefaultTemplateInfo
+			templateName = fmt.Sprintf("%s-%v", *templateInfo.Name, templateInfo.Version)
+		})
 
 		It("Should return 200 and empty list of clusters on /v2/clusters", func() {
 			params := api.GetV2ClustersParams{}
