@@ -30,4 +30,4 @@ jobs:
         gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
 
     - name: Run service test
-      run: make test-service
+      run: make run-service-test
