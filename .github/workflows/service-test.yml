@@ -3,7 +3,7 @@
 
 ---
 
-name: Pre-Merge CI Pipeline - test
+name: Run service tests
   
 on:
   pull_request:
@@ -13,16 +13,21 @@ on:
   workflow_dispatch: 
   
 jobs:
-  pre-merge:
-    uses: open-edge-platform/orch-ci/.github/workflows/pre-merge.yml@main
-    with:
-      run_security_scans: false
-      run_version_check: false
-      run_dep_version_check: false
-      run_build: false
-      run_lint: false
-      run_test: true
-      run_validate_clean_folder: false
-      run_docker_build: false
-      run_scan_containers: false
-    secrets: inherit
+  integration-smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout orch ci
+      uses: actions/checkout@v4
+      with:
+        repository: open-edge-platform/orch-ci
+        path: ci
+        ref: "main"
+        token: ${{ secrets.SYS_ORCH_GITHUB }}
+
+    - name: Bootstrap CI environment
+      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@main
+      with:
+        gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
+
+    - name: Run service test
+      run: make test-service

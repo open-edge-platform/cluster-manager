@@ -141,8 +141,11 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 .PHONY: test
-test: clusterctl ## Run all tests.
+test: ## Run unit tests.
 	make test-unit
+
+.PHONY: test-service
+test-service: clusterctl ## Run service tests.
 	make kind-create
 	make helm-install
 	make kind-expose-cm
