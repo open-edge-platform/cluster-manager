@@ -1,8 +1,8 @@
 # This is the configuration file added to the default templates in the spec.files.content field.
 # To update the cluster template, make sure you have the following tools installed in your environment:
+#  - grep (https://www.gnu.org/software/grep/)
 #  - jo   (https://github.com/jpmens/jo)
 #  - jq   (https://jqlang.org/)
-#  - grep (https://www.gnu.org/software/grep/)
 #  - sed  (https://www.gnu.org/software/sed/)
 # The string in the template can be created from this file using the following command:
 #   jo content="$(grep -v '^#' config.toml.tmpl)"|sed 's/\\"/\\\\\\\"/g'|jq .content
