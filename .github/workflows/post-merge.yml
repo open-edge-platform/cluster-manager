@@ -30,6 +30,7 @@ jobs:
       run_helm_build: true
       run_helm_push: true
     secrets: inherit
+
   lint:
     runs-on: ubuntu-latest
     steps:
