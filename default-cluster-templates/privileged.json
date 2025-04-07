@@ -1,6 +1,6 @@
 {
   "name": "privileged",
-  "version": "v2.0.1",
+  "version": "v2.0.2",
   "kubernetesVersion": "v1.30.10+rke2r1",
   "description": "Privileged Cluster Template",
   "controlplaneprovidertype": "rke2",
@@ -39,7 +39,7 @@
           ],
           "privateRegistriesConfig": {
             "mirrors": {
-              "rs-proxy.rs-proxy.svc.cluster.local:8443": {
+              "edge-node-release-proxy.local": {
                 "endpoint": [
                   "https://localhost.internal:9443"
                 ]
