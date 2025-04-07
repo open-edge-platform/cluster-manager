@@ -30,36 +30,3 @@ jobs:
       run_helm_build: true
       run_helm_push: true
     secrets: inherit
-
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout PR
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ github.head_ref }}
-
-    - name: Lint code
-      run: make lint
-
-  build:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout PR
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ github.head_ref }}
-
-    - name: Build code
-      run: make build
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout PR
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ github.head_ref }}
-
-    - name: Test code
-      run: make test
