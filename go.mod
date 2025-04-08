@@ -34,7 +34,7 @@ require (
 	k8s.io/kubectl v0.32.1
 	sigs.k8s.io/cluster-api v1.9.5
 	sigs.k8s.io/cluster-api/test v1.9.5
-	sigs.k8s.io/controller-runtime v0.20.2
+	sigs.k8s.io/controller-runtime v0.20.4
 )
 
 require (
