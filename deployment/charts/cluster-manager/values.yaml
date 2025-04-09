@@ -45,8 +45,8 @@ clusterManager:
       port: 8080
 
   clientRateLimiter:
-    qps: "30"
-    burst: "100"
+    qps: "50"
+    burst: "200"
 
   # This is for setting Kubernetes Annotations to a Pod.
   podAnnotations: {}
