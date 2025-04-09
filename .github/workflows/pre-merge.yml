@@ -37,12 +37,11 @@ jobs:
       with:
         ref: ${{ github.head_ref }}
 
-    - name: "Set up Go envs"
-      shell: bash
-      run: |
-          echo "Setting up Go envs"
-          echo "GOPRIVATE=github.com/open-edge-platform" >> $GITHUB_ENV
-          git config --global http.https://github.com/.extraheader "AUTHORIZATION: basic $(echo -n x-access-token:${{ secrets.SYS_ORCH_GITHUB }} | base64)"
+    - name: "Setup"
+      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@main
+      with:
+        gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
+        bootstrap_tools: "go,gotools"
 
     - name: Lint code
       run: make lint
@@ -55,13 +54,12 @@ jobs:
       with:
         ref: ${{ github.head_ref }}
 
-    - name: "Set up Go envs"
-      shell: bash
-      run: |
-          echo "Setting up Go envs"
-          echo "GOPRIVATE=github.com/open-edge-platform" >> $GITHUB_ENV
-          git config --global http.https://github.com/.extraheader "AUTHORIZATION: basic $(echo -n x-access-token:${{ secrets.SYS_ORCH_GITHUB }} | base64)"
-  
+    - name: "Setup"
+      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@main
+      with:
+        gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
+        bootstrap_tools: "go,gotools"
+
     - name: Build code
       run: make build
 
@@ -73,13 +71,12 @@ jobs:
       with:
         ref: ${{ github.head_ref }}
 
-    - name: "Set up Go envs"
-      shell: bash
-      run: |
-          echo "Setting up Go envs"
-          echo "GOPRIVATE=github.com/open-edge-platform" >> $GITHUB_ENV
-          git config --global http.https://github.com/.extraheader "AUTHORIZATION: basic $(echo -n x-access-token:${{ secrets.SYS_ORCH_GITHUB }} | base64)"
-  
+    - name: "Setup"
+      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@main
+      with:
+        gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
+        bootstrap_tools: "go,gotools" 
+
     - name: Test code
       run: make test
   
