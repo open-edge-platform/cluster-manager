@@ -12,6 +12,23 @@ security:
   - HTTP: []
 
 paths:
+
+  /v2/metrics:
+    get:
+      description: Gets the Cluster Manager REST API prometheus metrics.
+      security: [] # skips authentication
+      tags:
+        - Prometheus Metrics
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+ 
   /v2/clusters:
     parameters:
     - $ref: '#/components/parameters/ActiveProjectIdHeader'

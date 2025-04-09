@@ -133,6 +133,9 @@ type ClientInterface interface {
 	// GetV2Healthz request
 	GetV2Healthz(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetV2Metrics request
+	GetV2Metrics(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetV2Templates request
 	GetV2Templates(ctx context.Context, params *GetV2TemplatesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -338,6 +341,18 @@ func (c *Client) GetV2ClustersNodeIdClusterdetail(ctx context.Context, nodeId st
 
 func (c *Client) GetV2Healthz(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetV2HealthzRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetV2Metrics(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetV2MetricsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -1127,6 +1142,33 @@ func NewGetV2HealthzRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewGetV2MetricsRequest generates requests for GetV2Metrics
+func NewGetV2MetricsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v2/metrics")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetV2TemplatesRequest generates requests for GetV2Templates
 func NewGetV2TemplatesRequest(server string, params *GetV2TemplatesParams) (*http.Request, error) {
 	var err error
@@ -1608,6 +1650,9 @@ type ClientWithResponsesInterface interface {
 	// GetV2HealthzWithResponse request
 	GetV2HealthzWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetV2HealthzResponse, error)
 
+	// GetV2MetricsWithResponse request
+	GetV2MetricsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetV2MetricsResponse, error)
+
 	// GetV2TemplatesWithResponse request
 	GetV2TemplatesWithResponse(ctx context.Context, params *GetV2TemplatesParams, reqEditors ...RequestEditorFn) (*GetV2TemplatesResponse, error)
 
@@ -1927,6 +1972,29 @@ func (r GetV2HealthzResponse) StatusCode() int {
 	return 0
 }
 
+type GetV2MetricsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *string
+	JSON500      *N500InternalServerError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetV2MetricsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetV2MetricsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetV2TemplatesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2213,6 +2281,15 @@ func (c *ClientWithResponses) GetV2HealthzWithResponse(ctx context.Context, reqE
 		return nil, err
 	}
 	return ParseGetV2HealthzResponse(rsp)
+}
+
+// GetV2MetricsWithResponse request returning *GetV2MetricsResponse
+func (c *ClientWithResponses) GetV2MetricsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetV2MetricsResponse, error) {
+	rsp, err := c.GetV2Metrics(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetV2MetricsResponse(rsp)
 }
 
 // GetV2TemplatesWithResponse request returning *GetV2TemplatesResponse
@@ -2767,6 +2844,39 @@ func ParseGetV2HealthzResponse(rsp *http.Response) (*GetV2HealthzResponse, error
 	}
 
 	response := &GetV2HealthzResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest string
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest N500InternalServerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetV2MetricsResponse parses an HTTP response from a GetV2MetricsWithResponse call
+func ParseGetV2MetricsResponse(rsp *http.Response) (*GetV2MetricsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetV2MetricsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

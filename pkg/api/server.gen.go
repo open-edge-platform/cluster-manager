@@ -54,6 +54,9 @@ type ServerInterface interface {
 	// (GET /v2/healthz)
 	GetV2Healthz(w http.ResponseWriter, r *http.Request)
 
+	// (GET /v2/metrics)
+	GetV2Metrics(w http.ResponseWriter, r *http.Request)
+
 	// (GET /v2/templates)
 	GetV2Templates(w http.ResponseWriter, r *http.Request, params GetV2TemplatesParams)
 
@@ -758,6 +761,21 @@ func (siw *ServerInterfaceWrapper) GetV2Healthz(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
+// GetV2Metrics operation middleware
+func (siw *ServerInterfaceWrapper) GetV2Metrics(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetV2Metrics(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
 // GetV2Templates operation middleware
 func (siw *ServerInterfaceWrapper) GetV2Templates(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -1260,6 +1278,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("PUT "+options.BaseURL+"/v2/clusters/{name}/template", wrapper.PutV2ClustersNameTemplate)
 	m.HandleFunc("GET "+options.BaseURL+"/v2/clusters/{nodeId}/clusterdetail", wrapper.GetV2ClustersNodeIdClusterdetail)
 	m.HandleFunc("GET "+options.BaseURL+"/v2/healthz", wrapper.GetV2Healthz)
+	m.HandleFunc("GET "+options.BaseURL+"/v2/metrics", wrapper.GetV2Metrics)
 	m.HandleFunc("GET "+options.BaseURL+"/v2/templates", wrapper.GetV2Templates)
 	m.HandleFunc("POST "+options.BaseURL+"/v2/templates", wrapper.PostV2Templates)
 	m.HandleFunc("PUT "+options.BaseURL+"/v2/templates/{name}/default", wrapper.PutV2TemplatesNameDefault)
@@ -1808,6 +1827,33 @@ func (response GetV2Healthz500JSONResponse) VisitGetV2HealthzResponse(w http.Res
 	return json.NewEncoder(w).Encode(response)
 }
 
+type GetV2MetricsRequestObject struct {
+}
+
+type GetV2MetricsResponseObject interface {
+	VisitGetV2MetricsResponse(w http.ResponseWriter) error
+}
+
+type GetV2Metrics200JSONResponse string
+
+func (response GetV2Metrics200JSONResponse) VisitGetV2MetricsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetV2Metrics500JSONResponse struct {
+	N500InternalServerErrorJSONResponse
+}
+
+func (response GetV2Metrics500JSONResponse) VisitGetV2MetricsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetV2TemplatesRequestObject struct {
 	Params GetV2TemplatesParams
 }
@@ -2128,6 +2174,9 @@ type StrictServerInterface interface {
 
 	// (GET /v2/healthz)
 	GetV2Healthz(ctx context.Context, request GetV2HealthzRequestObject) (GetV2HealthzResponseObject, error)
+
+	// (GET /v2/metrics)
+	GetV2Metrics(ctx context.Context, request GetV2MetricsRequestObject) (GetV2MetricsResponseObject, error)
 
 	// (GET /v2/templates)
 	GetV2Templates(ctx context.Context, request GetV2TemplatesRequestObject) (GetV2TemplatesResponseObject, error)
@@ -2517,6 +2566,30 @@ func (sh *strictHandler) GetV2Healthz(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetV2HealthzResponseObject); ok {
 		if err := validResponse.VisitGetV2HealthzResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetV2Metrics operation middleware
+func (sh *strictHandler) GetV2Metrics(w http.ResponseWriter, r *http.Request) {
+	var request GetV2MetricsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetV2Metrics(ctx, request.(GetV2MetricsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetV2Metrics")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetV2MetricsResponseObject); ok {
+		if err := validResponse.VisitGetV2MetricsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
