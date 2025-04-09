@@ -68,7 +68,7 @@ jobs:
     needs: [lint, build, test]
     uses: open-edge-platform/orch-ci/.github/workflows/pre-merge.yml@main
     with:
-      bootstrap_tools: base
+      bootstrap_tools: "base,go"
       cache_go: true
       remove_cache_go: true
       run_security_scans: true
