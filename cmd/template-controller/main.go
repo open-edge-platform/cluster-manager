@@ -7,7 +7,9 @@ import (
 	"context"
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"os"
+	"path/filepath"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -135,10 +137,32 @@ func main() {
 	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	webhookServer := webhook.NewServer(webhook.Options{
+	// Webhook server configuration
+	webhookOptions := webhook.Options{
 		TLSOpts: tlsOpts,
 		Port:    9443,
-	})
+	}
+
+	if webhookCertPath != "" {
+		setupLog.Info("using webhook cert path", "path", webhookCertPath)
+		webhookOptions.CertDir = webhookCertPath
+		webhookOptions.CertName = "tls.crt"
+		webhookOptions.KeyName = "tls.key"
+	} else {
+		setupLog.Info("using default webhook cert path")
+		webhookOptions.CertDir = "/tmp/k8s-webhook-server/serving-certs"
+		webhookOptions.CertName = "tls.crt"
+		webhookOptions.KeyName = "tls.key"
+	}
+
+	if err := certIsValid(webhookOptions.CertDir, webhookOptions.CertName, webhookOptions.KeyName); err != nil {
+		setupLog.Error(err, "webhook cert is not valid")
+		os.Exit(1)
+	}
+
+	webhookServer := webhook.NewServer(webhookOptions)
+
+	// If the webhook cert path is specified, use it to set up the webhook server.
 
 	if secureMetrics {
 		// FilterProvider is used to protect the metrics endpoint with authn/authz.
@@ -213,4 +237,32 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// certIsValid checks if the cert and key files exist and are valid
+func certIsValid(certDir, certName, keyName string) error {
+	// check if cert dir exists
+	if _, err := os.Stat(certDir); os.IsNotExist(err) {
+		setupLog.Error(err, "webhook cert dir does not exist", "path", certDir)
+		return fmt.Errorf("webhook cert dir does not exist: %w", err)
+	}
+	// check if cert file exists
+	certFile := filepath.Join(certDir, certName)
+	if _, err := os.Stat(certFile); os.IsNotExist(err) {
+		setupLog.Error(err, "webhook cert file does not exist", "path", certFile)
+		os.Exit(1)
+	}
+	// check if key file exists
+	keyFile := filepath.Join(certDir, keyName)
+	if _, err := os.Stat(keyFile); os.IsNotExist(err) {
+		setupLog.Error(err, "webhook key file does not exist", "path", keyFile)
+		os.Exit(1)
+	}
+	// check if cert file is valid
+	_, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		setupLog.Error(err, "webhook cert file is not valid", "path", certFile)
+		os.Exit(1)
+	}
+	return nil
 }
