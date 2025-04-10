@@ -485,9 +485,9 @@ redeploy: docker-build docker-load ## Redeploy the pod with the latest codes.
 generate-api: check-oapi-codegen-version ## Generate Go client, server, client and types from OpenAPI spec with oapi-codegen
 	@echo "Generating..."
 	oapi-codegen -generate spec -o pkg/api/spec.gen.go -package api api/openapi/openapi.yaml
-	oapi-codegen -generate client -o pkg/api/client.gen.go -package api api/openapi/openapi.yaml
-	oapi-codegen -generate types -o pkg/api/types.gen.go -package api api/openapi/openapi.yaml
-	oapi-codegen -generate std-http,strict-server -o pkg/api/server.gen.go -package api api/openapi/openapi.yaml
+	oapi-codegen -generate client -o pkg/api/client.gen.go -exclude-tags metrics -package api api/openapi/openapi.yaml
+	oapi-codegen -generate types -o pkg/api/types.gen.go -exclude-tags metrics -package api api/openapi/openapi.yaml
+	oapi-codegen -generate std-http,strict-server -exclude-tags metrics -o pkg/api/server.gen.go -package api api/openapi/openapi.yaml
 
 .PHONY: check-oapi-codegen-version
 check-oapi-codegen-version: ## Check oapi-codegen version

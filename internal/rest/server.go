@@ -13,6 +13,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3filter"
 	httpmid "github.com/oapi-codegen/nethttp-middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/client-go/dynamic"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
@@ -104,7 +105,7 @@ func (s *Server) Serve() error {
 // ConfigureHandler configures the server with necessary middleware and handlers
 func (s *Server) ConfigureHandler() (http.Handler, error) {
 	// handler already implements request validation via oapi request validator
-	handler, err := s.getOapiHandler()
+	handler, err := s.getServerHandler()
 	if err != nil {
 		slog.Error("failed to get oapi handler", "error", err)
 		return nil, err
@@ -114,8 +115,28 @@ func (s *Server) ConfigureHandler() (http.Handler, error) {
 	return appendMiddlewares(logger, projectIDValidator)(handler), nil
 }
 
-// getOapiHandler returns the base http handler with strict validation against the OpenAPI spec
-func (s *Server) getOapiHandler() (http.Handler, error) {
+// getServerHandler returns the base http handler with strict validation against the OpenAPI spec
+func (s *Server) getServerHandler() (http.Handler, error) {
+	// create the router for the metrics endpoint
+	router := http.NewServeMux()
+	router.Handle("/v2/metrics", promhttp.Handler())
+
+	// create the openapi handler with existing router
+	handler := api.HandlerWithOptions(api.NewStrictHandler(s, nil), api.StdHTTPServerOptions{
+		BaseRouter: router,
+		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
+			slog.Error(err.Error(), "path", r.URL.Path, "method", r.Method)
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+
+			if err := json.NewEncoder(w).Encode(api.N400BadRequest{Message: ptr(err.Error())}); err != nil {
+				http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+			}
+		},
+	})
+
+	// load the swagger spec
 	swagger, err := api.GetSwagger()
 	if err != nil {
 		slog.Error("failed to get swagger spec", "error", err)
@@ -123,6 +144,7 @@ func (s *Server) getOapiHandler() (http.Handler, error) {
 	}
 	swagger.Servers = nil
 
+	// set up the request validator with authentication and error handling
 	validator := httpmid.OapiRequestValidatorWithOptions(swagger, &httpmid.Options{
 		Options: openapi3filter.Options{AuthenticationFunc: s.auth.Authenticate},
 		ErrorHandler: func(w http.ResponseWriter, message string, code int) {
@@ -137,18 +159,6 @@ func (s *Server) getOapiHandler() (http.Handler, error) {
 				}
 			} else {
 				http.Error(w, message, code)
-			}
-		},
-	})
-	handler := api.HandlerWithOptions(api.NewStrictHandler(s, nil), api.StdHTTPServerOptions{
-		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-			slog.Error(err.Error(), "path", r.URL.Path, "method", r.Method)
-
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-
-			if err := json.NewEncoder(w).Encode(api.N400BadRequest{Message: ptr(err.Error())}); err != nil {
-				http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 			}
 		},
 	})

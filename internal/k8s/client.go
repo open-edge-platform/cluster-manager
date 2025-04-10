@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	dockerProvider "sigs.k8s.io/cluster-api/test/infrastructure/docker/api/v1beta1"
 )
@@ -101,10 +102,20 @@ func New(opts ...func(*Client)) (*Client, error) {
 
 func WithInClusterConfig() func(*Client) {
 	return func(cli *Client) {
-		cfg, err := rest.InClusterConfig()
+		homeDir, err := os.UserHomeDir()
 		if err != nil {
-			panic(fmt.Errorf("failed to get in cluster config: %w", err)) // unrecoverable error
+			panic(fmt.Errorf("failed to get user home directory: %w", err)) // unrecoverable error
 		}
+
+		kubeConfigPath := fmt.Sprintf("%s/.kube/config", homeDir)
+		cfg, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
+		if err != nil {
+			panic(fmt.Errorf("failed to build config from kubeconfig: %w", err)) // unrecoverable error
+		}
+		// cfg, err := rest.InClusterConfig()
+		// if err != nil {
+		// 	panic(fmt.Errorf("failed to get in cluster config: %w", err)) // unrecoverable error
+		// }
 
 		qpsValue, burstValue, err := getRateLimiterParams()
 		if err != nil {
