@@ -266,6 +266,7 @@ func ValidateParams(params any) (pageSize, offset *int, orderBy, filter *string,
 			"name":              true,
 			"kubernetesVersion": true,
 			"providerStatus":    true,
+			"lifecyclePhase":    true,
 		}
 		orderByParts := strings.Split(*orderBy, " ")
 		if len(orderByParts) == 1 {
@@ -287,6 +288,7 @@ func ValidateParams(params any) (pageSize, offset *int, orderBy, filter *string,
 			"name":              true,
 			"kubernetesVersion": true,
 			"providerStatus":    true,
+			"lifecyclePhase":    true,
 			"version":           true,
 		}
 		filterParts := strings.FieldsFunc(*filter, func(r rune) bool {
