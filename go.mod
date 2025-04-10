@@ -17,13 +17,13 @@ require (
 	github.com/lestrrat-go/jwx/v2 v2.1.3
 	github.com/oapi-codegen/nethttp-middleware v1.0.2
 	github.com/oapi-codegen/runtime v1.1.1
-	github.com/onsi/ginkgo/v2 v2.22.2
-	github.com/onsi/gomega v1.36.2
+	github.com/onsi/ginkgo/v2 v2.23.3
+	github.com/onsi/gomega v1.36.3
 	github.com/open-edge-platform/cluster-api-provider-intel v1.0.1
 	github.com/open-edge-platform/infra-core/inventory/v2 v2.23.0
 	github.com/open-edge-platform/orch-library/go v0.5.29
 	github.com/open-edge-platform/orch-utils/tenancy-datamodel v0.0.0-20250401180309-9c2571c45857
-	github.com/rancher/cluster-api-provider-rke2 v0.12.0
+	github.com/rancher/cluster-api-provider-rke2 v0.13.0
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/mock v0.5.0
 	google.golang.org/protobuf v1.36.6
@@ -33,7 +33,7 @@ require (
 	k8s.io/client-go v0.32.3
 	k8s.io/kubectl v0.32.1
 	sigs.k8s.io/cluster-api v1.9.5
-	sigs.k8s.io/cluster-api/test v1.9.5
+	sigs.k8s.io/cluster-api/test v1.9.6
 	sigs.k8s.io/controller-runtime v0.20.4
 )
 
@@ -60,7 +60,7 @@ require (
 	github.com/coreos/go-json v0.0.0-20230131223807-18775e0fb4fb // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
-	github.com/coreos/ignition/v2 v2.20.0 // indirect
+	github.com/coreos/ignition/v2 v2.21.0 // indirect
 	github.com/coreos/vcontext v0.0.0-20230201181013-d72178a18687 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0 // indirect
@@ -178,7 +178,7 @@ require (
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394 // indirect
 	golang.org/x/mod v0.24.0 // indirect
 	golang.org/x/net v0.38.0 // indirect
-	golang.org/x/oauth2 v0.27.0 // indirect
+	golang.org/x/oauth2 v0.28.0 // indirect
 	golang.org/x/sync v0.12.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/term v0.30.0 // indirect
