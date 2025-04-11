@@ -30,7 +30,7 @@ jobs:
     - name: Cache build artifact
       uses: actions/cache@v4
       with:
-        path:
+        path: |
           ${{ env.GOCACHE }}
           ${{ env.GOMODCACHE }}
           ~/.cache/golangci-lint
@@ -56,7 +56,7 @@ jobs:
     - name: Cache build artifact
       uses: actions/cache@v4
       with:
-        path:
+        path: |
           ${{ env.GOCACHE }}
           ${{ env.GOMODCACHE }}
         key: ${{ github.repository }}-build-${{ runner.os }}-go-${{ hashFiles('**/go.mod') }}
@@ -81,7 +81,7 @@ jobs:
     - name: Cache build artifact
       uses: actions/cache@v4
       with:
-        path:
+        path: |
           ${{ env.GOCACHE }}
           ${{ env.GOMODCACHE }}
         key: ${{ github.repository }}-test-${{ runner.os }}-go-${{ hashFiles('**/go.mod') }}
