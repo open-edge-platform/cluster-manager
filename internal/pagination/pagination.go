@@ -25,8 +25,6 @@ type OrderBy struct {
 	IsDesc bool
 }
 
-type filterFunc[T any] func(item T, filter *Filter) bool
-
 type orderFunc[T any] func(item1, item2 T, orderBy *OrderBy) bool
 
 var normalizeEqualsRe = regexp.MustCompile(`[ \t]*=[ \t]*`)
