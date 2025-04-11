@@ -28,9 +28,9 @@ jobs:
         bootstrap_tools: "go,gotools,nodejs"
 
     - name: Configure cache locations
-      run:
-        GOCACHE=${go env GOCACHE} >> $GITHUB_ENV
-        GOMODCACHE=${go env GOMODCACHE} >> $GITHUB_ENV
+      run: |
+        echo "GOCACHE=${go env GOCACHE}" >> $GITHUB_ENV
+        echo "GOMODCACHE=${go env GOMODCACHE}" >> $GITHUB_ENV
     
     - name: Cache build artifact
       uses: actions/cache@v4
@@ -59,9 +59,9 @@ jobs:
         bootstrap_tools: "go,gotools"
 
     - name: Configure cache locations
-      run:
-        GOCACHE=${go env GOCACHE} >> $GITHUB_ENV
-        GOMODCACHE=${go env GOMODCACHE} >> $GITHUB_ENV
+      run: |
+        echo "GOCACHE=${go env GOCACHE}" >> $GITHUB_ENV
+        echo "GOMODCACHE=${go env GOMODCACHE}" >> $GITHUB_ENV
 
     - name: Cache build artifact
       uses: actions/cache@v4
@@ -89,9 +89,9 @@ jobs:
         bootstrap_tools: "go,gotools" 
 
     - name: Configure cache locations
-      run:
-        GOCACHE=${go env GOCACHE} >> $GITHUB_ENV
-        GOMODCACHE=${go env GOMODCACHE} >> $GITHUB_ENV
+      run: |
+        echo "GOCACHE=${go env GOCACHE}" >> $GITHUB_ENV
+        echo "GOMODCACHE=${go env GOMODCACHE}" >> $GITHUB_ENV
 
     - name: Cache build artifact
       uses: actions/cache@v4
