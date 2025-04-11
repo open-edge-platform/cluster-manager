@@ -27,6 +27,15 @@ jobs:
         gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
         bootstrap_tools: "go,gotools,nodejs"
 
+    - name: Cache build artifact
+      uses: actions/cache@v4
+      with:
+        path:
+          ${{ env.GOCACHE }}
+          ${{ env.GOMODCACHE }}
+          ~/.cache/golangci-lint
+        key: ${{ github.repository }}-lint-${{ runner.os }}-go-${{ hashFiles('**/go.mod') }}
+
     - name: Lint code
       run: make lint
 
@@ -44,6 +53,14 @@ jobs:
         gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
         bootstrap_tools: "go,gotools"
 
+    - name: Cache build artifact
+      uses: actions/cache@v4
+      with:
+        path:
+          ${{ env.GOCACHE }}
+          ${{ env.GOMODCACHE }}
+        key: ${{ github.repository }}-build-${{ runner.os }}-go-${{ hashFiles('**/go.mod') }}
+
     - name: Build code
       run: make build
 
@@ -60,6 +77,14 @@ jobs:
       with:
         gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
         bootstrap_tools: "go,gotools" 
+
+    - name: Cache build artifact
+      uses: actions/cache@v4
+      with:
+        path:
+          ${{ env.GOCACHE }}
+          ${{ env.GOMODCACHE }}
+        key: ${{ github.repository }}-test-${{ runner.os }}-go-${{ hashFiles('**/go.mod') }}
 
     - name: Test code
       run: make test
