@@ -6,6 +6,9 @@ package rest
 import (
 	"log/slog"
 	"net/http"
+	"time"
+
+	"github.com/open-edge-platform/cluster-manager/v2/internal/metrics"
 )
 
 // middleware is a function definition that wraps an http.Handler
@@ -28,6 +31,22 @@ func logger(next http.Handler) http.Handler {
 			slog.Debug("received request", "method", r.Method, "path", r.URL.Path)
 		}
 		next.ServeHTTP(w, r)
+	})
+}
+
+func requestDurationMetrics(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		next.ServeHTTP(w, r)
+		d := time.Since(start).Seconds()
+		metrics.ResponseTime.Observe(d)
+	})
+}
+
+func responseCounterMetrics(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r)
+		metrics.HttpResponseCounter.WithLabelValues(r.Method, r.URL.Path, http.StatusText(http.StatusOK)).Inc()
 	})
 }
 

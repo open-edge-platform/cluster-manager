@@ -19,6 +19,7 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/inventory"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/metrics"
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 )
 
@@ -112,14 +113,14 @@ func (s *Server) ConfigureHandler() (http.Handler, error) {
 	}
 
 	// add middlewares (middleware1, middleware2, ...)
-	return appendMiddlewares(logger, projectIDValidator)(handler), nil
+	return appendMiddlewares(responseCounterMetrics, requestDurationMetrics, logger, projectIDValidator)(handler), nil
 }
 
 // getServerHandler returns the base http handler with strict validation against the OpenAPI spec
 func (s *Server) getServerHandler() (http.Handler, error) {
 	// create the router for the metrics endpoint
 	router := http.NewServeMux()
-	router.Handle("/v2/metrics", promhttp.Handler())
+	router.Handle("/v2/metrics", promhttp.HandlerFor(metrics.GetRegistry(), promhttp.HandlerOpts{}))
 
 	// create the openapi handler with existing router
 	handler := api.HandlerWithOptions(api.NewStrictHandler(s, nil), api.StdHTTPServerOptions{
