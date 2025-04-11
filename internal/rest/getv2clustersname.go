@@ -39,7 +39,7 @@ func (s *Server) GetV2ClustersName(ctx context.Context, request api.GetV2Cluster
 	}
 
 	// Validate the name using a regex pattern
-	validNamePattern := `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	validNamePattern := `^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$`
 	matched, err := regexp.MatchString(validNamePattern, name)
 	if err != nil || !matched {
 		// nolint: nilerr
