@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-24.04-16core-64GB
     if: true
     env:
-      VERSION: ${{ github.sha }}  # Use the component branch that triggered the action for the test
+      VERSION: ${{ github.head_ref }}  # Use the component branch that triggered the action for the test
     steps:
       - name: Checkout orch ci
         uses: actions/checkout@v4
