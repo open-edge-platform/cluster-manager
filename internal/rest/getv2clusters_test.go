@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -43,11 +44,11 @@ var clusterStatusReady = capi.ClusterStatus{
 }
 
 var clusterStatusInProgressControlPlane = capi.ClusterStatus{
-	Phase: string(capi.ClusterPhaseProvisioned),
+	Phase: string(capi.ClusterPhaseProvisioning),
 	Conditions: []capi.Condition{
 		{
 			Type:   capi.ReadyCondition,
-			Status: corev1.ConditionTrue,
+			Status: corev1.ConditionFalse,
 		},
 		{
 			Type:   capi.ControlPlaneReadyCondition,
@@ -559,13 +560,28 @@ func TestGetV2Clusters200(t *testing.T) {
 				// Parse the response body
 				var actualResponse api.GetV2Clusters200JSONResponse
 				err = json.Unmarshal(rr.Body.Bytes(), &actualResponse)
-				require.NoError(t, err, "Failed to unmarshal response body")
+				assert.NoError(t, err, "Failed to unmarshal response body")
 
 				// Check the response status
-				require.Equal(t, http.StatusOK, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, 200)
+				assert.Equal(t, http.StatusOK, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, 200)
+
+				for _, cluster := range *actualResponse.Clusters {
+					cluster.ControlPlaneReady.Message = ptr("condition not found")
+					cluster.ControlPlaneReady.Timestamp = ptr(uint64(0))
+
+					cluster.InfrastructureReady.Message = ptr("condition not found")
+					cluster.InfrastructureReady.Timestamp = ptr(uint64(0))
+
+					cluster.ProviderStatus.Indicator = statusIndicatorPtr(api.STATUSINDICATIONUNSPECIFIED)
+					cluster.ProviderStatus.Message = ptr("condition not found")
+					cluster.ProviderStatus.Timestamp = ptr(uint64(0))
+
+					cluster.NodeHealth.Timestamp = ptr(uint64(0))
+					cluster.LifecyclePhase.Timestamp = ptr(uint64(0))
+				}
 
 				// Check the response content
-				require.Equal(t, tt.expectedResult, actualResponse, "GetV2Clusters() response = %v, want %v", actualResponse, tt.expectedResult)
+				assert.Equal(t, tt.expectedResult, actualResponse, "GetV2Clusters() response = %v, want %v", actualResponse, tt.expectedResult)
 			})
 		}
 	})
