@@ -29,8 +29,8 @@ jobs:
 
     - name: Configure cache locations
       run: |
-        echo "GOCACHE=${go env GOCACHE}" >> $GITHUB_ENV
-        echo "GOMODCACHE=${go env GOMODCACHE}" >> $GITHUB_ENV
+        echo "GOCACHE=$(go env GOCACHE)" >> $GITHUB_ENV
+        echo "GOMODCACHE=$(go env GOMODCACHE)" >> $GITHUB_ENV
     
     - name: Cache build artifact
       uses: actions/cache@v4
@@ -60,8 +60,8 @@ jobs:
 
     - name: Configure cache locations
       run: |
-        echo "GOCACHE=${go env GOCACHE}" >> $GITHUB_ENV
-        echo "GOMODCACHE=${go env GOMODCACHE}" >> $GITHUB_ENV
+        echo "GOCACHE=$(go env GOCACHE)" >> $GITHUB_ENV
+        echo "GOMODCACHE=$(go env GOMODCACHE)" >> $GITHUB_ENV
 
     - name: Cache build artifact
       uses: actions/cache@v4
@@ -90,8 +90,8 @@ jobs:
 
     - name: Configure cache locations
       run: |
-        echo "GOCACHE=${go env GOCACHE}" >> $GITHUB_ENV
-        echo "GOMODCACHE=${go env GOMODCACHE}" >> $GITHUB_ENV
+        echo "GOCACHE=$(go env GOCACHE)" >> $GITHUB_ENV
+        echo "GOMODCACHE=$(go env GOMODCACHE)" >> $GITHUB_ENV
 
     - name: Cache build artifact
       uses: actions/cache@v4
