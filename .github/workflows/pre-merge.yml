@@ -27,6 +27,11 @@ jobs:
         gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
         bootstrap_tools: "go,gotools,nodejs"
 
+    - name: Configure cache locations
+      run:
+        GOCACHE=${go env GOCACHE} >> $GITHUB_ENV
+        GOMODCACHE=${go env GOMODCACHE} >> $GITHUB_ENV
+    
     - name: Cache build artifact
       uses: actions/cache@v4
       with:
@@ -53,6 +58,11 @@ jobs:
         gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
         bootstrap_tools: "go,gotools"
 
+    - name: Configure cache locations
+      run:
+        GOCACHE=${go env GOCACHE} >> $GITHUB_ENV
+        GOMODCACHE=${go env GOMODCACHE} >> $GITHUB_ENV
+
     - name: Cache build artifact
       uses: actions/cache@v4
       with:
@@ -77,6 +87,11 @@ jobs:
       with:
         gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
         bootstrap_tools: "go,gotools" 
+
+    - name: Configure cache locations
+      run:
+        GOCACHE=${go env GOCACHE} >> $GITHUB_ENV
+        GOMODCACHE=${go env GOMODCACHE} >> $GITHUB_ENV
 
     - name: Cache build artifact
       uses: actions/cache@v4
