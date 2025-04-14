@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+SHELL := bash -eu -o pipefail
+
 # VERSION defines the project version for the bundle.
 # Update this value when you upgrade the version of your project.
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
@@ -96,11 +98,6 @@ DISABLE_AUTH ?= true
 # When set to true, disables integration with infra inventory. Should be false for production use cases
 # Should be true for CO subsystem integration tests if inventory is not deployed
 DISABLE_INV ?= true
-
-# Setting SHELL to bash allows bash commands to be executed by recipes.
-# Options are set to exit when a recipe line exits non-zero or a piped command fails.
-SHELL = /usr/bin/env bash -o pipefail
-.SHELLFLAGS = -ec
 
 .PHONY: all
 all: help
@@ -242,6 +239,20 @@ docker-push-template-controller: ## Push docker image with the controller.
 docker-push-cluster-manager: ## Push docker image with the cluster manager.
 	$(CONTAINER_TOOL) push ${DOCKER_IMAGE_CLUSTER_MANAGER}
 
+.PHONY: docker-list
+docker-list: ## Print name of docker container images
+	@echo "images:"
+	@echo "  template-controller:"
+	@echo "    name: '$(DOCKER_IMAGE_TEMPLATE_CONTROLLER)'"
+	@echo "    version: '$(VERSION)'"
+	@echo "    gitTagPrefix: 'v'"
+	@echo "    buildTarget: 'docker-build-template-controller'"
+	@echo "  cluster-manager:"
+	@echo "    name: '$(DOCKER_IMAGE_CLUSTER_MANAGER)'"
+	@echo "    version: '$(VERSION)'"
+	@echo "    gitTagPrefix: 'v'"
+	@echo "    buildTarget: 'docker-build-cluster-manager'"
+
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
 # - be able to use docker buildx. More info: https://docs.docker.com/build/buildx/
@@ -292,9 +303,19 @@ helm-build: ## Package helm charts.
 		yq eval -i '.annotations.created = "${LABEL_CREATED}"' $$d/Chart.yaml; \
 		helm package --app-version=${VERSION} --version=${HELM_VERSION} --debug -u $$d -d $(BUILD_DIR); \
 	done
-
-# revert the temporary changes done in Chart.yaml
+	# revert the temporary changes done in Chart.yaml
 	git checkout deployment/charts/cluster-template-crd/Chart.yaml deployment/charts/cluster-manager/Chart.yaml
+
+.PHONY: helm-list
+helm-list:
+	@echo "charts:"
+	@for d in $(HELM_DIRS); do \
+    cname=$$(grep "^name:" "$$d/Chart.yaml" | cut -d " " -f 2) ;\
+    echo "  $$cname:" ;\
+    echo -n "    "; grep "^version" "$$d/Chart.yaml"  ;\
+    echo "    gitTagPrefix: 'v'" ;\
+    echo "    outDir: '$(BUILD_DIR)'" ;\
+  done
 
 .PHONY: helm-push
 helm-push: ## Push helm charts.
@@ -345,7 +366,7 @@ CONTROLLER_TOOLS_VERSION ?= v0.17.0
 ENVTEST_VERSION ?= $(shell go list -m -f "{{ .Version }}" sigs.k8s.io/controller-runtime | awk -F'[v.]' '{printf "release-%d.%d", $$2, $$3}')
 #ENVTEST_K8S_VERSION is the version of Kubernetes to use for setting up ENVTEST binaries (i.e. 1.31)
 ENVTEST_K8S_VERSION ?= $(shell go list -m -f "{{ .Version }}" k8s.io/api | awk -F'[v.]' '{printf "1.%d", $$3}')
-GOLANGCI_LINT_VERSION ?= v1.62.2
+GOLANGCI_LINT_VERSION ?= v1.64.7
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
@@ -424,10 +445,7 @@ golint: golangci-lint ## Lint Go files.
 helmlint: ## Lint Helm charts.
 	helm lint ./deployment/charts/*
 
-EXCLUDE_DIRS="^\.\/(venv-env|vendor)$\"
-INCLUDE_FILES="^.+\.(yaml|yml)$\"
-YAML_FILES := $(shell find . -regextype posix-extended -type d -regex ${EXCLUDE_DIRS} -prune -o -type f -regex ${INCLUDE_FILES} -print)
-
+YAML_FILES := $(shell find . -type f \( -name '*.yaml' -o -name '*.yml' \) -print )
 .PHONY: yamllint
 yamllint: $(VENV_NAME) ## Lint YAML files.
 	. ./$</bin/activate; set -u;\
@@ -555,7 +573,7 @@ update-cm-version: ## Update Cluster Manager version
 	sed -i "s/^appVersion:.*/appVersion: $${new_version}/" deployment/charts/cluster-manager/Chart.yaml; \
 	sed -i "s/^version:.*/version: $${new_version}/" deployment/charts/cluster-template-crd/Chart.yaml; \
 	sed -i "s/^appVersion:.*/appVersion: $${new_version}/" deployment/charts/cluster-template-crd/Chart.yaml;
-	
+
 
 .PHONY: update-ct-version
 update-ct-version: ## Update Cluster Template version
@@ -563,7 +581,7 @@ update-ct-version: ## Update Cluster Template version
 	@read -p "Enter new version: " new_version; \
 	sed -i "s/^  \"version\":.*/  \"version\": \"$${new_version}\",/" default-cluster-templates/baseline.json; \
 	sed -i "s/^  \"version\":.*/  \"version\": \"$${new_version}\",/" default-cluster-templates/privileged.json; \
-	sed -i "s/^  \"version\":.*/  \"version\": \"$${new_version}\",/" default-cluster-templates/restricted.json 
+	sed -i "s/^  \"version\":.*/  \"version\": \"$${new_version}\",/" default-cluster-templates/restricted.json
 
 .PHONY: update-api-version
 update-api-version: ## Update API version

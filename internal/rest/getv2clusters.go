@@ -164,6 +164,10 @@ func filterClusters(cluster api.ClusterInfo, filter *Filter) bool {
 		if cluster.ProviderStatus != nil {
 			return MatchWildcard(cluster.ProviderStatus.Message, filter.Value)
 		}
+	case "lifecyclePhase":
+		if cluster.LifecyclePhase != nil {
+			return MatchWildcard(cluster.LifecyclePhase.Message, filter.Value)
+		}
 	default:
 		return false
 	}
@@ -187,6 +191,11 @@ func orderClustersBy(cluster1, cluster2 api.ClusterInfo, orderBy *OrderBy) bool 
 			return *cluster1.ProviderStatus.Message > *cluster2.ProviderStatus.Message
 		}
 		return *cluster1.ProviderStatus.Message < *cluster2.ProviderStatus.Message
+	case "lifecyclePhase":
+		if orderBy.IsDesc {
+			return *cluster1.LifecyclePhase.Message > *cluster2.LifecyclePhase.Message
+		}
+		return *cluster1.LifecyclePhase.Message < *cluster2.LifecyclePhase.Message
 	default:
 		return false
 	}
