@@ -32,7 +32,7 @@ jobs:
         with:
           repository: open-edge-platform/cluster-tests
           path: cluster-tests
-          ref: "pin-artifact-versions"
+          ref: "main"
           token: ${{ secrets.SYS_ORCH_GITHUB }}
 
       - name: Bootstrap CI environment
