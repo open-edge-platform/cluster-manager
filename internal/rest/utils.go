@@ -418,3 +418,11 @@ func fetchMachinesList(ctx context.Context, s *Server, namespace string, cluster
 	}
 	return unstructuredMachineList.Items, nil
 }
+
+func FetchAllMachinesList(ctx context.Context, s *Server, namespace string) ([]unstructured.Unstructured, error) {
+	unstructuredMachineList, err := s.k8sclient.Resource(core.MachineResourceSchema).Namespace(namespace).List(ctx, v1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return unstructuredMachineList.Items, nil
+}
