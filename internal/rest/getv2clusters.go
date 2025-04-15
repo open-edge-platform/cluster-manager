@@ -105,6 +105,11 @@ func (s *Server) getClusters(ctx context.Context, namespace string, orderBy, fil
 
 func (s *Server) convertClusters(ctx context.Context, namespace string, unstructuredClusters []unstructured.Unstructured) []api.ClusterInfo {
 	clusters := make([]api.ClusterInfo, 0, len(unstructuredClusters))
+	allMachines, err := fetchAllMachinesList(ctx, s, namespace)
+	if err != nil {
+		slog.Error("failed to fetch machines", "namespace", namespace, "error", err)
+		return nil
+	}
 	for _, item := range unstructuredClusters {
 		capiCluster := capi.Cluster{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.Object, &capiCluster); err != nil {
@@ -114,11 +119,7 @@ func (s *Server) convertClusters(ctx context.Context, namespace string, unstruct
 
 		slog.Debug("Processing cluster", "name", capiCluster.Name, "labels", capiCluster.Labels)
 		// get machines associated with the cluster
-		machines, err := fetchMachinesList(ctx, s, namespace, capiCluster.Name)
-		if err != nil {
-			slog.Error("failed to fetch machines for cluster", "cluster", capiCluster.Name, "error", err)
-			continue
-		}
+		machines := getClusterMachines(allMachines, capiCluster.Name)
 
 		labels := labels.Filter(capiCluster.Labels)
 		unstructuredLabels := convert.MapStringToAny(labels)
@@ -200,3 +201,4 @@ func orderClustersBy(cluster1, cluster2 api.ClusterInfo, orderBy *OrderBy) bool 
 		return false
 	}
 }
+
