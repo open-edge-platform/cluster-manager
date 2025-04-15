@@ -137,4 +137,4 @@ There are several convenience make targets to support developer activities, you 
 
 ## License
 
-CM is licensed under Apache License 2.0.
+Cluster Manager is licensed under [Apache 2.0 License](LICENSES/Apache-2.0.txt)
