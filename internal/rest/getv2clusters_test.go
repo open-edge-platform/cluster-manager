@@ -63,13 +63,25 @@ var clusterStatusInProgressControlPlane = capi.ClusterStatus{
 
 func createMockServer(t *testing.T, clusters []capi.Cluster, projectID string, options ...bool) *Server {
 	unstructuredClusters := make([]unstructured.Unstructured, len(clusters))
+	machinesList := make([]unstructured.Unstructured, len(clusters))
 	for i, cluster := range clusters {
 		unstructuredCluster, err := convert.ToUnstructured(cluster)
 		require.NoError(t, err, "convertClusterToUnstructured() error = %v, want nil")
 		unstructuredClusters[i] = *unstructuredCluster
+		machine := capi.Machine{
+			ObjectMeta: metav1.ObjectMeta{Name: cluster.Name},
+			Spec:       capi.MachineSpec{ClusterName: cluster.Name},
+			Status:     capi.MachineStatus{Phase: string(capi.MachinePhaseRunning)},
+		}
+		unstructuredMachine, err := convert.ToUnstructured(machine)
+		require.NoError(t, err, "convertClusterToUnstructured() error = %v, want nil")
+		machinesList[i] = *unstructuredMachine
 	}
 	unstructuredClusterList := &unstructured.UnstructuredList{
 		Items: unstructuredClusters,
+	}
+	unstructuredMachineList := &unstructured.UnstructuredList{
+		Items: machinesList,
 	}
 	// default is to set up k8s client and machineResource mocks
 	setupK8sMocks := true
@@ -88,12 +100,16 @@ func createMockServer(t *testing.T, clusters []capi.Cluster, projectID string, o
 		mockedk8sclient = k8s.NewMockInterface(t)
 		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
 		if mockMachineResource {
+			machineResource := k8s.NewMockResourceInterface(t)
+			machineResource.EXPECT().List(mock.Anything, metav1.ListOptions{}).Return(unstructuredMachineList, nil)
+			namespacedMachineResource := k8s.NewMockNamespaceableResourceInterface(t)
 			for _, cluster := range clusters {
-				resource.EXPECT().List(mock.Anything, metav1.ListOptions{
+				machineResource.EXPECT().List(mock.Anything, metav1.ListOptions{
 					LabelSelector: "cluster.x-k8s.io/cluster-name=" + cluster.Name,
 				}).Return(&unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}, nil).Maybe()
 			}
-			mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(nsResource).Maybe()
+			namespacedMachineResource.EXPECT().Namespace(projectID).Return(machineResource)
+			mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(namespacedMachineResource).Maybe()
 		}
 	}
 	return NewServer(mockedk8sclient)
@@ -158,7 +174,7 @@ var expectedActiveProjectID = "655a6892-4280-4c37-97b1-31161ac0b99e"
 func TestGetV2Clusters200(t *testing.T) {
 	t.Run("No Clusters", func(t *testing.T) {
 		clusters := []capi.Cluster{}
-		server := createMockServer(t, clusters, expectedActiveProjectID, true, false)
+		server := createMockServer(t, clusters, expectedActiveProjectID, true, true)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder

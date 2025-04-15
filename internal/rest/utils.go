@@ -25,6 +25,7 @@ type ContextKey string
 const (
 	ActiveProjectIdHeaderKey             = "Activeprojectid"
 	ActiveProjectIdContextKey ContextKey = ActiveProjectIdHeaderKey
+	ClusterNameSelectorKey             = "cluster.x-k8s.io/cluster-name"
 )
 
 func validateClusterDetail(clusterDetail api.ClusterDetailInfo) error {
@@ -293,6 +294,17 @@ func getNodeHealth(cluster *capi.Cluster, machines []unstructured.Unstructured) 
 	return status
 }
 
+// getClusterMachines filters the machines by cluster name
+func getClusterMachines(machines []unstructured.Unstructured, name string ) ([]unstructured.Unstructured) {
+	var filteredMachines []unstructured.Unstructured
+	for _, machine := range machines {
+		if machine.GetLabels()[ClusterNameSelectorKey] == name {
+			filteredMachines = append(filteredMachines, machine)
+		}
+	}
+	return filteredMachines
+}
+
 func ptr[T any](v T) *T {
 	return &v
 }
@@ -341,7 +353,7 @@ func fetchMachineFromCluster(ctx context.Context, s *Server, namespace string, c
 func fetchIntelMachineBindingFromCluster(ctx context.Context, s *Server, namespace string, clusterName string, nodeID string) (*intelv1alpha1.IntelMachineBinding, error) {
 	// first get the machine using the nodeID
 	unstructuredMachines, err := s.k8sclient.Resource(core.MachineResourceSchema).Namespace(namespace).List(ctx, v1.ListOptions{
-		LabelSelector: "cluster.x-k8s.io/cluster-name=" + clusterName,
+		LabelSelector: ClusterNameSelectorKey + "=" + clusterName,
 	})
 	if unstructuredMachines == nil || len(unstructuredMachines.Items) == 0 {
 		return nil, fmt.Errorf("machine not found for node ID %s", nodeID)
@@ -366,7 +378,7 @@ func fetchIntelMachineBindingFromCluster(ctx context.Context, s *Server, namespa
 	}
 	// get the machine bindings for the cluster
 	unstructuredMachineList, err := s.k8sclient.Resource(core.BindingsResourceSchema).Namespace(namespace).List(ctx, v1.ListOptions{
-		LabelSelector: "cluster.x-k8s.io/cluster-name=" + clusterName,
+		LabelSelector: ClusterNameSelectorKey + "=" + clusterName,
 	})
 	if err != nil {
 		return nil, err
@@ -388,7 +400,7 @@ func fetchIntelMachineBindingFromCluster(ctx context.Context, s *Server, namespa
 
 func fetchMachine(ctx context.Context, s *Server, namespace string, clusterName string, nodeID string) (*capi.Machine, error) {
 	unstructuredMachines, err := s.k8sclient.Resource(core.MachineResourceSchema).Namespace(namespace).List(ctx, v1.ListOptions{
-		LabelSelector: "cluster.x-k8s.io/cluster-name=" + clusterName,
+		LabelSelector: ClusterNameSelectorKey + "=" + clusterName,
 	})
 	if unstructuredMachines == nil || len(unstructuredMachines.Items) == 0 {
 		return nil, fmt.Errorf("machine not found for node ID %s", nodeID)
@@ -411,8 +423,16 @@ func fetchMachine(ctx context.Context, s *Server, namespace string, clusterName 
 
 func fetchMachinesList(ctx context.Context, s *Server, namespace string, clusterName string) ([]unstructured.Unstructured, error) {
 	unstructuredMachineList, err := s.k8sclient.Resource(core.MachineResourceSchema).Namespace(namespace).List(ctx, v1.ListOptions{
-		LabelSelector: "cluster.x-k8s.io/cluster-name=" + clusterName,
+		LabelSelector: ClusterNameSelectorKey + "=" + clusterName,
 	})
+	if err != nil {
+		return nil, err
+	}
+	return unstructuredMachineList.Items, nil
+}
+
+func fetchAllMachinesList(ctx context.Context, s *Server, namespace string) ([]unstructured.Unstructured, error) {
+	unstructuredMachineList, err := s.k8sclient.Resource(core.MachineResourceSchema).Namespace(namespace).List(ctx, v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
