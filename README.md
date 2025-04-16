@@ -131,8 +131,8 @@ pass linters verifications and the unit tests.
 
 ## Community and Support
 
-To learn more about the project, its community, and governance, visit the [Edge Orchestrator Community](https://github.com/intel).
-For support, start with [Troubleshooting](https://github.com/intel) or [contact us](https://github.com/intel).
+To learn more about the project, its community, and governance, visit the [Edge Orchestrator Community](https://github.com/open-edge-platform).
+For support, start with [Troubleshooting](https://docs.openedgeplatform.intel.com/edge-manage-docs/main/developer_guide/troubleshooting/index.html) or [contact us](https://github.com/intel).
 
 There are several convenience make targets to support developer activities, you can use help to see a list of makefile targets.
 
