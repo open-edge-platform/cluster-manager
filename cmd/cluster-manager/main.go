@@ -4,10 +4,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
 
+	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
@@ -56,6 +58,22 @@ func main() {
 		slog.Error("failed to initialize k8s clientset")
 		os.Exit(3)
 	}
+
+	// Initialize VaultAuth and fetch client credentials
+	vaultAuth, err := auth.NewVaultAuth(auth.VaultServer, auth.ServiceAccount)
+	if err != nil {
+		slog.Error("failed to initialize VaultAuth", "error", err)
+		os.Exit(4)
+	}
+
+	clientID, clientSecret, err := vaultAuth.GetClientCredentials(context.Background())
+	if err != nil {
+		slog.Error("failed to fetch client credentials from Vault", "error", err)
+		os.Exit(4)
+	}
+	// testing the client credentials
+	slog.Info("Successfully retrieved client credentials from Vault", "client_id", clientID)
+	slog.Info("Successfully retrieved client credentials from Vault", "client_secret", clientSecret)
 
 	auth, err := rest.GetAuthenticator(config)
 	if err != nil {

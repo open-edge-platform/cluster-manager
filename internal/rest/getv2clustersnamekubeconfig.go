@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
@@ -19,6 +20,7 @@ import (
 )
 
 var updateKubeconfigWithTokenFunc = updateKubeconfigWithToken
+var tokenRenewalFunc = tokenRenewal
 
 // (GET /v2/clusters/{name}/kubeconfigs)
 func (s *Server) GetV2ClustersNameKubeconfigs(ctx context.Context, request api.GetV2ClustersNameKubeconfigsRequestObject) (api.GetV2ClustersNameKubeconfigsResponseObject, error) {
@@ -26,6 +28,7 @@ func (s *Server) GetV2ClustersNameKubeconfigs(ctx context.Context, request api.G
 
 	authHeader := request.Params.Authorization
 	if !strings.HasPrefix(authHeader, auth.BearerPrefix) {
+		slog.Error("invalid Authorization header", "authHeader", authHeader)
 		return api.GetV2ClustersNameKubeconfigs401JSONResponse{
 			N401UnauthorizedJSONResponse: api.N401UnauthorizedJSONResponse{
 				Message: ptr("Unauthorized: invalid Authorization header"),
@@ -109,6 +112,10 @@ func (s *Server) getClusterKubeconfig(ctx context.Context, namespace, clusterNam
 
 func updateKubeconfigWithToken(kubeconfig kubeconfigParameters, namespace, clusterName, authHeader string) (string, error) {
 	token := auth.GetAccessToken(authHeader)
+	newAccessToken, err := tokenRenewalFunc(token)
+	if err != nil {
+		return "", err
+	}
 	caData, domain, userName := kubeconfig.serverCA, kubeconfig.clusterDomain, kubeconfig.userName
 
 	config, err := unmarshalKubeconfig(kubeconfig.kubeConfigDecode)
@@ -131,7 +138,7 @@ func updateKubeconfigWithToken(kubeconfig kubeconfigParameters, namespace, clust
 	serverAddress := fmt.Sprintf("https://connect-gateway.%s:443%s%s", domain, middleUrl, endSegment)
 	slog.Debug("serverAddress", "decoded", serverAddress)
 
-	updateKubeconfigFields(config, clusterName+"-"+userName, clusterName, serverAddress, caData, token)
+	updateKubeconfigFields(config, clusterName+"-"+userName, clusterName, serverAddress, caData, newAccessToken)
 
 	updatedKubeconfig, err := yaml.Marshal(config)
 	if err != nil {
@@ -226,6 +233,30 @@ func updateKubeconfigFields(config map[string]interface{}, user, clusterName, se
 			},
 		},
 	}
+}
+
+func tokenRenewal(accessToken string) (string, error) {
+	keycloak := "" // "http://platform-keycloak.orch-platform.svc/realms/master"// s.config.OidcUrl
+
+	_, _, expireTime, err := auth.ExtractClaims(accessToken)
+	if err != nil {
+		return "", fmt.Errorf("failed to extract claims: %w", err)
+	}
+
+	timeRemaining := time.Until(expireTime)
+
+	if timeRemaining > 0 {
+		tokenResponse, err := auth.JwtToken(keycloak, accessToken)
+		if err != nil {
+			return "", err
+		}
+		slog.Debug("token renewed", "renewedToken", tokenResponse.AccessToken) // remove
+
+		return tokenResponse.AccessToken, nil
+	}
+	slog.Debug("token not renewed", "timeRemaining", timeRemaining)
+
+	return accessToken, nil
 }
 
 type kubeConfigData struct {

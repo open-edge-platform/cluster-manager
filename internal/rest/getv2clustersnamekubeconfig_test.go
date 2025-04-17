@@ -133,12 +133,23 @@ func configureHandlerAndServe(t *testing.T, server *Server, rr *httptest.Respons
 	handler.ServeHTTP(rr, req)
 }
 
+func mockTokenRenewal(jwtToken string) func() {
+	originalTokenRenewalFunc := tokenRenewalFunc
+	tokenRenewalFunc = func(authHeader string) (string, error) {
+		return jwtToken, nil
+	}
+	return func() {
+		tokenRenewalFunc = originalTokenRenewalFunc
+	}
+}
+
 func TestGetV2ClustersNameKubeconfigs200(t *testing.T) {
 	t.Run("successful kubeconfig retrieval", func(t *testing.T) {
 		name := "example-cluster"
 		activeProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
 		encodedKubeconfig := base64.StdEncoding.EncodeToString([]byte(exampleKubeconfig))
-
+		restoreTokenRenewal := mockTokenRenewal(jwtToken)
+		defer restoreTokenRenewal()
 		mockedk8sclient, _, _ := mockK8sClient(t, name, encodedKubeconfig, nil)
 		serverConfig := config.Config{ClusterDomain: "kind.internal", Username: "admin"}
 		server := NewServer(mockedk8sclient)
@@ -159,6 +170,8 @@ func TestGetV2ClustersNameKubeconfigs200(t *testing.T) {
 
 func TestGetV2ClustersNameKubeconfigs404(t *testing.T) {
 	expected404Response := `{"message":"404 Not Found: kubeconfig not found"}`
+	restoreTokenRenewal := mockTokenRenewal(jwtToken)
+	defer restoreTokenRenewal()
 	tests := []struct {
 		name             string
 		clusterName      string
@@ -323,6 +336,8 @@ func TestGetV2ClustersNameKubeconfigs401(t *testing.T) {
 }
 
 func TestGetV2ClustersNameKubeconfigs500(t *testing.T) {
+	restoreTokenRenewal := mockTokenRenewal(jwtToken)
+	defer restoreTokenRenewal()
 	tests := []struct {
 		name             string
 		clusterName      string
@@ -443,7 +458,7 @@ func TestUpdateKubeconfigWithToken(t *testing.T) {
 			activeProjectID: "655a6892-4280-4c37-97b1-31161ac0b99e",
 			clusterName:     "example-cluster",
 			token:           "new-token",
-			expectedError:   "failed to unmarshal kubeconfig: yaml: unmarshal errors:",
+			expectedError:   "failed to extract claims: failed to parse token: token is malformed: token contains an invalid number of segments",
 			expectedConfig:  "",
 		},
 	}
@@ -461,4 +476,8 @@ func TestUpdateKubeconfigWithToken(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTokenRenewal(t *testing.T) {
+	// to implement
 }
