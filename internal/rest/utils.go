@@ -25,7 +25,7 @@ type ContextKey string
 const (
 	ActiveProjectIdHeaderKey             = "Activeprojectid"
 	ActiveProjectIdContextKey ContextKey = ActiveProjectIdHeaderKey
-	ClusterNameSelectorKey             = "cluster.x-k8s.io/cluster-name"
+	ClusterNameSelectorKey               = "cluster.x-k8s.io/cluster-name"
 )
 
 func validateClusterDetail(clusterDetail api.ClusterDetailInfo) error {
@@ -295,7 +295,7 @@ func getNodeHealth(cluster *capi.Cluster, machines []unstructured.Unstructured) 
 }
 
 // getClusterMachines filters the machines by cluster name
-func getClusterMachines(machines []unstructured.Unstructured, name string ) ([]unstructured.Unstructured) {
+func getClusterMachines(machines []unstructured.Unstructured, name string) []unstructured.Unstructured {
 	var filteredMachines []unstructured.Unstructured
 	for _, machine := range machines {
 		if machine.GetLabels()[ClusterNameSelectorKey] == name {
