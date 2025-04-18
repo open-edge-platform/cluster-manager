@@ -9,7 +9,6 @@ SHELL := bash -eu -o pipefail
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
 VERSION            ?= $(shell cat VERSION)
-HELM_VERSION       ?= $(shell cat VERSION)
 GIT_HASH_SHORT     ?= $(shell git rev-parse --short=8 HEAD)
 VERSION_DEV_SUFFIX := ${GIT_HASH_SHORT}
 CLUSTERCTL_VERSION ?= v1.9.5
@@ -25,6 +24,8 @@ FUZZTIME ?= 60s
 ifeq ($(findstring -dev,$(VERSION)), -dev)
         VERSION := $(VERSION)-$(VERSION_DEV_SUFFIX)
 endif
+
+HELM_VERSION ?= ${VERSION}
 
 REGISTRY         ?= 080137407410.dkr.ecr.us-west-2.amazonaws.com
 REGISTRY_NO_AUTH ?= edge-orch
@@ -303,7 +304,7 @@ helm-build: ## Package helm charts.
 		yq eval -i '.annotations.created = "${LABEL_CREATED}"' $$d/Chart.yaml; \
 		helm package --app-version=${VERSION} --version=${HELM_VERSION} --debug -u $$d -d $(BUILD_DIR); \
 	done
-	# revert the temporary changes done in Chart.yaml
+	# revert the temporary changes done in charts
 	git checkout deployment/charts/cluster-template-crd/Chart.yaml deployment/charts/cluster-manager/Chart.yaml
 
 .PHONY: helm-list
