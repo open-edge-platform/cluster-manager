@@ -302,6 +302,8 @@ helm-build: ## Package helm charts.
 		yq eval -i '.appVersion = "${VERSION}"' $$d/Chart.yaml; \
 		yq eval -i '.annotations.revision = "${LABEL_REVISION}"' $$d/Chart.yaml; \
 		yq eval -i '.annotations.created = "${LABEL_CREATED}"' $$d/Chart.yaml; \
+		yq eval -i '.clusterManager.image.tag = "${VERSION}"' $$d/values.yaml; \
+		yq eval -i '.templateController.image.tag = "${VERSION}"' $$d/values.yaml; \
 		helm package --app-version=${VERSION} --version=${HELM_VERSION} --debug -u $$d -d $(BUILD_DIR); \
 	done
 	# revert the temporary changes done in Chart.yaml
