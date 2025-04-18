@@ -5,8 +5,10 @@ package rest
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"regexp"
+	"strings"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/cluster"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
@@ -52,19 +54,17 @@ func (s *Server) GetV2ClustersName(ctx context.Context, request api.GetV2Cluster
 
 	cluster, err := s.getCluster(ctx, activeProjectID, name)
 	if err != nil {
-		errMsg := err.Error()
-		if err.Error() == "cluster not found" {
-			slog.Warn("cluster not found", "name", name)
+		if strings.Contains(err.Error(), k8s.ErrClusterNotFound.Error()) {
 			return api.GetV2ClustersName404JSONResponse{
 				N404NotFoundJSONResponse: api.N404NotFoundJSONResponse{
-					Message: &errMsg,
+					Message: ptr(err.Error()),
 				},
 			}, nil
 		}
 		slog.Error("failed to get cluster", "name", name, "error", err)
 		return api.GetV2ClustersName500JSONResponse{
 			N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{
-				Message: &errMsg,
+				Message: ptr(err.Error()),
 			},
 		}, nil
 	}
@@ -78,38 +78,41 @@ func (s *Server) getCluster(ctx context.Context, activeProjectID, name string) (
 
 	cli, err := k8s.New(k8s.WithDynamicClient(s.k8sclient))
 	if err != nil {
-		return api.ClusterDetailInfo{}, errors.New("internal server error")
+		slog.Error("failed to create k8s client", "error", err)
+		return api.ClusterDetailInfo{}, fmt.Errorf("failed to create k8s client, err: %w", err)
 	}
 
-	capiCluster, err := cli.Cluster(ctx, namespace, name)
+	capiCluster, err := cli.GetCluster(ctx, namespace, name)
 	if err != nil {
-		if err == k8s.ErrClusterNotFound {
-			return api.ClusterDetailInfo{}, errors.New("cluster not found")
-		}
-		return api.ClusterDetailInfo{}, errors.New("internal server error")
+		slog.Error("failed to get cluster", "name", name, "error", err)
+		return api.ClusterDetailInfo{}, fmt.Errorf("failed to get cluster, err: %w", err)
 	}
 	if capiCluster.Name == "" {
 		return api.ClusterDetailInfo{}, errors.New("missing cluster name")
 	}
+
 	// get machines associated with the cluster
 	machines, err := fetchMachinesList(ctx, s, namespace, capiCluster.Name)
 	if err != nil {
+		// do we need to return error here?
 		slog.Error("failed to fetch machines for cluster", "cluster", capiCluster.Name, "error", err)
 	}
 
 	labels := labels.Filter(capiCluster.Labels)
 	unstrucutreLabels := convert.MapStringToAny(labels)
 
-	nodes, err := cluster.Nodes(ctx, cli, capiCluster)
+	nodes, err := cluster.GetNodes(ctx, cli, capiCluster)
 	if err != nil {
-		return api.ClusterDetailInfo{}, err
+		slog.Error("failed to get nodes", "cluster", capiCluster.Name, "error", err)
+		return api.ClusterDetailInfo{}, fmt.Errorf("failed to get nodes, err: %w", err)
 	}
 
-	template := cluster.Template(capiCluster)
+	template := cluster.GetTemplate(capiCluster)
 	lp, errs := getClusterLifecyclePhase(capiCluster)
 	if len(errs) > 0 {
 		slog.Debug("errors while building cluster lifecycle phase", "cluster", capiCluster.Name, "errors", errs)
 	}
+
 	clusterDetailInfo := api.ClusterDetailInfo{
 		Name:                &capiCluster.Name,
 		ProviderStatus:      getProviderStatus(capiCluster),
@@ -124,7 +127,8 @@ func (s *Server) getCluster(ctx context.Context, activeProjectID, name string) (
 	}
 
 	if err := validateClusterDetail(clusterDetailInfo); err != nil {
-		return api.ClusterDetailInfo{}, errors.New("internal server error")
+		slog.Error("failed to validate cluster detail", "cluster", capiCluster.Name, "error", err)
+		return api.ClusterDetailInfo{}, fmt.Errorf("failed to validate cluster detail, err: %w", err)
 	}
 
 	return clusterDetailInfo, nil

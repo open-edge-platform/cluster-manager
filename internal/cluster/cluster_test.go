@@ -93,7 +93,7 @@ func TestNodes(t *testing.T) {
 	assert.NoError(t, err)
 
 	// test
-	nodes, err := cluster.Nodes(context.Background(), cli, c)
+	nodes, err := cluster.GetNodes(context.Background(), cli, c)
 	assert.NoError(t, err)
 	if diff := cmp.Diff(nodes, expectedNode); diff != "" {
 		t.Errorf("Nodes() mismatch (-want +got):\n%s", diff)
@@ -104,7 +104,7 @@ func TestTemplate(t *testing.T) {
 	expectedTemplate := "test-template"
 	c := &capi.Cluster{Spec: capi.ClusterSpec{Topology: &capi.Topology{Class: expectedTemplate}}}
 
-	template := cluster.Template(c)
+	template := cluster.GetTemplate(c)
 	if template != expectedTemplate {
 		t.Errorf("Expected %s, got %s", expectedTemplate, template)
 	}
