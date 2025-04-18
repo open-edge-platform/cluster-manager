@@ -297,17 +297,17 @@ helm-test: ## Template the charts.
 .PHONY: helm-build
 helm-build: ## Package helm charts.
 	mkdir -p $(BUILD_DIR)
+	yq eval -i '.clusterManager.image.tag = "${VERSION}"' deployment/charts/cluster-manager/values.yaml
+	yq eval -i '.templateController.image.tag = "${VERSION}"' deployment/charts/cluster-manager/values.yaml
 	for d in $(HELM_DIRS); do \
 		yq eval -i '.version = "${HELM_VERSION}"' $$d/Chart.yaml; \
 		yq eval -i '.appVersion = "${VERSION}"' $$d/Chart.yaml; \
 		yq eval -i '.annotations.revision = "${LABEL_REVISION}"' $$d/Chart.yaml; \
 		yq eval -i '.annotations.created = "${LABEL_CREATED}"' $$d/Chart.yaml; \
-		yq eval -i '.clusterManager.image.tag = "${VERSION}"' $$d/values.yaml; \
-		yq eval -i '.templateController.image.tag = "${VERSION}"' $$d/values.yaml; \
 		helm package --app-version=${VERSION} --version=${HELM_VERSION} --debug -u $$d -d $(BUILD_DIR); \
 	done
-	# revert the temporary changes done in Chart.yaml
-	git checkout deployment/charts/cluster-template-crd/Chart.yaml deployment/charts/cluster-manager/Chart.yaml
+	# revert the temporary changes done in charts
+	git checkout deployment/charts/cluster-template-crd/Chart.yaml deployment/charts/cluster-manager/Chart.yaml deployment/charts/cluster-manager/values.yaml
 
 .PHONY: helm-list
 helm-list:
