@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"regexp"
-	"strings"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/cluster"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
@@ -54,7 +53,7 @@ func (s *Server) GetV2ClustersName(ctx context.Context, request api.GetV2Cluster
 
 	cluster, err := s.getCluster(ctx, activeProjectID, name)
 	if err != nil {
-		if strings.Contains(err.Error(), k8s.ErrClusterNotFound.Error()) {
+		if errors.Unwrap(err) == k8s.ErrClusterNotFound {
 			return api.GetV2ClustersName404JSONResponse{
 				N404NotFoundJSONResponse: api.N404NotFoundJSONResponse{
 					Message: ptr(err.Error()),
