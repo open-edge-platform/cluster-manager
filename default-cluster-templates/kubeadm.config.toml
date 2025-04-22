@@ -1,0 +1,47 @@
+# This is the configuration file added to the default templates in the spec.files.content field.
+# To update the cluster template, make sure you have the following tools installed in your environment:
+#  - grep (https://www.gnu.org/software/grep/)
+#  - jo   (https://github.com/jpmens/jo)
+#  - jq   (https://jqlang.org/)
+#  - sed  (https://www.gnu.org/software/sed/)
+# The string in the template can be created from this file using the following command:
+#   jo content="$(grep -v '^#' kubeadm.config.toml)"|sed 's/\\"/\\\\\\\"/g'|jq .content
+# The result can then be pasted into the template files as the "content".
+# The "sed" command performs triple backslashing of quotes, which seems to be required.
+cat <<EOF >> /etc/containerd/config.toml
+
+[plugins."io.containerd.internal.v1.opt"]
+  path = "/var/lib/rancher/rke2/agent/containerd"
+
+[plugins."io.containerd.grpc.v1.cri"]
+  stream_server_address = "127.0.0.1"
+  stream_server_port = "10010"
+  enable_selinux = false
+  enable_unprivileged_ports = true
+  enable_unprivileged_icmp = true
+  sandbox_image = "index.docker.io/rancher/mirrored-pause:3.6"
+  disable_apparmor = true
+
+[plugins."io.containerd.grpc.v1.cri".containerd]
+  snapshotter = "overlayfs"
+  disable_snapshot_annotations = true
+
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+  runtime_type = "io.containerd.runc.v2"
+
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+  SystemdCgroup = true
+
+[plugins."io.containerd.grpc.v1.cri".registry]
+  config_path = "/var/lib/rancher/rke2/agent/etc/containerd/certs.d"
+
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-qemu]
+  runtime_type = "io.containerd.kata-qemu.v2"
+  runtime_path = "/opt/kata/bin/containerd-shim-kata-v2"
+  privileged_without_host_devices = true
+  pod_annotations = ["io.katacontainers.*"]
+
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-qemu.options]
+  ConfigPath = "/opt/kata/share/defaults/kata-containers/configuration-qemu.toml"
+
+EOF
