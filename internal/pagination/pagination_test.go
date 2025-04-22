@@ -18,7 +18,7 @@ func checkFilters(t *testing.T, filters []*Filter, wantedFieldList string, wante
 
 	assert.Len(t, filters, len(wantedFields))
 	for i := range wantedFields {
-		assert.Equal(t, wantedFields[i], filters[i].Name)
+		assert.Equal(t, wantedFields[i], filters[i].Key)
 		assert.Equal(t, wantedValues[i], filters[i].Value)
 	}
 }

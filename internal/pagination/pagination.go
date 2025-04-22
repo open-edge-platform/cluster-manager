@@ -16,7 +16,7 @@ import (
 )
 
 type Filter struct {
-	Name  string
+	Key   string
 	Value string
 }
 
@@ -28,6 +28,7 @@ type OrderBy struct {
 type orderFunc[T any] func(item1, item2 T, orderBy *OrderBy) bool
 
 var normalizeEqualsRe = regexp.MustCompile(`[ \t]*=[ \t]*`)
+var normalizeSpacesRe = regexp.MustCompile(` +`)
 
 // ParseFilter parses the given filter string and returns a list of Filter
 // If any error is encountered, an nil Filter slice and non-nil error is returned
@@ -35,20 +36,22 @@ func parseFilter(filterParameter string) ([]*Filter, bool, error) {
 	if filterParameter == "" {
 		return nil, false, nil
 	}
+
 	// Replace the matched pattern in regexp 'normalizeEqualsRe' with just '=' (basically the spaces and tabs are removed)
 	normalizedFilterParameter := normalizeEqualsRe.ReplaceAllString(filterParameter, "=")
+	normalizedFilter := normalizeSpacesRe.ReplaceAllString(normalizedFilterParameter, " ")
 
-	// Now split the string with space as delimiter. Note that there could be a 'OR' predicate with on or
+	// Now split the string with space as delimiter. Note that there could be an 'OR' predicate with one or
 	// more space on either side of it
 	// Consider this example 'f1=v1 OR f2=v2 OR f3=v3'.
-	// After below step, the 'elements' contains ["f1=v1", "OR",  "f2=v2", "OR", "f3=v3"]
-	elements := strings.Split(normalizedFilterParameter, " ")
+	// After below step, the 'elements' contains ["f1=v1", "OR", "f2=v2", "OR", "f3=v3"]
+	elements := strings.Split(normalizedFilter, " ")
 
 	var filters []*Filter
 	var currentFilter *Filter
 	useAnd := false
 
-	// Now parse each element and make a list of all 'name=value' filters
+	// Parse each element and make a list of all 'key=value' filters
 	for index, element := range elements {
 		switch {
 		case strings.Contains(element, "="):
@@ -57,10 +60,7 @@ func parseFilter(filterParameter string) ([]*Filter, bool, error) {
 				// Error condition - too many equals
 				return nil, false, fmt.Errorf("filter: invalid filter request: %s", elements)
 			}
-			currentFilter = &Filter{
-				Name:  selectors[0],
-				Value: selectors[1],
-			}
+			currentFilter = &Filter{selectors[0], selectors[1]}
 		case element == "OR":
 			if currentFilter == nil || index == len(elements)-1 {
 				return nil, false, fmt.Errorf("filter: invalid filter request: %s", elements)
@@ -289,14 +289,10 @@ func ValidateParams(params any) (pageSize, offset *int, orderBy, filter *string,
 	return pageSize, offset, orderBy, filter, nil
 }
 
-// MatchWildcard checks if the target string starts with the prefix derived from the pattern.
-func MatchWildcard(target *string, pattern string) bool {
+// MatchPrefix checks if the target string starts with the prefix derived from the pattern.
+func MatchPrefix(target *string, pattern string) bool {
 	if target == nil {
 		return false
 	}
-	if strings.HasSuffix(pattern, "*") {
-		prefix := strings.TrimSuffix(pattern, "*")
-		return strings.HasPrefix(*target, prefix)
-	}
-	return *target == pattern
+	return strings.HasPrefix(*target, pattern)
 }

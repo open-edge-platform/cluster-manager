@@ -156,18 +156,18 @@ func (s *Server) convertClusters(ctx context.Context, namespace string, unstruct
 }
 
 func filterClusters(cluster api.ClusterInfo, filter *Filter) bool {
-	switch filter.Name {
+	switch filter.Key {
 	case "name":
-		return MatchWildcard(cluster.Name, filter.Value)
+		return MatchPrefix(cluster.Name, filter.Value)
 	case "kubernetesVersion":
-		return MatchWildcard(cluster.KubernetesVersion, filter.Value)
+		return MatchPrefix(cluster.KubernetesVersion, filter.Value)
 	case "providerStatus":
 		if cluster.ProviderStatus != nil {
-			return MatchWildcard(cluster.ProviderStatus.Message, filter.Value)
+			return MatchPrefix(cluster.ProviderStatus.Message, filter.Value)
 		}
 	case "lifecyclePhase":
 		if cluster.LifecyclePhase != nil {
-			return MatchWildcard(cluster.LifecyclePhase.Message, filter.Value)
+			return MatchPrefix(cluster.LifecyclePhase.Message, filter.Value)
 		}
 	default:
 		return false
@@ -201,4 +201,3 @@ func orderClustersBy(cluster1, cluster2 api.ClusterInfo, orderBy *OrderBy) bool 
 		return false
 	}
 }
-
