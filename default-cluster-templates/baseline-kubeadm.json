@@ -62,15 +62,6 @@
             "postKubeadmCommands": [
                 "kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/calico.yaml"
             ],
-            "privateRegistriesConfig": {
-              "mirrors": {
-                "rs-proxy.rs-proxy.svc.cluster.local:8443": {
-                  "endpoint": [
-                    "https://localhost.internal:9443"
-                  ]
-                }
-              }
-            },
             "nodeDrainTimeout": "2m",
             "rolloutStrategy": {
               "type": "RollingUpdate",
