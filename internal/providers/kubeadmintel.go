@@ -62,7 +62,7 @@ func (k kubeadmintel) AlterClusterClass(cc *v1beta1.ClusterClass) {
 				{
 					Selector: capiv1beta1.PatchSelector{
 						APIVersion: "controlplane.cluster.x-k8s.io/v1beta1",
-						Kind:       RKE2ControlPlaneTemplate,
+						Kind:       KubeadmControlPlaneTemplate,
 						MatchResources: capiv1beta1.PatchSelectorMatch{
 							ControlPlane: true,
 						},
