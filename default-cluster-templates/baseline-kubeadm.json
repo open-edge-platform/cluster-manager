@@ -59,7 +59,9 @@
               "mkdir -p /etc/systemd/system/rke2-server.service.d",
               "echo '[Service]\nEnvironmentFile=/etc/environment' > /etc/systemd/system/rke2-server.service.d/override.conf"
             ],
-  
+            "postKubeadmCommands": [
+                "kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/calico.yaml"
+            ],
             "privateRegistriesConfig": {
               "mirrors": {
                 "rs-proxy.rs-proxy.svc.cluster.local:8443": {
