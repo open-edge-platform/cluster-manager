@@ -55,9 +55,7 @@
               }
             },
             "preKubeadmCommands": [
-              "/usr/local/bin/append-containerd-config.sh",
-              "mkdir -p /etc/systemd/system/rke2-server.service.d",
-              "echo '[Service]\nEnvironmentFile=/etc/environment' > /etc/systemd/system/rke2-server.service.d/override.conf"
+              "/usr/local/bin/append-containerd-config.sh"
             ],
             "postKubeadmCommands": [
                 "kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/calico.yaml"
