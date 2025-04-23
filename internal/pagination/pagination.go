@@ -53,6 +53,7 @@ func parseFilter(filterParameter string) ([]*Filter, bool, error) {
 	if filterParameter == "" {
 		return nil, false, nil
 	}
+
 	// Replace the matched pattern in regexp 'normalizeEqualsRe' with just '=' (basically the spaces and tabs are removed)
 	normalizedFilterParameter := normalizeEqualsRe.ReplaceAllString(filterParameter, "=")
 
@@ -73,7 +74,7 @@ func parseFilter(filterParameter string) ([]*Filter, bool, error) {
 			selectors := strings.Split(element, "=")
 			if currentFilter != nil || len(selectors) != 2 || selectors[0] == "" || selectors[1] == "" {
 				// Error condition - too many equals
-				return nil, false, fmt.Errorf("filter: invalid filter request: %s", elements)
+				return nil, false, fmt.Errorf("filter: invalid filter request (=): %s", elements)
 			}
 			currentFilter = &Filter{
 				Name:  selectors[0],
@@ -81,13 +82,13 @@ func parseFilter(filterParameter string) ([]*Filter, bool, error) {
 			}
 		case element == "OR":
 			if currentFilter == nil || index == len(elements)-1 {
-				return nil, false, fmt.Errorf("filter: invalid filter request: %s", elements)
+				return nil, false, fmt.Errorf("filter: invalid filter request (OR): %s", elements)
 			}
 			filters = append(filters, currentFilter)
 			currentFilter = nil
 		case element == "AND":
 			if currentFilter == nil || index == len(elements)-1 {
-				return nil, false, fmt.Errorf("filter: invalid filter request: %s", elements)
+				return nil, false, fmt.Errorf("filter: invalid filter request (AND): %s", elements)
 			}
 			filters = append(filters, currentFilter)
 			currentFilter = nil
@@ -116,6 +117,7 @@ func parseOrderBy(orderByParameter string) ([]*OrderBy, error) {
 	if orderByParameter == "" {
 		return nil, nil
 	}
+
 	// orderBy commands should be separated by ',' if there are more than one.
 	// Split them by ',' delimiter.
 	elements := strings.Split(orderByParameter, ",")
@@ -128,6 +130,7 @@ func parseOrderBy(orderByParameter string) ([]*OrderBy, error) {
 		if len(direction) == 0 || len(direction) > 2 {
 			return nil, errors.New("invalid order by: " + element)
 		}
+
 		if len(direction) == 2 {
 			switch direction[1] {
 			case "asc":
@@ -135,7 +138,7 @@ func parseOrderBy(orderByParameter string) ([]*OrderBy, error) {
 			case "desc":
 				descending = true
 			default:
-				return nil, errors.New("invalid order by: " + element)
+				return nil, errors.New("invalid order by direction: " + element)
 			}
 		}
 		orderBys = append(orderBys, &OrderBy{
@@ -167,6 +170,7 @@ func computePageRange(pageSize int32, offset int32, totalCount int) (int, int) {
 func PaginateItems[T any](items []T, pageSize, offset int) (*[]T, error) {
 	paginatedItems, err := applyPagination(items, pageSize, offset)
 	if err != nil {
+		slog.Error("failed to apply pagination", "pageSize", pageSize, "offset", offset, "error", err)
 		return nil, err
 	}
 	return &paginatedItems, nil
@@ -183,6 +187,7 @@ func applyPagination[T any](items []T, pageSize, offset int) ([]T, error) {
 func FilterItems[T any](items []T, filter string, filterFunc func(T, *Filter) bool) ([]T, error) {
 	filters, useAnd, err := parseFilter(filter)
 	if err != nil {
+		slog.Error("failed to parse filter", "filter", filter, "error", err)
 		return nil, err
 	}
 
@@ -211,17 +216,20 @@ func FilterItems[T any](items []T, filter string, filterFunc func(T, *Filter) bo
 		}
 	}
 
+	slog.Debug("applied filter", "filter", filter, "items", filteredItems)
+
 	return filteredItems, nil
 }
 
 func OrderItems[T any](items []T, orderBy string, orderFunc func(T, T, *OrderBy) bool) ([]T, error) {
 	orderBys, err := parseOrderBy(orderBy)
 	if err != nil {
+		slog.Error("failed to parse order by", "orderBy", orderBy, "error", err)
 		return nil, err
 	}
 
 	orderedItems := applyOrderBy(items, orderBys, orderFunc)
-	slog.Debug("applied order by", "orderBy", orderBy, "orderedItems", orderedItems)
+	slog.Debug("applied order by", "orderBy", orderBy, "items", orderedItems)
 	return orderedItems, nil
 }
 
@@ -244,30 +252,23 @@ func extractParamsFields(params any) (pageSize, offset *int, orderBy, filter *st
 	case api.GetV2TemplatesParams:
 		return p.PageSize, p.Offset, p.OrderBy, p.Filter, nil
 	default:
-		return nil, nil, nil, nil, fmt.Errorf("unsupported params type")
+		return nil, nil, nil, nil, fmt.Errorf("unsupported params type: %v (%v)", p, params)
 	}
 }
 
 // ValidateParams validates the incoming parameters for pagination
 func ValidateParams(params any) (pageSize, offset *int, orderBy, filter *string, err error) {
 	pageSize, offset, orderBy, filter, err = extractParamsFields(params)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	if pageSize == nil || *pageSize <= 0 {
+	switch {
+	case err != nil:
+		return nil, nil, nil, nil, fmt.Errorf("failed to extract params fields: %w", err)
+	case pageSize == nil, *pageSize <= 0:
 		return nil, nil, nil, nil, fmt.Errorf("invalid pageSize: must be greater than 0")
-	}
-
-	if offset == nil || *offset < 0 {
+	case offset == nil, *offset < 0:
 		return nil, nil, nil, nil, fmt.Errorf("invalid offset: must be non-negative")
-	}
-
-	if orderBy == nil || *orderBy == "" {
+	case orderBy == nil, *orderBy == "":
 		return nil, nil, nil, nil, fmt.Errorf("invalid orderBy: cannot be empty")
-	}
-
-	if filter == nil || *filter == "" {
+	case filter == nil, *filter == "":
 		return nil, nil, nil, nil, fmt.Errorf("invalid filter: cannot be empty")
 	}
 
@@ -276,7 +277,7 @@ func ValidateParams(params any) (pageSize, offset *int, orderBy, filter *string,
 		orderBy = convert.Ptr(orderByParts[0] + " asc")
 	} else if len(orderByParts) == 2 {
 		if !validOrderByFields[orderByParts[0]] || (orderByParts[1] != "asc" && orderByParts[1] != "desc") {
-			return nil, nil, nil, nil, fmt.Errorf("invalid orderBy field")
+			return nil, nil, nil, nil, fmt.Errorf("invalid orderBy field: %s", *orderBy)
 		}
 	}
 
@@ -286,7 +287,7 @@ func ValidateParams(params any) (pageSize, offset *int, orderBy, filter *string,
 	for _, part := range filterParts {
 		subParts := strings.Split(part, "=")
 		if len(subParts) != 2 || !validFilterFields[subParts[0]] {
-			return nil, nil, nil, nil, fmt.Errorf("invalid filter field")
+			return nil, nil, nil, nil, fmt.Errorf("invalid filter field: %s", *filter)
 		}
 	}
 
