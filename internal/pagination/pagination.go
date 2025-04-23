@@ -273,7 +273,6 @@ func ValidateParams(params any) (pageSize, offset *int, orderBy, filter *string,
 			"kubernetesVersion": true,
 			"providerStatus":    true,
 			"lifecyclePhase":    true,
-			"version":           true,
 		}
 		filterParts := strings.FieldsFunc(*filter, func(r rune) bool {
 			return r == ' ' || r == 'O' || r == 'R' || r == 'A' || r == 'N' || r == 'D'

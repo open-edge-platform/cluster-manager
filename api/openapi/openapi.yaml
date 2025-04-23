@@ -37,7 +37,14 @@ paths:
           example: /v2/clusters?pageSize=20&offset=10
         - name: orderBy
           in: query
-          description: The ordering of the entries. "asc" and "desc" are valid values. If none is specified, "asc" is used.
+          description: |
+            The ordering of the entries. "asc" and "desc" are valid values. If none is specified, "asc" is used.
+
+            Supported fields:
+            - name
+            - kubernetesVersion
+            - providerStatus
+            - lifecyclePhase
           schema:
             type: string
           examples:
@@ -52,7 +59,14 @@ paths:
               description: Sorts the entries by name in ascending order as default when no order is specified.
         - name: filter
           in: query
-          description: Filters the entries based on the filter provided.
+          description: |
+            Filters the entries based on the filter provided.
+
+            Supported fields:
+            - name
+            - kubernetesVersion
+            - providerStatus
+            - lifecyclePhase
           schema:
             type: string
           examples:
