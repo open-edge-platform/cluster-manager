@@ -18,7 +18,8 @@ const (
 	roleAll             = "all"
 )
 
-func GetNodes(ctx context.Context, cli *k8s.Client, cluster *capi.Cluster) ([]api.NodeInfo, error) {
+// Nodes returns the list of nodes in the cluster.
+func Nodes(ctx context.Context, cli *k8s.Client, cluster *capi.Cluster) ([]api.NodeInfo, error) {
 	nodes := []api.NodeInfo{}
 
 	machines, err := cli.GetMachines(ctx, cluster.Namespace, cluster.Name)
@@ -39,7 +40,8 @@ func GetNodes(ctx context.Context, cli *k8s.Client, cluster *capi.Cluster) ([]ap
 	return nodes, nil
 }
 
-func GetTemplate(c *capi.Cluster) string {
+// Template returns the cluster template name.
+func Template(c *capi.Cluster) string {
 	if c == nil || c.Spec.Topology == nil {
 		return ""
 	}

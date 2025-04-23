@@ -100,13 +100,13 @@ func (s *Server) getCluster(ctx context.Context, activeProjectID, name string) (
 	labels := labels.Filter(capiCluster.Labels)
 	unstrucutreLabels := convert.MapStringToAny(labels)
 
-	nodes, err := cluster.GetNodes(ctx, cli, capiCluster)
+	nodes, err := cluster.Nodes(ctx, cli, capiCluster)
 	if err != nil {
 		slog.Error("failed to get nodes", "cluster", capiCluster.Name, "error", err)
 		return api.ClusterDetailInfo{}, fmt.Errorf("failed to get nodes, err: %w", err)
 	}
 
-	template := cluster.GetTemplate(capiCluster)
+	template := cluster.Template(capiCluster)
 	lp, errs := getClusterLifecyclePhase(capiCluster)
 	if len(errs) > 0 {
 		slog.Debug("errors while building cluster lifecycle phase", "cluster", capiCluster.Name, "errors", errs)
