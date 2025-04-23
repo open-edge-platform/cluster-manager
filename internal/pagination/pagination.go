@@ -15,6 +15,24 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 )
 
+var (
+	// validOrderByFields is a map of valid order by fields
+	validOrderByFields = map[string]bool{
+		"name":              true,
+		"kubernetesVersion": true,
+		"providerStatus":    true,
+		"lifecyclePhase":    true,
+	}
+
+	// validFilterFields is a map of valid filter fields
+	validFilterFields = map[string]bool{
+		"name":              true,
+		"kubernetesVersion": true,
+		"providerStatus":    true,
+		"lifecyclePhase":    true,
+	}
+)
+
 type Filter struct {
 	Name  string
 	Value string
@@ -245,44 +263,30 @@ func ValidateParams(params any) (pageSize, offset *int, orderBy, filter *string,
 		return nil, nil, nil, nil, fmt.Errorf("invalid offset: must be non-negative")
 	}
 
-	if orderBy != nil {
-		validOrderByFields := map[string]bool{
-			"name":              true,
-			"kubernetesVersion": true,
-			"providerStatus":    true,
-			"lifecyclePhase":    true,
-		}
-		orderByParts := strings.Split(*orderBy, " ")
-		if len(orderByParts) == 1 {
-			orderBy = convert.Ptr(orderByParts[0] + " asc")
-		} else if len(orderByParts) == 2 {
-			if !validOrderByFields[orderByParts[0]] || (orderByParts[1] != "asc" && orderByParts[1] != "desc") {
-				return nil, nil, nil, nil, fmt.Errorf("invalid orderBy field")
-			}
-		} else if *orderBy == "" {
+	if orderBy == nil || *orderBy == "" {
+		return nil, nil, nil, nil, fmt.Errorf("invalid orderBy: cannot be empty")
+	}
+
+	if filter == nil || *filter == "" {
+		return nil, nil, nil, nil, fmt.Errorf("invalid filter: cannot be empty")
+	}
+
+	orderByParts := strings.Split(*orderBy, " ")
+	if len(orderByParts) == 1 {
+		orderBy = convert.Ptr(orderByParts[0] + " asc")
+	} else if len(orderByParts) == 2 {
+		if !validOrderByFields[orderByParts[0]] || (orderByParts[1] != "asc" && orderByParts[1] != "desc") {
 			return nil, nil, nil, nil, fmt.Errorf("invalid orderBy field")
 		}
 	}
 
-	if filter != nil {
-		if *filter == "" {
-			return nil, nil, nil, nil, fmt.Errorf("invalid filter: cannot be empty")
-		}
-		validFilterFields := map[string]bool{
-			"name":              true,
-			"kubernetesVersion": true,
-			"providerStatus":    true,
-			"lifecyclePhase":    true,
-			"version":           true,
-		}
-		filterParts := strings.FieldsFunc(*filter, func(r rune) bool {
-			return r == ' ' || r == 'O' || r == 'R' || r == 'A' || r == 'N' || r == 'D'
-		})
-		for _, part := range filterParts {
-			subParts := strings.Split(part, "=")
-			if len(subParts) != 2 || !validFilterFields[subParts[0]] {
-				return nil, nil, nil, nil, fmt.Errorf("invalid filter field")
-			}
+	filterParts := strings.FieldsFunc(*filter, func(r rune) bool {
+		return r == ' ' || r == 'O' || r == 'R' || r == 'A' || r == 'N' || r == 'D'
+	})
+	for _, part := range filterParts {
+		subParts := strings.Split(part, "=")
+		if len(subParts) != 2 || !validFilterFields[subParts[0]] {
+			return nil, nil, nil, nil, fmt.Errorf("invalid filter field")
 		}
 	}
 
