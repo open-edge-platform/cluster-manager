@@ -15,7 +15,6 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
-	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	activeWatcher "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/apis/projectactivewatcher.edge-orchestrator.intel.com/v1"
 	watcherv1 "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/apis/projectwatcher.edge-orchestrator.intel.com/v1"
@@ -59,7 +58,7 @@ func (suite *TenancyDatamodelTestSuite) TestNewDatamodelClient() {
 		name           string
 		configFunc     func() (*rest.Config, error)
 		clientSetFunc  func(*rest.Config) (*nexus.Clientset, error)
-		k8sClientFunc  func(*config.Config) (*k8s.Client, error)
+		k8sClientFunc  func(opts ...func(*k8s.Client)) (*k8s.Client, error)
 		templateFunc   func() ([]*v1alpha1.ClusterTemplate, error)
 		expectedErr    error
 		expectedClient bool
@@ -72,7 +71,7 @@ func (suite *TenancyDatamodelTestSuite) TestNewDatamodelClient() {
 			clientSetFunc: func(*rest.Config) (*nexus.Clientset, error) {
 				return nexus.NewFakeClient(), nil
 			},
-			k8sClientFunc: func(*config.Config) (*k8s.Client, error) {
+			k8sClientFunc: func(opts ...func(*k8s.Client)) (*k8s.Client, error) {
 				return k8s.NewClientFake(), nil
 			},
 			templateFunc: func() ([]*v1alpha1.ClusterTemplate, error) {

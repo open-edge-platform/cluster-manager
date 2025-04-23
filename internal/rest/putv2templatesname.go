@@ -72,7 +72,7 @@ func (s *Server) setDefaultTemplate(ctx context.Context, name string, version st
 
 	templateName := name + "-" + version
 	slog.Debug("checking if cluster template is already default", "schema", core.TemplateResourceSchema, "namespace", projectId, "templateName", templateName)
-	unstructuredClusterTemplate, err := s.k8sclient.Resource(core.TemplateResourceSchema).Namespace(projectId).Get(ctx, templateName, v1.GetOptions{})
+	unstructuredClusterTemplate, err := s.k8sclient.GetCached(ctx, core.TemplateResourceSchema, projectId, templateName)
 	if err != nil || unstructuredClusterTemplate == nil {
 		slog.Error("failed to get cluster template", "namespace", projectId, "templateName", templateName, "error", err)
 		if k8serrors.IsNotFound(err) {
@@ -97,9 +97,7 @@ func (s *Server) setDefaultTemplate(ctx context.Context, name string, version st
 	// Unlabel existing default cluster templates
 	labelSelector := "default=true"
 	slog.Debug("listing cluster templates to remove default label", "schema", core.TemplateResourceSchema, "namespace", projectId, "selector", labelSelector)
-	unstructuredClusterTemplatesList, err := s.k8sclient.Resource(core.TemplateResourceSchema).Namespace(projectId).List(ctx, v1.ListOptions{
-		LabelSelector: labelSelector,
-	})
+	unstructuredClusterTemplatesList, err := s.k8sclient.ListCached(ctx, core.TemplateResourceSchema, projectId, v1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		slog.Error("failed to list cluster templates", "namespace", projectId, "error", err)
 		return err
@@ -117,7 +115,7 @@ func (s *Server) setDefaultTemplate(ctx context.Context, name string, version st
 
 		delete(labels, "default")
 		item.SetLabels(labels)
-		if _, err := s.k8sclient.Resource(core.TemplateResourceSchema).Namespace(projectId).Update(ctx, &item, v1.UpdateOptions{}); err != nil {
+		if _, err := s.k8sclient.Dynamic().Resource(core.TemplateResourceSchema).Namespace(projectId).Update(ctx, &item, v1.UpdateOptions{}); err != nil {
 			errMsg := "unexpected error occurred: " + err.Error()
 			slog.Error("failed to unlabel cluster template", "namespace", projectId, "templateName", item.GetName(), "error", err)
 			return k8serrors.NewInternalError(errors.New(errMsg))
@@ -129,7 +127,7 @@ func (s *Server) setDefaultTemplate(ctx context.Context, name string, version st
 	slog.Debug("setting default cluster template", "schema", core.TemplateResourceSchema, "namespace", projectId, "templateName", templateName)
 	labels["default"] = "true"
 	unstructuredClusterTemplate.SetLabels(labels)
-	_, err = s.k8sclient.Resource(core.TemplateResourceSchema).Namespace(projectId).Update(ctx, unstructuredClusterTemplate, v1.UpdateOptions{})
+	_, err = s.k8sclient.Dynamic().Resource(core.TemplateResourceSchema).Namespace(projectId).Update(ctx, unstructuredClusterTemplate, v1.UpdateOptions{})
 	if err != nil {
 		errMsg := "unexpected error occurred: "
 		slog.Error(errMsg, "namespace", projectId, "name", templateName, "error", err)
@@ -144,7 +142,7 @@ func (s *Server) fetchAndSelectLatestVersion(ctx context.Context, templateName, 
 	slog.Debug("fetchAndSelectLatestVersion", "templateName", templateName, "namespace", namespace)
 
 	// List all templates in the namespace
-	unstructuredClusterTemplatesList, err := s.k8sclient.Resource(core.TemplateResourceSchema).Namespace(namespace).List(ctx, v1.ListOptions{})
+	unstructuredClusterTemplatesList, err := s.k8sclient.ListCached(ctx, core.TemplateResourceSchema, namespace, v1.ListOptions{})
 	if err != nil {
 		slog.Error("failed to list clusterTemplates", "namespace", namespace, "error", err)
 		return "", err

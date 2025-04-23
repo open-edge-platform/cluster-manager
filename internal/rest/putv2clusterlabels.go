@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -49,14 +48,7 @@ func (s *Server) PutV2ClustersNameLabels(ctx context.Context, request api.PutV2C
 		}, nil
 	}
 
-	cli, err := k8s.New(k8s.WithDynamicClient(s.k8sclient))
-	if err != nil {
-		message := fmt.Sprintf("failed to create k8s client: %v", err)
-		slog.Error(message)
-		return api.PutV2ClustersNameLabels500JSONResponse{N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{Message: &message}}, nil
-	}
-
-	err = cli.CreateClusterLabels(ctx, activeProjectID, clusterName, newLabels)
+	err := s.k8sclient.CreateClusterLabels(ctx, activeProjectID, clusterName, newLabels)
 
 	switch {
 	case errors.IsBadRequest(err):

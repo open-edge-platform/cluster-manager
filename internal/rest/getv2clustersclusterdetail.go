@@ -39,7 +39,7 @@ func (s *Server) GetV2ClustersNodeIdClusterdetail(ctx context.Context, request a
 func (s *Server) getClusterDetails(ctx context.Context, activeProjectID, nodeId string) (api.ClusterDetailInfo, error) {
 	// retrieve cluster using node id and populate detail info with it
 	// get capi machine object using ID and link it to cluster
-	unstructuredMachines, err := s.k8sclient.Resource(core.MachineResourceSchema).Namespace(activeProjectID).List(ctx, v1.ListOptions{})
+	unstructuredMachines, err := s.k8sclient.ListCached(ctx, core.MachineResourceSchema, activeProjectID, v1.ListOptions{})
 	if unstructuredMachines == nil || len(unstructuredMachines.Items) == 0 {
 		slog.Error("failed to get machine", "namespace", activeProjectID, "ID", nodeId, "error", err)
 		return api.ClusterDetailInfo{}, fmt.Errorf("machine not found")

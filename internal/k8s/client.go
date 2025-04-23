@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8sLabels "k8s.io/apimachinery/pkg/labels"
 
 	backoff "github.com/cenkalti/backoff/v4"
 	intelProvider "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
 	ct "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
-	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
 	v1 "k8s.io/api/core/v1"
@@ -30,6 +30,8 @@ import (
 	"k8s.io/client-go/rest"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	dockerProvider "sigs.k8s.io/cluster-api/test/infrastructure/docker/api/v1beta1"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+    "k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -79,7 +81,6 @@ var (
 		Version:  intelProvider.GroupVersion.Version,
 		Resource: "intelmachines",
 	}
-
 	DockerMachineResourceSchema = schema.GroupVersionResource{
 		Group:    "infrastructure.cluster.x-k8s.io",
 		Version:  "v1beta1",
@@ -87,20 +88,174 @@ var (
 	}
 )
 
-type Client struct {
-	Dyn dynamic.Interface
+type Client interface {
+    StartInformers(ctx context.Context, resources []schema.GroupVersionResource) error
+    GetCached(ctx context.Context, resourceSchema schema.GroupVersionResource, namespace, name string) (*unstructured.Unstructured, error)
+    ListCached(ctx context.Context, resourceSchema schema.GroupVersionResource, namespace string, listOptions metav1.ListOptions) (*unstructured.UnstructuredList, error)
+    CreateNamespace(ctx context.Context, name string) error
+    DeleteNamespace(ctx context.Context, namespace string) error
+    CreateTemplate(ctx context.Context, namespace string, template *ct.ClusterTemplate) error
+    CreateCluster(ctx context.Context, namespace string, cluster capi.Cluster) (string, error)
+    DeleteClusters(ctx context.Context, namespace string) error
+    DeleteTemplates(ctx context.Context, namespace string) error
+    CreateClusterLabels(ctx context.Context, namespace string, clusterName string, newLabels map[string]string) error
+    CreateTemplateLabels(ctx context.Context, namespace string, templateName string, newLabels map[string]string) error
+    DefaultTemplate(ctx context.Context, namespace string) (ct.ClusterTemplate, error)
+    Templates(ctx context.Context, namespace string) ([]ct.ClusterTemplate, error)
+    Template(ctx context.Context, namespace, name string) (ct.ClusterTemplate, error)
+    GetCluster(ctx context.Context, namespace, name string) (*capi.Cluster, error)
+    GetMachines(ctx context.Context, namespace, clusterName string) ([]capi.Machine, error)
+    CreateMachineBinding(ctx context.Context, namespace string, binding intelProvider.IntelMachineBinding) error
+    IntelMachines(ctx context.Context, namespace, clusterName string) ([]intelProvider.IntelMachine, error)
+    DockerMachines(ctx context.Context, namespace, clusterName string) ([]dockerProvider.DockerMachine, error)
+    IntelMachine(ctx context.Context, namespace, providerMachineName string) (intelProvider.IntelMachine, error)
+    DockerMachine(ctx context.Context, namespace, providerMachineName string) (dockerProvider.DockerMachine, error)
+	Dynamic() dynamic.Interface
 }
 
-func New(opts ...func(*Client)) (*Client, error) {
-	client := &Client{}
-	for _, opt := range opts {
-		opt(client)
+type ManagerClient struct {
+    Dyn       dynamic.Interface
+    Informers dynamicinformer.DynamicSharedInformerFactory
+}
+
+// New creates a new Client with optional configurations.
+func New(opts ...func(*ManagerClient)) (*ManagerClient, error) {
+    client := &ManagerClient{}
+    for _, opt := range opts {
+        opt(client)
+    }
+	if client.Dyn == nil {
+		return client, nil
 	}
-	return client, nil
+    // initialize the dynamic informer factory
+    client.Informers = dynamicinformer.NewDynamicSharedInformerFactory(client.Dyn, 10*time.Minute)
+
+    // start informers (docker machines not in use yet)
+    if err := client.StartInformers(context.Background(), []schema.GroupVersionResource{
+        clusterResourceSchema,
+        templateResourceSchema,
+		bindingsResourceSchema,
+		machineResourceSchema,
+		IntelMachineResourceSchema,
+    }); err != nil {
+        return nil, fmt.Errorf("failed to start informers: %w", err)
+    }
+
+    return client, nil
+}
+// Dynamic allows access to the dynamic client for write operations
+func (cli *ManagerClient) Dynamic() dynamic.Interface {
+	return cli.Dyn
+}
+// StartInformers starts all informers and waits for their caches to sync.
+func (cli *ManagerClient) StartInformers(ctx context.Context, resources []schema.GroupVersionResource) error {
+    slog.Info("starting informers")
+	if cli.Dyn == nil {
+		return fmt.Errorf("dynamic client is not initialized")
+	}
+    // create informers for the specified resources
+    syncFuncs := []cache.InformerSynced{}
+    for _, resource := range resources {
+		slog.Info("starting informer for resource", "resource", resource)
+        informer := cli.Informers.ForResource(resource).Informer()
+        go informer.Run(ctx.Done())
+        syncFuncs = append(syncFuncs, informer.HasSynced)
+    }
+
+    // wait for all caches to sync
+    if !cache.WaitForCacheSync(ctx.Done(), syncFuncs...) {
+        return fmt.Errorf("failed to sync caches")
+    }
+    slog.Info("informers started and caches synced")
+    return nil
 }
 
-func WithInClusterConfig() func(*Client) {
-	return func(cli *Client) {
+// GetCached retrieves an object from the informer cache or falls back to the API if not found.
+func (cli *ManagerClient) GetCached(ctx context.Context, resourceSchema schema.GroupVersionResource, namespace, name string) (*unstructured.Unstructured, error) {
+    informer := cli.Informers.ForResource(resourceSchema).Informer()
+
+    // wait for the cache to sync before accessing it
+    if !cache.WaitForCacheSync(ctx.Done(), informer.HasSynced) {
+        return nil, fmt.Errorf("cache not synced for resource: %v", resourceSchema.Resource)
+    }
+
+    // attempt to retrieve the object from the cache
+    key := name
+    if namespace != "" {
+        key = fmt.Sprintf("%s/%s", namespace, name)
+    }
+    obj, exists, err := informer.GetStore().GetByKey(key)
+    if err != nil {
+        return nil, fmt.Errorf("error retrieving object from cache: %w", err)
+    }
+    if !exists {
+        slog.Info("cache miss, falling back to API", "key", key)
+        return cli.Dyn.Resource(resourceSchema).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+    }
+
+    return obj.(*unstructured.Unstructured), nil
+}
+
+// ListCached retrieves a list of objects from the informer cache or falls back to the API if not found.
+func (cli *ManagerClient) ListCached(ctx context.Context, resourceSchema schema.GroupVersionResource, namespace string, listOptions metav1.ListOptions) (*unstructured.UnstructuredList, error) {
+    informer := cli.Informers.ForResource(resourceSchema).Informer()
+
+    // Wait for the cache to sync before accessing it
+    if !cache.WaitForCacheSync(ctx.Done(), informer.HasSynced) {
+        return nil, fmt.Errorf("cache not synced for resource: %v", resourceSchema.Resource)
+    }
+
+    // Attempt to retrieve the objects from the cache
+    var filteredObjects []unstructured.Unstructured
+    items := informer.GetStore().List()
+    for _, item := range items {
+        obj := item.(*unstructured.Unstructured)
+
+        // Filter by namespace if provided
+        if namespace != "" && obj.GetNamespace() != namespace {
+            continue
+        }
+
+        // Apply label selector filtering
+        if listOptions.LabelSelector != "" {
+			parsedSelector, parseErr := metav1.ParseToLabelSelector(listOptions.LabelSelector)
+			if parseErr != nil {
+				return nil, fmt.Errorf("invalid label selector: %w", parseErr)
+			}
+			selector, err := metav1.LabelSelectorAsSelector(parsedSelector)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert label selector: %w", err)
+			}
+            if err != nil {
+                return nil, fmt.Errorf("invalid label selector: %w", err)
+            }
+            if !selector.Matches(k8sLabels.Set(obj.GetLabels())) {
+                continue
+            }
+        }
+
+        filteredObjects = append(filteredObjects, *obj)
+    }
+
+    // If no objects are found in the cache, fall back to the API
+    if len(filteredObjects) == 0 {
+        slog.Info("cache miss, falling back to API", "resource", resourceSchema.Resource, "namespace", namespace)
+        unstructuredList, err := cli.Dyn.Resource(resourceSchema).Namespace(namespace).List(ctx, listOptions)
+        if err != nil {
+            return nil, fmt.Errorf("error retrieving objects from API: %w", err)
+        }
+        return unstructuredList, nil
+    }
+
+    // Convert the filtered objects into an UnstructuredList
+    unstructuredList := &unstructured.UnstructuredList{
+        Items: filteredObjects,
+    }
+    return unstructuredList, nil
+}
+
+func WithInClusterConfig() func(*ManagerClient) {
+	return func(cli *ManagerClient) {
 		cfg, err := rest.InClusterConfig()
 		if err != nil {
 			panic(fmt.Errorf("failed to get in cluster config: %w", err)) // unrecoverable error
@@ -114,7 +269,6 @@ func WithInClusterConfig() func(*Client) {
 
 		cfg.QPS = float32(qpsValue)
 		cfg.Burst = int(burstValue)
-
 		cli.Dyn, err = dynamic.NewForConfig(cfg)
 		if err != nil {
 			panic(fmt.Errorf("failed to create dynamic clientSet: %w", err)) // unrecoverable error
@@ -122,46 +276,27 @@ func WithInClusterConfig() func(*Client) {
 	}
 }
 
-func WithDynamicClient(dyn dynamic.Interface) func(*Client) {
-	return func(cli *Client) {
+func WithDynamicClient(dyn dynamic.Interface) func(*ManagerClient) {
+	return func(cli *ManagerClient) {
 		cli.Dyn = dyn
 	}
 }
 
-func WithFakeClient() func(*Client) {
-	return func(cli *Client) {
+func WithFakeClient() func(*ManagerClient) {
+	return func(cli *ManagerClient) {
 		cli.Dyn = fake.NewSimpleDynamicClient(runtime.NewScheme())
 	}
 }
 
-// NewClient is OBSOLETE and should not be used, use New() instead
-// TODO: refactor multitenancy to use New() instead of NewClient()
-func NewClient(cfg *config.Config) (*Client, error) {
-	k8sConfig, err := rest.InClusterConfig()
-	if err != nil {
-		slog.Error("failed to get cluster config", "error", err)
-		return nil, err
-	}
-
-	client, err := dynamic.NewForConfig(k8sConfig)
-	if err != nil {
-		slog.Error("failed to create dynamic clientSet", "error", err)
-		return nil, err
-	}
-
-	return &Client{client}, nil
-}
-
-// NewClientFake is OBSOLETE and should not be used, use New(WitFakeClient()) instead
-// TODO: refactor multitenancy to use New(WithFakeClient()) instead of NewClientFake()
-func NewClientFake() *Client {
+// // NewClientFake is OBSOLETE and should not be used, use New(WitFakeClient()) instead
+// // TODO: refactor multitenancy to use New(WithFakeClient()) instead of NewClientFake()
+func NewClientFake() *ManagerClient {
 	client := fake.NewSimpleDynamicClient(runtime.NewScheme())
-
-	return &Client{client}
+	return &ManagerClient{client, dynamicinformer.NewDynamicSharedInformerFactory(client, 0)}
 }
 
 // CreateNamespace creates a new namespace with the given name
-func (cli *Client) CreateNamespace(ctx context.Context, name string) error {
+func (cli *ManagerClient) CreateNamespace(ctx context.Context, name string) error {
 	namespaceRes := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
 	namespaceInfo := v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -184,7 +319,7 @@ func (cli *Client) CreateNamespace(ctx context.Context, name string) error {
 }
 
 // CreateTemplate creates a new template object in the given namespace
-func (cli *Client) CreateTemplate(ctx context.Context, namespace string, template *ct.ClusterTemplate) error {
+func (cli *ManagerClient) CreateTemplate(ctx context.Context, namespace string, template *ct.ClusterTemplate) error {
 	templateObject, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&template)
 	if err != nil {
 		return fmt.Errorf("failed to convert templete to unstructured object: %w", err)
@@ -196,7 +331,7 @@ func (cli *Client) CreateTemplate(ctx context.Context, namespace string, templat
 }
 
 // CreateCluster creates a new cluster object in the given namespace
-func (cli *Client) CreateCluster(ctx context.Context, namespace string, cluster capi.Cluster) (string, error) {
+func (cli *ManagerClient) CreateCluster(ctx context.Context, namespace string, cluster capi.Cluster) (string, error) {
 	unstructuredCluster, err := convert.ToUnstructured(cluster)
 	if err != nil {
 		return "", err
@@ -210,7 +345,7 @@ func (cli *Client) CreateCluster(ctx context.Context, namespace string, cluster 
 }
 
 // DeleteClusters deletes all clusters in the given namespace
-func (cli *Client) DeleteClusters(ctx context.Context, namespace string) error {
+func (cli *ManagerClient) DeleteClusters(ctx context.Context, namespace string) error {
 	deletePolicy := metav1.DeletePropagationForeground
 	deleteOptions := metav1.DeleteOptions{
 		PropagationPolicy: &deletePolicy,
@@ -220,7 +355,7 @@ func (cli *Client) DeleteClusters(ctx context.Context, namespace string) error {
 }
 
 // DeleteTemplates deletes all templates in the given namespace
-func (cli *Client) DeleteTemplates(ctx context.Context, namespace string) error {
+func (cli *ManagerClient) DeleteTemplates(ctx context.Context, namespace string) error {
 	deletePolicy := metav1.DeletePropagationForeground
 	deleteOptions := metav1.DeleteOptions{
 		PropagationPolicy: &deletePolicy,
@@ -230,7 +365,7 @@ func (cli *Client) DeleteTemplates(ctx context.Context, namespace string) error 
 }
 
 // DeleteNamespace deletes the namespace with the given name
-func (cli *Client) DeleteNamespace(ctx context.Context, namespace string) error {
+func (cli *ManagerClient) DeleteNamespace(ctx context.Context, namespace string) error {
 	namespaceRes := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
 	deletePolicy := metav1.DeletePropagationForeground
 	deleteOptions := metav1.DeleteOptions{
@@ -241,7 +376,7 @@ func (cli *Client) DeleteNamespace(ctx context.Context, namespace string) error 
 }
 
 // CreateClusterLabels creates new labels on the cluster object in the given namespace
-func (cli *Client) CreateClusterLabels(ctx context.Context, namespace string, clusterName string, newLabels map[string]string) error {
+func (cli *ManagerClient) CreateClusterLabels(ctx context.Context, namespace string, clusterName string, newLabels map[string]string) error {
 	if newLabels == nil {
 		return nil
 	}
@@ -250,7 +385,7 @@ func (cli *Client) CreateClusterLabels(ctx context.Context, namespace string, cl
 }
 
 // CreateTemplateLabels creates new labels on the template object in the given namespace
-func (cli *Client) CreateTemplateLabels(ctx context.Context, namespace string, templateName string, newLabels map[string]string) error {
+func (cli *ManagerClient) CreateTemplateLabels(ctx context.Context, namespace string, templateName string, newLabels map[string]string) error {
 	if newLabels == nil {
 		return nil
 	}
@@ -261,14 +396,14 @@ func (cli *Client) CreateTemplateLabels(ctx context.Context, namespace string, t
 // createLabels creates new labels on the resource object in the given namespace
 // It retries on transient "the object has been modified" error, which is expected when the cluster object was updated by another process after we fetched it
 // It returns an error if the operation fails after all retries
-func createLabels(ctx context.Context, cli *Client, namespace string, resourceSchema schema.GroupVersionResource, resourceName string, newLabels map[string]string) error {
+func createLabels(ctx context.Context, cli *ManagerClient, namespace string, resourceSchema schema.GroupVersionResource, resourceName string, newLabels map[string]string) error {
 	transientError := func(err error) bool {
 		tryAgainErrPattern := "the object has been modified; please apply your changes to the latest version and try again"
 		return strings.Contains(err.Error(), tryAgainErrPattern)
 	}
 
 	transaction := func() error {
-		resource, err := cli.Dyn.Resource(resourceSchema).Namespace(namespace).Get(ctx, resourceName, metav1.GetOptions{})
+		resource, err := cli.GetCached(ctx, resourceSchema, namespace, resourceName)
 		if err != nil {
 			return backoff.Permanent(err)
 		}
@@ -286,11 +421,11 @@ func createLabels(ctx context.Context, cli *Client, namespace string, resourceSc
 }
 
 // DefaultTemplate returns the default template in the given namespace
-func (cli *Client) DefaultTemplate(ctx context.Context, namespace string) (ct.ClusterTemplate, error) {
+func (cli *ManagerClient) DefaultTemplate(ctx context.Context, namespace string) (ct.ClusterTemplate, error) {
 	var template ct.ClusterTemplate
 
 	listOptions := metav1.ListOptions{LabelSelector: fmt.Sprintf("%v=%v", labels.DefaultLabelKey, labels.DefaultLabelVal)}
-	unstructuredClusterTemplatesList, err := cli.Dyn.Resource(templateResourceSchema).Namespace(namespace).List(ctx, listOptions)
+	unstructuredClusterTemplatesList, err := cli.ListCached(ctx, templateResourceSchema, namespace, listOptions)
 	if err != nil {
 		return template, err
 	}
@@ -314,10 +449,10 @@ func (cli *Client) DefaultTemplate(ctx context.Context, namespace string) (ct.Cl
 }
 
 // Templates returns all templates in the given namespace
-func (cli *Client) Templates(ctx context.Context, namespace string) ([]ct.ClusterTemplate, error) {
+func (cli *ManagerClient) Templates(ctx context.Context, namespace string) ([]ct.ClusterTemplate, error) {
 	var templates []ct.ClusterTemplate
 
-	unstructuredClusterTemplatesList, err := cli.Dyn.Resource(templateResourceSchema).Namespace(namespace).List(ctx, metav1.ListOptions{})
+	unstructuredClusterTemplatesList, err := cli.ListCached(ctx, templateResourceSchema, namespace, metav1.ListOptions{})
 	if err != nil {
 		return templates, err
 	}
@@ -335,10 +470,9 @@ func (cli *Client) Templates(ctx context.Context, namespace string) ([]ct.Cluste
 }
 
 // Template returns the template with the given name in the given namespace
-func (cli *Client) Template(ctx context.Context, namespace, name string) (ct.ClusterTemplate, error) {
+func (cli *ManagerClient) Template(ctx context.Context, namespace, name string) (ct.ClusterTemplate, error) {
 	var template ct.ClusterTemplate
-
-	unstructuredTemplate, err := cli.Dyn.Resource(templateResourceSchema).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+	unstructuredTemplate, err := cli.GetCached(ctx, templateResourceSchema, namespace, name)
 	if err != nil {
 		return template, err
 	}
@@ -352,10 +486,9 @@ func (cli *Client) Template(ctx context.Context, namespace, name string) (ct.Clu
 }
 
 // GetCluster returns the cluster with the given name in the given namespace
-func (cli *Client) GetCluster(ctx context.Context, namespace, name string) (*capi.Cluster, error) {
+func (cli *ManagerClient) GetCluster(ctx context.Context, namespace, name string) (*capi.Cluster, error) {
 	var cluster capi.Cluster
-
-	unstructuredCluster, err := cli.Dyn.Resource(clusterResourceSchema).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+	unstructuredCluster, err := cli.GetCached(ctx, clusterResourceSchema, namespace, name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, ErrClusterNotFound
@@ -372,11 +505,11 @@ func (cli *Client) GetCluster(ctx context.Context, namespace, name string) (*cap
 }
 
 // GetMachines returns the machine with the given name in the given namespace for the given cluster
-func (cli *Client) GetMachines(ctx context.Context, namespace, clusterName string) ([]capi.Machine, error) {
+func (cli *ManagerClient) GetMachines(ctx context.Context, namespace, clusterName string) ([]capi.Machine, error) {
 	var machines []capi.Machine
 
 	opts := metav1.ListOptions{LabelSelector: fmt.Sprintf("cluster.x-k8s.io/cluster-name=%v", clusterName)}
-	unstructuredMachinesList, err := cli.Dyn.Resource(machineResourceSchema).Namespace(namespace).List(ctx, opts)
+	unstructuredMachinesList, err := cli.ListCached(ctx, machineResourceSchema, namespace, opts)
 	if err != nil {
 		return machines, err
 	}
@@ -394,7 +527,7 @@ func (cli *Client) GetMachines(ctx context.Context, namespace, clusterName strin
 }
 
 // CreateMachineBinding creates a new machine binding object in the given namespace
-func (cli *Client) CreateMachineBinding(ctx context.Context, namespace string, binding intelProvider.IntelMachineBinding) error {
+func (cli *ManagerClient) CreateMachineBinding(ctx context.Context, namespace string, binding intelProvider.IntelMachineBinding) error {
 	unstructuredBinding, err := convert.ToUnstructured(binding)
 	if err != nil {
 		return err
@@ -405,21 +538,21 @@ func (cli *Client) CreateMachineBinding(ctx context.Context, namespace string, b
 }
 
 // IntelMachines returns all IntelMachine objects in the given namespace for the given cluster
-func (cli *Client) IntelMachines(ctx context.Context, namespace, clusterName string) ([]intelProvider.IntelMachine, error) {
+func (cli *ManagerClient) IntelMachines(ctx context.Context, namespace, clusterName string) ([]intelProvider.IntelMachine, error) {
 	return providerMachines[intelProvider.IntelMachine](ctx, cli, namespace, clusterName, IntelMachineResourceSchema)
 }
 
 // DockerMachines returns all DockerMachine objects in the given namespace for the given cluster
-func (cli *Client) DockerMachines(ctx context.Context, namespace, clusterName string) ([]dockerProvider.DockerMachine, error) {
+func (cli *ManagerClient) DockerMachines(ctx context.Context, namespace, clusterName string) ([]dockerProvider.DockerMachine, error) {
 	return providerMachines[dockerProvider.DockerMachine](ctx, cli, namespace, clusterName, DockerMachineResourceSchema)
 }
 
 // providerMachines returns the provider machines in the given namespace for the given cluster
-func providerMachines[T any](ctx context.Context, cli *Client, namespace, clusterName string, providerSchema schema.GroupVersionResource) ([]T, error) {
+func providerMachines[T any](ctx context.Context, cli *ManagerClient, namespace, clusterName string, providerSchema schema.GroupVersionResource) ([]T, error) {
 	var machines []T
 
 	opts := metav1.ListOptions{LabelSelector: fmt.Sprintf("cluster.x-k8s.io/cluster-name=%v", clusterName)}
-	unstructuredMachinesList, err := cli.Dyn.Resource(providerSchema).Namespace(namespace).List(ctx, opts)
+	unstructuredMachinesList, err := cli.ListCached(ctx, providerSchema, namespace, opts)
 	if err != nil {
 		return machines, err
 	}
@@ -437,20 +570,19 @@ func providerMachines[T any](ctx context.Context, cli *Client, namespace, cluste
 }
 
 // IntelMachine returns the IntelMachine with the given name in the given namespace for the given cluster
-func (cli *Client) IntelMachine(ctx context.Context, namespace, providerMachineName string) (intelProvider.IntelMachine, error) {
+func (cli *ManagerClient) IntelMachine(ctx context.Context, namespace, providerMachineName string) (intelProvider.IntelMachine, error) {
 	return providerMachine[intelProvider.IntelMachine](ctx, cli, namespace, providerMachineName, IntelMachineResourceSchema)
 }
 
 // DockerMachine returns the DockerMachine with the given name in the given namespace for the given cluster
-func (cli *Client) DockerMachine(ctx context.Context, namespace, providerMachineName string) (dockerProvider.DockerMachine, error) {
+func (cli *ManagerClient) DockerMachine(ctx context.Context, namespace, providerMachineName string) (dockerProvider.DockerMachine, error) {
 	return providerMachine[dockerProvider.DockerMachine](ctx, cli, namespace, providerMachineName, DockerMachineResourceSchema)
 }
 
 // providerMachine returns the provider machine with the given name in the given namespace for the given cluster
-func providerMachine[T any](ctx context.Context, cli *Client, namespace, providerMachineName string, providerSchema schema.GroupVersionResource) (T, error) {
+func providerMachine[T any](ctx context.Context, cli *ManagerClient, namespace, providerMachineName string, providerSchema schema.GroupVersionResource) (T, error) {
 	var machine T
-
-	unstructuredMachine, err := cli.Dyn.Resource(providerSchema).Namespace(namespace).Get(ctx, providerMachineName, metav1.GetOptions{})
+	unstructuredMachine, err := cli.GetCached(ctx, providerSchema, namespace, providerMachineName)
 	if err != nil {
 		return machine, err
 	}

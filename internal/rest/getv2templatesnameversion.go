@@ -19,7 +19,7 @@ func (s *Server) GetV2TemplatesNameVersions(ctx context.Context, request api.Get
 
 	// TODO: Revisit this. Field selector does not handle regex/wildcards.
 	// Gathering all templates and filtering them manually is too much time and memory consuming.
-	unstructuredClusterTemplatesList, err := s.k8sclient.Resource(core.TemplateResourceSchema).Namespace(activeProjectID).List(ctx, v1.ListOptions{})
+	unstructuredClusterTemplatesList, err := s.k8sclient.ListCached(ctx, core.TemplateResourceSchema, activeProjectID, v1.ListOptions{})
 	if err != nil {
 		slog.Error("failed to list clusterTemplates", "namespace", activeProjectID, "error", err)
 		return api.GetV2TemplatesNameVersions500JSONResponse{
