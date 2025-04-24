@@ -119,5 +119,4 @@ jobs:
       run_test: false
       run_validate_clean_folder: false
       run_docker_build: true
-      run_scan_containers: false
     secrets: inherit
