@@ -11,8 +11,10 @@ import (
 	"testing"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -23,15 +25,63 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 )
 
+var clusterStatusReady = capi.ClusterStatus{
+	Phase: string(capi.ClusterPhaseProvisioned),
+	Conditions: []capi.Condition{
+		{
+			Type:   capi.ReadyCondition,
+			Status: corev1.ConditionTrue,
+		},
+		{
+			Type:   capi.ControlPlaneReadyCondition,
+			Status: corev1.ConditionTrue,
+		},
+		{
+			Type:   capi.InfrastructureReadyCondition,
+			Status: corev1.ConditionTrue,
+		},
+	},
+}
+
+var clusterStatusInProgressControlPlane = capi.ClusterStatus{
+	Phase: string(capi.ClusterPhaseProvisioning),
+	Conditions: []capi.Condition{
+		{
+			Type:   capi.ReadyCondition,
+			Status: corev1.ConditionFalse,
+		},
+		{
+			Type:   capi.ControlPlaneReadyCondition,
+			Status: corev1.ConditionFalse,
+		},
+		{
+			Type:   capi.InfrastructureReadyCondition,
+			Status: corev1.ConditionTrue,
+		},
+	},
+}
+
 func createMockServer(t *testing.T, clusters []capi.Cluster, projectID string, options ...bool) *Server {
 	unstructuredClusters := make([]unstructured.Unstructured, len(clusters))
+	machinesList := make([]unstructured.Unstructured, len(clusters))
 	for i, cluster := range clusters {
 		unstructuredCluster, err := convert.ToUnstructured(cluster)
 		require.NoError(t, err, "convertClusterToUnstructured() error = %v, want nil")
 		unstructuredClusters[i] = *unstructuredCluster
+		machine := capi.Machine{
+			ObjectMeta: metav1.ObjectMeta{Name: cluster.Name},
+			Spec:       capi.MachineSpec{ClusterName: cluster.Name},
+			Status:     capi.MachineStatus{Phase: string(capi.MachinePhaseRunning)},
+		}
+		unstructuredMachine, err := convert.ToUnstructured(machine)
+		require.NoError(t, err, "convertClusterToUnstructured() error = %v, want nil")
+		machinesList[i] = *unstructuredMachine
 	}
 	unstructuredClusterList := &unstructured.UnstructuredList{
 		Items: unstructuredClusters,
+	}
+	unstructuredMachineList := &unstructured.UnstructuredList{
+		Items: machinesList,
 	}
 	// default is to set up k8s client and machineResource mocks
 	setupK8sMocks := true
@@ -50,12 +100,16 @@ func createMockServer(t *testing.T, clusters []capi.Cluster, projectID string, o
 		mockedk8sclient = k8s.NewMockInterface(t)
 		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
 		if mockMachineResource {
+			machineResource := k8s.NewMockResourceInterface(t)
+			machineResource.EXPECT().List(mock.Anything, metav1.ListOptions{}).Return(unstructuredMachineList, nil)
+			namespacedMachineResource := k8s.NewMockNamespaceableResourceInterface(t)
 			for _, cluster := range clusters {
-				resource.EXPECT().List(mock.Anything, metav1.ListOptions{
+				machineResource.EXPECT().List(mock.Anything, metav1.ListOptions{
 					LabelSelector: "cluster.x-k8s.io/cluster-name=" + cluster.Name,
 				}).Return(&unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}, nil).Maybe()
 			}
-			mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(nsResource).Maybe()
+			namespacedMachineResource.EXPECT().Namespace(projectID).Return(machineResource)
+			mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(namespacedMachineResource).Maybe()
 		}
 	}
 	return NewServer(mockedk8sclient)
@@ -74,6 +128,22 @@ func generateCluster(name *string, version *string) capi.Cluster {
 		ObjectMeta: metav1.ObjectMeta{Name: clusterName},
 		Spec:       capi.ClusterSpec{Topology: &capi.Topology{Version: clusterVersion}},
 		Status:     capi.ClusterStatus{Phase: string(capi.ClusterPhaseUnknown)},
+	}
+}
+
+func generateClusterWithStatus(name, version *string, status capi.ClusterStatus) capi.Cluster {
+	clusterName := ""
+	if name != nil {
+		clusterName = *name
+	}
+	clusterVersion := ""
+	if version != nil {
+		clusterVersion = *version
+	}
+	return capi.Cluster{
+		ObjectMeta: metav1.ObjectMeta{Name: clusterName},
+		Spec:       capi.ClusterSpec{Topology: &capi.Topology{Version: clusterVersion}},
+		Status:     status,
 	}
 }
 
@@ -104,7 +174,7 @@ var expectedActiveProjectID = "655a6892-4280-4c37-97b1-31161ac0b99e"
 func TestGetV2Clusters200(t *testing.T) {
 	t.Run("No Clusters", func(t *testing.T) {
 		clusters := []capi.Cluster{}
-		server := createMockServer(t, clusters, expectedActiveProjectID, true, false)
+		server := createMockServer(t, clusters, expectedActiveProjectID, true, true)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -450,6 +520,88 @@ func TestGetV2Clusters200(t *testing.T) {
 		}
 		require.Equal(t, expectedResponse, actualResponse, "GetV2Clusters() response = %v, want %v", actualResponse, expectedResponse)
 	})
+
+	t.Run("filtered clusters by conditions", func(t *testing.T) {
+		tests := []struct {
+			name           string
+			clusters       []capi.Cluster
+			filter         string
+			expectedResult api.GetV2Clusters200JSONResponse
+		}{
+			{
+				name: "filtered clusters by providerStatus",
+				clusters: []capi.Cluster{
+					generateClusterWithStatus(ptr("example-cluster-1"), ptr("v1.30.6+rke2r1"), clusterStatusReady),
+					generateClusterWithStatus(ptr("example-cluster-2"), ptr("v1.20.4+rke2r1"), clusterStatusInProgressControlPlane),
+				},
+				filter: "providerStatus=ready",
+				expectedResult: api.GetV2Clusters200JSONResponse{
+					Clusters: &[]api.ClusterInfo{
+						generateClusterInfo("example-cluster-1", "v1.30.6+rke2r1", api.STATUSINDICATIONIDLE, "active"),
+					},
+					TotalElements: 1,
+				},
+			},
+			{
+				name: "filtered clusters by lifecyclePhase",
+				clusters: []capi.Cluster{
+					generateClusterWithStatus(ptr("example-cluster-1"), ptr("v1.30.6+rke2r1"), clusterStatusReady),
+					generateClusterWithStatus(ptr("example-cluster-2"), ptr("v1.20.4+rke2r1"), clusterStatusInProgressControlPlane),
+				},
+				filter: "lifecyclePhase=active",
+				expectedResult: api.GetV2Clusters200JSONResponse{
+					Clusters: &[]api.ClusterInfo{
+						generateClusterInfo("example-cluster-1", "v1.30.6+rke2r1", api.STATUSINDICATIONIDLE, "active"),
+					},
+					TotalElements: 1,
+				},
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				server := createMockServer(t, tt.clusters, expectedActiveProjectID)
+				require.NotNil(t, server, "NewServer() returned nil, want not nil")
+
+				// Create a new request & response recorder
+				req := httptest.NewRequest("GET", "/v2/clusters?filter="+tt.filter, nil)
+				req.Header.Set("Activeprojectid", expectedActiveProjectID)
+				rr := httptest.NewRecorder()
+
+				// create a handler with middleware to serve the request
+				handler, err := server.ConfigureHandler()
+				require.Nil(t, err)
+				handler.ServeHTTP(rr, req)
+
+				// Parse the response body
+				var actualResponse api.GetV2Clusters200JSONResponse
+				err = json.Unmarshal(rr.Body.Bytes(), &actualResponse)
+				assert.NoError(t, err, "Failed to unmarshal response body")
+
+				// Check the response status
+				assert.Equal(t, http.StatusOK, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, 200)
+
+				for _, cluster := range *actualResponse.Clusters {
+					cluster.ControlPlaneReady.Message = ptr("condition not found")
+					cluster.ControlPlaneReady.Timestamp = ptr(uint64(0))
+
+					cluster.InfrastructureReady.Message = ptr("condition not found")
+					cluster.InfrastructureReady.Timestamp = ptr(uint64(0))
+
+					cluster.ProviderStatus.Indicator = statusIndicatorPtr(api.STATUSINDICATIONUNSPECIFIED)
+					cluster.ProviderStatus.Message = ptr("condition not found")
+					cluster.ProviderStatus.Timestamp = ptr(uint64(0))
+
+					cluster.NodeHealth.Timestamp = ptr(uint64(0))
+					cluster.LifecyclePhase.Timestamp = ptr(uint64(0))
+				}
+
+				// Check the response content
+				assert.Equal(t, tt.expectedResult, actualResponse, "GetV2Clusters() response = %v, want %v", actualResponse, tt.expectedResult)
+			})
+		}
+	})
+
 	t.Run("no clusters after filter criteria", func(t *testing.T) {
 		clusters := []capi.Cluster{
 			generateCluster(ptr("example-cluster-1"), ptr("v1.30.6+rke2r1")),

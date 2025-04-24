@@ -25,8 +25,6 @@ type OrderBy struct {
 	IsDesc bool
 }
 
-type filterFunc[T any] func(item T, filter *Filter) bool
-
 type orderFunc[T any] func(item1, item2 T, orderBy *OrderBy) bool
 
 var normalizeEqualsRe = regexp.MustCompile(`[ \t]*=[ \t]*`)
@@ -172,17 +170,6 @@ func FilterItems[T any](items []T, filter string, filterFunc func(T, *Filter) bo
 
 	var filteredItems []T
 	for _, item := range items {
-		if len(applyFilters([]T{item}, filters, useAnd, filterFunc)) > 0 {
-			filteredItems = append(filteredItems, item)
-		}
-	}
-
-	return filteredItems, nil
-}
-
-func applyFilters[T any](items []T, filters []*Filter, useAnd bool, filterFunc filterFunc[T]) []T {
-	filteredItems := make([]T, 0, len(items))
-	for _, item := range items {
 		if useAnd {
 			// all required filters should match
 			matchesAll := true
@@ -197,19 +184,16 @@ func applyFilters[T any](items []T, filters []*Filter, useAnd bool, filterFunc f
 			}
 		} else {
 			// at least one filter match
-			matchesAny := false
 			for _, filter := range filters {
 				if filterFunc(item, filter) {
-					matchesAny = true
+					filteredItems = append(filteredItems, item)
 					break
 				}
 			}
-			if matchesAny {
-				filteredItems = append(filteredItems, item)
-			}
 		}
 	}
-	return filteredItems
+
+	return filteredItems, nil
 }
 
 func OrderItems[T any](items []T, orderBy string, orderFunc func(T, T, *OrderBy) bool) ([]T, error) {
@@ -266,6 +250,7 @@ func ValidateParams(params any) (pageSize, offset *int, orderBy, filter *string,
 			"name":              true,
 			"kubernetesVersion": true,
 			"providerStatus":    true,
+			"lifecyclePhase":    true,
 		}
 		orderByParts := strings.Split(*orderBy, " ")
 		if len(orderByParts) == 1 {
@@ -287,6 +272,7 @@ func ValidateParams(params any) (pageSize, offset *int, orderBy, filter *string,
 			"name":              true,
 			"kubernetesVersion": true,
 			"providerStatus":    true,
+			"lifecyclePhase":    true,
 			"version":           true,
 		}
 		filterParts := strings.FieldsFunc(*filter, func(r rune) bool {
