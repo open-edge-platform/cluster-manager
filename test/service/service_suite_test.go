@@ -111,6 +111,8 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 	Context("CM is ready to serve API requests", func() {
 		var clusterName = "test-cluster"
 		var templateName string
+		var templateOnlyName string
+		var templateOnlyVersion string
 
 		It("Should return 200 and list of available templates", func() {
 			params := api.GetV2TemplatesParams{}
@@ -122,6 +124,8 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 			Expect(*resp.JSON200.TemplateInfoList).To(HaveLen(1))
 			templateInfo := resp.JSON200.DefaultTemplateInfo
 			templateName = fmt.Sprintf("%s-%v", *templateInfo.Name, templateInfo.Version)
+			templateOnlyName = *templateInfo.Name
+			templateOnlyVersion = templateInfo.Version
 		})
 
 		It("Should return 200 and empty list of clusters on /v2/clusters", func() {
@@ -234,6 +238,18 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 				fmt.Sprintf("edge-orchestrator.intel.com/project-id:%v", testTenantID.String()),
 			})
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("Should fail to delete cluster template if cluster is running", func() {
+			params := api.DeleteV2TemplatesNameVersionParams{}
+			params.Activeprojectid = testTenantID
+			resp, err := cli.DeleteV2TemplatesNameVersionWithResponse(context.Background(), templateOnlyName, templateOnlyVersion, &params)
+			Expect(err).ToNot(HaveOccurred())
+
+			// TODO: Change webhook's response to 409 Conflict
+			Expect(resp.StatusCode()).To(Equal(500))
+			Expect(resp.JSON500).ToNot(BeNil())
+			Expect(*resp.JSON500.Message).To(ContainSubstring("denied the request: clusterTemplate is in use"))
 		})
 
 		if !deleteCluster {
