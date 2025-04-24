@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -287,6 +288,14 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 			Expect(*resp.JSON200.Clusters).To(HaveLen(0))
 		})
 
+		It("Should delete cluster template if no cluster is running", func() {
+			params := api.DeleteV2TemplatesNameVersionParams{}
+			params.Activeprojectid = testTenantID
+			resp, err := cli.DeleteV2TemplatesNameVersionWithResponse(context.Background(), templateOnlyName, templateOnlyVersion, &params)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(resp.StatusCode()).To(Equal(http.StatusNoContent))
+		})
 	})
 })
 
