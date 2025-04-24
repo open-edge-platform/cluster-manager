@@ -6,9 +6,17 @@ package rest
 import (
 	"log/slog"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/metrics"
+)
+
+var (
+	ignoredPaths = []string{
+		"/v2/healthz",
+		"/v2/metrics",
+	}
 )
 
 // middleware is a function definition that wraps an http.Handler
@@ -45,23 +53,34 @@ func requestDurationMetrics(next http.Handler) http.Handler {
 
 func responseCounterMetrics(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		next.ServeHTTP(w, r)
-		metrics.HttpResponseCounter.WithLabelValues(r.Method, r.URL.Path, http.StatusText(http.StatusOK)).Inc()
+		// skip endpoints that do not require a project id
+		if slices.Contains(ignoredPaths, r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		srw := metrics.NewStatusResponseWriter(w)
+		next.ServeHTTP(srw, r)
+		metrics.HttpResponseCounter.WithLabelValues(r.Method, r.URL.Path, srw.Status()).Inc()
 	})
 }
 
 // projectIDValidator validates the project ID
 func projectIDValidator(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// ignore /v2/healthz endpoint as it doesn't require project ID
-		if r.URL.Path != "/v2/healthz" {
-			activeProjectId := r.Header.Get("Activeprojectid")
-			if activeProjectId == "" || activeProjectId == "00000000-0000-0000-0000-000000000000" {
-				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, `{"message": "no active project id provided"}`, http.StatusBadRequest)
-				return
-			}
+		// skip endpoints that do not require a project id
+		if slices.Contains(ignoredPaths, r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
 		}
+
+		activeProjectId := r.Header.Get("Activeprojectid")
+		if activeProjectId == "" || activeProjectId == "00000000-0000-0000-0000-000000000000" {
+			w.Header().Set("Content-Type", "application/json")
+			http.Error(w, `{"message": "no active project id provided"}`, http.StatusBadRequest)
+			return
+		}
+
 		next.ServeHTTP(w, r)
 	})
 }

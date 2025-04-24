@@ -117,17 +117,17 @@ func (s *Server) PostV2Clusters(ctx context.Context, request api.PostV2ClustersR
 	return api.PostV2Clusters201JSONResponse(fmt.Sprintf("successfully created cluster %s", createdClusterName)), nil
 }
 
-func fetchTemplate(ctx context.Context, cli *k8s.Client, activeProjectID string, templateName *string) (ct.ClusterTemplate, error) {
+func fetchTemplate(ctx context.Context, cli *k8s.Client, namespace string, templateName *string) (ct.ClusterTemplate, error) {
 	// template name is optional, if not provided we use default
 	var template ct.ClusterTemplate
 	var err error
 	if templateName == nil || *templateName == "" {
 		slog.Info("template name not provided, using default template")
-		if template, err = cli.DefaultTemplate(ctx, activeProjectID); err != nil {
+		if template, err = cli.DefaultTemplate(ctx, namespace); err != nil {
 			return ct.ClusterTemplate{}, err
 		}
 	} else {
-		if template, err = cli.Template(ctx, activeProjectID, *templateName); err != nil {
+		if template, err = cli.Template(ctx, namespace, *templateName); err != nil {
 			return ct.ClusterTemplate{}, err
 		}
 	}

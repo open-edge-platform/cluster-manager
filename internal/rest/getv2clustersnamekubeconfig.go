@@ -35,7 +35,7 @@ func (s *Server) GetV2ClustersNameKubeconfigs(ctx context.Context, request api.G
 
 	clusterKubeconfig, err := s.getClusterKubeconfig(ctx, namespace, request.Name)
 	if err != nil {
-		slog.Error("error", "err", err)
+		slog.Error("failed to get kubeconfig", "error", err)
 		return api.GetV2ClustersNameKubeconfigs404JSONResponse{
 			N404NotFoundJSONResponse: api.N404NotFoundJSONResponse{
 				Message: ptr(err.Error()),
@@ -45,7 +45,7 @@ func (s *Server) GetV2ClustersNameKubeconfigs(ctx context.Context, request api.G
 
 	clusterKubeconfigUpdated, err := updateKubeconfigWithTokenFunc(clusterKubeconfig, namespace, request.Name, request.Params.Authorization)
 	if err != nil {
-		slog.Error("error", "err", err)
+		slog.Error("failed to update kubeconfig with token", "error", err)
 		return api.GetV2ClustersNameKubeconfigs500JSONResponse{
 			N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{
 				Message: ptr(err.Error()),
@@ -60,38 +60,38 @@ func (s *Server) getClusterKubeconfig(ctx context.Context, namespace, clusterNam
 	if s.config == nil {
 		return kubeconfigParameters{}, fmt.Errorf("config is nil")
 	}
-	secretName := clusterName + "-kubeconfig"
 
-	unstructuredClusterSecret, err := s.k8sclient.Resource(core.SecretResourceSchema).Namespace(namespace).Get(ctx, secretName, metav1.GetOptions{})
+	unstructuredClusterSecret, err := s.k8sclient.Resource(core.SecretResourceSchema).
+		Namespace(namespace).Get(ctx, fmt.Sprintf("%s-kubeconfig", clusterName), metav1.GetOptions{})
 	if err != nil || unstructuredClusterSecret == nil {
-		msg := fmt.Sprintf("failed getting kubeconfig for cluster %s in namespace %s", clusterName, namespace)
-		return kubeconfigParameters{}, fmt.Errorf("%s", msg)
+		return kubeconfigParameters{}, fmt.Errorf("failed to get kubeconfig secret: %w", err)
 	}
 
 	dataValue, found, err := unstructured.NestedString(unstructuredClusterSecret.Object, "data", "value")
 	if err != nil || !found {
-		msg := fmt.Sprintf("failed to get kubeconfig from secret: namespace=%s, name=%s", namespace, clusterName)
-		return kubeconfigParameters{}, fmt.Errorf("%s", msg)
+		return kubeconfigParameters{}, fmt.Errorf("failed to get raw kubeconfig data from secret: %w", err)
 	}
 
 	kubeconfigBytes, err := base64.StdEncoding.DecodeString(dataValue)
 	if err != nil {
-		msg := fmt.Sprintf("failed to decode kubeconfig: namespace=%s, name=%s", namespace, clusterName)
-		return kubeconfigParameters{}, fmt.Errorf("%s", msg)
+		return kubeconfigParameters{}, fmt.Errorf("failed to decode kubeconfig data: %w", err)
 	}
 
 	var caDataInSecretValue string
 	apiServerCA, found, err := unstructured.NestedString(unstructuredClusterSecret.Object, "data", "apiServerCA")
 	if err != nil || !found {
-		slog.Warn("failed to get apiServerCA from secret", "namespace", namespace, "name", clusterName)
+		slog.Warn("failed to get apiServerCA from secret", "namespace", namespace, "name", clusterName, "error", err)
+
 		caData, err := unmarshalKubeconfig(string(kubeconfigBytes))
 		if err != nil {
 			return kubeconfigParameters{}, err
 		}
+
 		caDataInSecretValue, err = getCertificateAuthorityData(caData)
 		if err != nil {
 			return kubeconfigParameters{}, err
 		}
+
 		return kubeconfigParameters{serverCA: caDataInSecretValue, clusterDomain: s.config.ClusterDomain, userName: s.config.Username, kubeConfigDecode: string(kubeconfigBytes)}, nil
 
 	}

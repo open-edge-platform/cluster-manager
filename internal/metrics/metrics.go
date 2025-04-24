@@ -21,14 +21,6 @@ var (
 		},
 		[]string{"method", "path", "code"},
 	)
-
-	ActiveClusterGuage = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "active_cluster_count",
-			Help: "Number of active clusters",
-		},
-		[]string{"cluster_name"},
-	)
 )
 
 func GetRegistry() *prometheus.Registry {
