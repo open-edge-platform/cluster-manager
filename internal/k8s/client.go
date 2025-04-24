@@ -351,8 +351,8 @@ func (cli *Client) Template(ctx context.Context, namespace, name string) (ct.Clu
 	return template, nil
 }
 
-// Cluster returns the cluster with the given name in the given namespace
-func (cli *Client) Cluster(ctx context.Context, namespace, name string) (*capi.Cluster, error) {
+// GetCluster returns the cluster with the given name in the given namespace
+func (cli *Client) GetCluster(ctx context.Context, namespace, name string) (*capi.Cluster, error) {
 	var cluster capi.Cluster
 
 	unstructuredCluster, err := cli.Dyn.Resource(clusterResourceSchema).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
@@ -371,8 +371,8 @@ func (cli *Client) Cluster(ctx context.Context, namespace, name string) (*capi.C
 	return &cluster, nil
 }
 
-// Machines returns the machine with the given name in the given namespace for the given cluster
-func (cli *Client) Machines(ctx context.Context, namespace, clusterName string) ([]capi.Machine, error) {
+// GetMachines returns the machine with the given name in the given namespace for the given cluster
+func (cli *Client) GetMachines(ctx context.Context, namespace, clusterName string) ([]capi.Machine, error) {
 	var machines []capi.Machine
 
 	opts := metav1.ListOptions{LabelSelector: fmt.Sprintf("cluster.x-k8s.io/cluster-name=%v", clusterName)}
