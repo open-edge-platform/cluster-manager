@@ -38,7 +38,7 @@ func (s *Server) GetV2ClustersNameKubeconfigs(ctx context.Context, request api.G
 		slog.Error("failed to get kubeconfig", "error", err)
 		return api.GetV2ClustersNameKubeconfigs404JSONResponse{
 			N404NotFoundJSONResponse: api.N404NotFoundJSONResponse{
-				Message: ptr(err.Error()),
+				Message: ptr("404 Not Found: kubeconfig not found"),
 			},
 		}, nil
 	}
@@ -48,7 +48,7 @@ func (s *Server) GetV2ClustersNameKubeconfigs(ctx context.Context, request api.G
 		slog.Error("failed to update kubeconfig with token", "error", err)
 		return api.GetV2ClustersNameKubeconfigs500JSONResponse{
 			N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{
-				Message: ptr(err.Error()),
+				Message: ptr("500 Internal Server Error: failed to process kubeconfig"),
 			},
 		}, nil
 	}
@@ -68,8 +68,11 @@ func (s *Server) getClusterKubeconfig(ctx context.Context, namespace, clusterNam
 	}
 
 	dataValue, found, err := unstructured.NestedString(unstructuredClusterSecret.Object, "data", "value")
-	if err != nil || !found {
+	if err != nil {
 		return kubeconfigParameters{}, fmt.Errorf("failed to get raw kubeconfig data from secret: %w", err)
+	}
+	if !found {
+		return kubeconfigParameters{}, fmt.Errorf("kubeconfig data not found in secret")
 	}
 
 	kubeconfigBytes, err := base64.StdEncoding.DecodeString(dataValue)

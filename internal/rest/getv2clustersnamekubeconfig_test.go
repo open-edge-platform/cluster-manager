@@ -158,6 +158,7 @@ func TestGetV2ClustersNameKubeconfigs200(t *testing.T) {
 }
 
 func TestGetV2ClustersNameKubeconfigs404(t *testing.T) {
+	expected404Response := `{"message":"404 Not Found: kubeconfig not found"}`
 	tests := []struct {
 		name             string
 		clusterName      string
@@ -187,7 +188,7 @@ func TestGetV2ClustersNameKubeconfigs404(t *testing.T) {
 				mockK8sClientSetup(resource, nsResource, mockedk8sclient, "example-cluster-kubeconfig", clusterSecret, errors.NewNotFound(core.SecretResourceSchema.GroupResource(), "example-cluster-kubeconfig"))
 			},
 			expectedCode:     http.StatusNotFound,
-			expectedResponse: `{"message":"failed getting kubeconfig for cluster example-cluster in namespace 655a6892-4280-4c37-97b1-31161ac0b99e"}`,
+			expectedResponse: expected404Response,
 		},
 		{
 			name:            "no kubeconfig in secret",
@@ -200,7 +201,7 @@ func TestGetV2ClustersNameKubeconfigs404(t *testing.T) {
 				mockK8sClientSetup(resource, nsResource, mockedk8sclient, "example-cluster-kubeconfig", clusterSecret, nil)
 			},
 			expectedCode:     http.StatusNotFound,
-			expectedResponse: `{"message":"failed to get kubeconfig from secret: namespace=655a6892-4280-4c37-97b1-31161ac0b99e, name=example-cluster"}`,
+			expectedResponse: expected404Response,
 		},
 		{
 			name:            "not able to decode kubeconfig",
@@ -217,7 +218,7 @@ func TestGetV2ClustersNameKubeconfigs404(t *testing.T) {
 				mockK8sClientSetup(resource, nsResource, mockedk8sclient, "example-cluster-kubeconfig", clusterSecret, nil)
 			},
 			expectedCode:     http.StatusNotFound,
-			expectedResponse: `{"message":"failed to decode kubeconfig: namespace=655a6892-4280-4c37-97b1-31161ac0b99e, name=example-cluster"}`,
+			expectedResponse: expected404Response,
 		},
 	}
 	serverConfig := config.Config{ClusterDomain: "kind.internal", Username: "admin"}
@@ -348,7 +349,7 @@ func TestGetV2ClustersNameKubeconfigs500(t *testing.T) {
 				mockK8sClientSetup(resource, nsResource, mockedk8sclient, "demo-example-cluster-kubeconfig", clusterSecret, nil)
 			},
 			expectedCode:     http.StatusInternalServerError,
-			expectedResponse: `{"message":"failed to update kubeconfig with token"}`,
+			expectedResponse: `{"message":"500 Internal Server Error: failed to process kubeconfig"}`,
 		},
 	}
 	serverConfig := config.Config{ClusterDomain: "kind.internal", Username: "admin"}
