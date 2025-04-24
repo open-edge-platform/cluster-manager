@@ -30,7 +30,9 @@ jobs:
     - name: Check for changes
       run: |
         if [[ `git status --porcelain` ]]; then
-          echo "### Error: Changes detected after running `mage generate`" >> $GITHUB_STEP_SUMMARY
+          echo "### Error: Changes detected after running mage generate"
+          git diff
+          echo "### Error: Changes detected after running mage generate" >> $GITHUB_STEP_SUMMARY
           exit 1
         else
           echo "No changes detected - OpenAPI is up to date" >> $GITHUB_STEP_SUMMARY
