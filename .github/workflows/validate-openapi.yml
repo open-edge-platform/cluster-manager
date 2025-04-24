@@ -28,8 +28,6 @@ jobs:
         make generate-api
 
     - name: Check for changes
-      uses: open-edge-platform/orch-ci/.github/actions/bootstrap
-      needs: gitleaks
       run: |
         if [[ `git status --porcelain` ]]; then
           echo "### Error: Changes detected after running make generate-api"
