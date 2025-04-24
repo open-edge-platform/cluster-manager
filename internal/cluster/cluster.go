@@ -18,27 +18,29 @@ const (
 	roleAll             = "all"
 )
 
+// Nodes returns the list of nodes in the cluster.
 func Nodes(ctx context.Context, cli *k8s.Client, cluster *capi.Cluster) ([]api.NodeInfo, error) {
 	nodes := []api.NodeInfo{}
 
-	machines, err := cli.Machines(ctx, cluster.Namespace, cluster.Name)
+	machines, err := cli.GetMachines(ctx, cluster.Namespace, cluster.Name)
 	if err != nil {
 		return nodes, err
 	}
 
 	for _, m := range machines {
-		id, err := nodeId(ctx, cli, m)
+		id, err := getNodeId(ctx, cli, m)
 		if err != nil {
 			return nodes, err
 		}
 		role := nodeRole(m)
-		status := nodeStatus(m)
+		status := getNodeStatus(m)
 		nodes = append(nodes, api.NodeInfo{Id: &id, Role: &role, Status: &status})
 	}
 
 	return nodes, nil
 }
 
+// Template returns the cluster template name.
 func Template(c *capi.Cluster) string {
 	if c == nil || c.Spec.Topology == nil {
 		return ""
@@ -47,7 +49,7 @@ func Template(c *capi.Cluster) string {
 	return c.Spec.Topology.Class
 }
 
-func nodeStatus(machine capi.Machine) api.StatusInfo {
+func getNodeStatus(machine capi.Machine) api.StatusInfo {
 	translate := map[capi.MachinePhase]api.StatusInfoCondition{
 		// MachinePhasePending is the first state a Machine is assigned by Cluster API Machine controller after being created.
 		capi.MachinePhasePending: api.STATUSCONDITIONPROVISIONING,
@@ -77,7 +79,7 @@ func nodeStatus(machine capi.Machine) api.StatusInfo {
 	return status
 }
 
-func nodeId(ctx context.Context, cli *k8s.Client, machine capi.Machine) (string, error) {
+func getNodeId(ctx context.Context, cli *k8s.Client, machine capi.Machine) (string, error) {
 	providerMachineName := machine.Spec.InfrastructureRef.Name
 	providerMachineKind := machine.Spec.InfrastructureRef.Kind
 	switch providerMachineKind {
