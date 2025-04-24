@@ -33,7 +33,7 @@ paths:
             default: 0
             type: integer
             minimum: 0
-          description: Index of the first item to return. It is almost always used in conjunction with the 'pageSize' query.
+          description: Dummy Change to be removed. Index of the first item to return. It is almost always used in conjunction with the 'pageSize' query.
           example: /v2/clusters?pageSize=20&offset=10
         - name: orderBy
           in: query
