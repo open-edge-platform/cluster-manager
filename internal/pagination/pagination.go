@@ -22,6 +22,7 @@ var (
 		"kubernetesVersion": true,
 		"providerStatus":    true,
 		"lifecyclePhase":    true,
+		"version":           true,
 	}
 
 	// validFilterFields is a map of valid filter fields
@@ -30,6 +31,7 @@ var (
 		"kubernetesVersion": true,
 		"providerStatus":    true,
 		"lifecyclePhase":    true,
+		"version":           true,
 	}
 )
 
