@@ -132,7 +132,7 @@ templateController:
 
   # Additional command line flags to pass.
   extraArgs:
-    - "--webhook-enabled=false"
+    - "--webhook-enabled=true"
 
 
   extraEnv: []
@@ -156,7 +156,7 @@ templateController:
       labels: {}
 
 webhookService:
-  enabled: false
+  enabled: true
   type: ClusterIP
   ports:
     - name: webhook-server
