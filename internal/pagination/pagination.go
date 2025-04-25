@@ -251,6 +251,7 @@ func ValidateParams(params any) (pageSize, offset *int, orderBy, filter *string,
 			"kubernetesVersion": true,
 			"providerStatus":    true,
 			"lifecyclePhase":    true,
+			"version":           true,
 		}
 		orderByParts := strings.Split(*orderBy, " ")
 		if len(orderByParts) == 1 {
