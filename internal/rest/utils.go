@@ -432,7 +432,7 @@ func fetchMachinesList(ctx context.Context, s *Server, namespace string, cluster
 }
 
 func fetchAllMachinesList(ctx context.Context, s *Server, namespace string) ([]unstructured.Unstructured, error) {
-	unstructuredMachineList, err := s.k8sclient.Resource(core.MachineResourceSchema).Namespace(namespace).List(ctx, v1.ListOptions{})
+	unstructuredMachineList, err := s.k8sclient.ListCached(ctx, core.MachineResourceSchema, namespace, v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}

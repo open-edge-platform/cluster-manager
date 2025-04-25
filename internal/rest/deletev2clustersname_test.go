@@ -28,16 +28,20 @@ func TestDeleteV2ClustersName204(t *testing.T) {
 		name := "example-cluster"
 		activeProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
 
-		// Mock the delete cluster to succeed
-		resource := k8s.NewMockResourceInterface(t)
-		resource.EXPECT().Delete(mock.Anything, name, metav1.DeleteOptions{}).Return(nil)
-		nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-		nsResource.EXPECT().Namespace(activeProjectID).Return(resource)
-		mockedk8sclient := k8s.NewMockInterface(t)
-		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
+		// Create mock objects
+		mockResource := k8s.NewMockResourceInterface(t)
+		MockInterface := k8s.NewMockInterface(t)
+		mockNamespaceableResource := k8s.NewMockNamespaceableResourceInterface(t)
+		mockK8sClient := k8s.NewMockClient(t)
+		mockK8sClient.EXPECT().Dynamic().Return(MockInterface)
+
+		// Set up mock expectations
+		mockNamespaceableResource.EXPECT().Namespace(activeProjectID).Return(mockResource)
+		mockResource.EXPECT().Delete(mock.Anything, name, metav1.DeleteOptions{}).Return(nil)
+		MockInterface.EXPECT().Resource(core.ClusterResourceSchema).Return(mockNamespaceableResource)
 
 		// Create a new server with the mocked k8s client
-		server := NewServer(mockedk8sclient)
+		server := NewServer(mockK8sClient)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -60,11 +64,13 @@ func TestDeleteV2ClustersName400(t *testing.T) {
 	t.Run("Missing Active Project ID", func(t *testing.T) {
 		// Prepare test data
 		name := "example-cluster"
-		activeProjectID := "00000000-0000-0000-0000-000000000000"
+		activeProjectID := ""
 
-		// Create a server instance with a mock k8s client
-		mockedk8sclient := k8s.NewMockInterface(t)
-		server := NewServer(mockedk8sclient)
+		// Create mock objects
+		mockK8sClient := k8s.NewMockClient(t)
+
+		// Create a new server with the mocked k8s client
+		server := NewServer(mockK8sClient)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -91,16 +97,20 @@ func TestDeleteV2ClustersName404(t *testing.T) {
 		name := "example-cluster"
 		activeProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
 
-		// Mock the get cluster to succeed and delete cluster to fail
-		resource := k8s.NewMockResourceInterface(t)
-		resource.EXPECT().Delete(mock.Anything, name, metav1.DeleteOptions{}).Return(errors.NewNotFound(schema.GroupResource{Group: "core", Resource: "clusters"}, name))
-		nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-		nsResource.EXPECT().Namespace(activeProjectID).Return(resource)
-		mockedk8sclient := k8s.NewMockInterface(t)
-		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
+		// Create mock objects
+		mockResource := k8s.NewMockResourceInterface(t)
+		MockInterface := k8s.NewMockInterface(t)
+		mockNamespaceableResource := k8s.NewMockNamespaceableResourceInterface(t)
+		mockK8sClient := k8s.NewMockClient(t)
+		mockK8sClient.EXPECT().Dynamic().Return(MockInterface)
+
+		// Set up mock expectations
+		mockNamespaceableResource.EXPECT().Namespace(activeProjectID).Return(mockResource)
+		mockResource.EXPECT().Delete(mock.Anything, name, metav1.DeleteOptions{}).Return(errors.NewNotFound(schema.GroupResource{Group: "core", Resource: "clusters"}, name))
+		MockInterface.EXPECT().Resource(core.ClusterResourceSchema).Return(mockNamespaceableResource)
 
 		// Create a new server with the mocked k8s client
-		server := NewServer(mockedk8sclient)
+		server := NewServer(mockK8sClient)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -127,17 +137,22 @@ func TestDeleteV2ClustersName500(t *testing.T) {
 		name := "example-cluster"
 		activeProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
 
-		// Mock the get cluster to succeed and delete cluster to fail
-		resource := k8s.NewMockResourceInterface(t)
-		resource.EXPECT().Delete(mock.Anything, name, metav1.DeleteOptions{}).Return(fmt.Errorf("delete error"))
-		nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-		nsResource.EXPECT().Namespace(activeProjectID).Return(resource)
-		mockedk8sclient := k8s.NewMockInterface(t)
-		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
+		// Create mock objects
+		mockResource := k8s.NewMockResourceInterface(t)
+		MockInterface := k8s.NewMockInterface(t)
+		mockNamespaceableResource := k8s.NewMockNamespaceableResourceInterface(t)
+		mockK8sClient := k8s.NewMockClient(t)
+		mockK8sClient.EXPECT().Dynamic().Return(MockInterface)
+
+		// Set up mock expectations
+		mockNamespaceableResource.EXPECT().Namespace(activeProjectID).Return(mockResource)
+		mockResource.EXPECT().Delete(mock.Anything, name, metav1.DeleteOptions{}).Return(fmt.Errorf("delete error"))
+		MockInterface.EXPECT().Resource(core.ClusterResourceSchema).Return(mockNamespaceableResource)
 
 		// Create a new server with the mocked k8s client
-		server := NewServer(mockedk8sclient)
+		server := NewServer(mockK8sClient)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
+
 		// Create a new request & response recorder
 		req := httptest.NewRequest("DELETE", fmt.Sprintf("/v2/clusters/%s", name), nil)
 		req.Header.Set("Activeprojectid", activeProjectID)
@@ -161,8 +176,10 @@ func createDeleteV2ClustersNameStubServer(t *testing.T) *Server {
 	resource.EXPECT().Delete(mock.Anything, mock.Anything, metav1.DeleteOptions{}).Return(nil).Maybe()
 	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
 	nsResource.EXPECT().Namespace(mock.Anything).Return(resource).Maybe()
-	mockedk8sclient := k8s.NewMockInterface(t)
-	mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource).Maybe()
+	mockedk8sclient := k8s.NewMockClient(t)
+	mockedInterface := k8s.NewMockInterface(t)
+	mockedk8sclient.EXPECT().Dynamic().Return(mockedInterface).Maybe()
+	mockedInterface.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource).Maybe()
 	return &Server{
 		k8sclient: mockedk8sclient,
 	}

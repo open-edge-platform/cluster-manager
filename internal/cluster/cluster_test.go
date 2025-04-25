@@ -23,10 +23,10 @@ import (
 	_ "sigs.k8s.io/cluster-api/test/infrastructure/docker/api/v1beta1"
 )
 
-func WithIntelMachinesMock(t *testing.T, namespace, clusterName string, machines []capi.Machine, intelMachines []intelInfraProvider.IntelMachine) func(*k8s.Client) {
+func WithIntelMachinesMock(t *testing.T, namespace, clusterName string, machines []capi.Machine, intelMachines []intelInfraProvider.IntelMachine) func(*k8s.ManagerClient) {
 	labelsSelector := fmt.Sprintf("cluster.x-k8s.io/cluster-name=%v", clusterName)
 
-	return func(cli *k8s.Client) {
+	return func(cli *k8s.ManagerClient) {
 		// machines
 		um, err := convert.ToUnstructuredList(machines)
 		require.NoError(t, err)

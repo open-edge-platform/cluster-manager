@@ -22,7 +22,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -90,19 +89,11 @@ func escapeNewlines(s string) string {
 	return strings.ReplaceAll(s, "\n", "\\n")
 }
 
-func mockK8sClientSetup(resource *k8s.MockResourceInterface, nsResource *k8s.MockNamespaceableResourceInterface, mockedk8sclient *k8s.MockInterface, kubeconfigName string, returnValue interface{}, returnError error) {
-	resource.EXPECT().Get(mock.Anything, kubeconfigName, metav1.GetOptions{}).Return(returnValue.(*unstructured.Unstructured), returnError)
-	nsResource.EXPECT().Namespace("655a6892-4280-4c37-97b1-31161ac0b99e").Return(resource)
-	mockedk8sclient.EXPECT().Resource(core.SecretResourceSchema).Return(nsResource)
-}
-
-func mockK8sClient(t *testing.T, clusterName, kubeconfigValue string, setupFunc func(resource *k8s.MockResourceInterface, nsResource *k8s.MockNamespaceableResourceInterface, mockedk8sclient *k8s.MockInterface)) (*k8s.MockInterface, *k8s.MockResourceInterface, *k8s.MockNamespaceableResourceInterface) {
-	resource := k8s.NewMockResourceInterface(t)
-	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-	mockedk8sclient := k8s.NewMockInterface(t)
+func mockK8sClient(t *testing.T, clusterName, kubeconfigValue string, namespace string, setupFunc func(mockK8sClient *k8s.MockClient)) *k8s.MockClient {
+	mockK8sClient := k8s.NewMockClient(t)
 
 	if setupFunc != nil {
-		setupFunc(resource, nsResource, mockedk8sclient)
+		setupFunc(mockK8sClient)
 	} else {
 		kubeconfigName := clusterName + "-kubeconfig"
 		clusterSecret := &unstructured.Unstructured{
@@ -112,21 +103,34 @@ func mockK8sClient(t *testing.T, clusterName, kubeconfigValue string, setupFunc 
 				},
 			},
 		}
-		mockK8sClientSetup(resource, nsResource, mockedk8sclient, kubeconfigName, clusterSecret, nil)
+		mockK8sClient.EXPECT().GetCached(mock.Anything, core.SecretResourceSchema, namespace, kubeconfigName).Return(clusterSecret, nil)
 	}
 
-	return mockedk8sclient, resource, nsResource
+	return mockK8sClient
 }
 
-func createRequestAndRecorder(_ *testing.T, method, url, activeProjectID, authHeader string) (*http.Request, *httptest.ResponseRecorder) {
-	req := httptest.NewRequest(method, url, nil)
-	req.Header.Set("Activeprojectid", activeProjectID)
-	req.Header.Set("Authorization", "Bearer "+jwtToken)
+// Helper functions
+
+// createRequestAndRecorder creates a new request and response recorder for testing
+func createRequestAndRecorder(t *testing.T, method, path, activeProjectID, authHeader string) (*http.Request, *httptest.ResponseRecorder) {
+	req := httptest.NewRequest(method, path, nil)
+	if activeProjectID != "" {
+		req.Header.Set("Activeprojectid", activeProjectID)
+	}
+	if authHeader != "" {
+		if strings.Contains(authHeader, "InvalidToken") {
+			req.Header.Set("Authorization", authHeader)
+		} else if strings.HasPrefix(authHeader, "Bearer ") {
+			req.Header.Set("Authorization", authHeader)
+		} else {
+			req.Header.Set("Authorization", "Bearer "+authHeader)
+		}
+	}
 	req.Header.Set("Content-Type", "application/json")
-	rr := httptest.NewRecorder()
-	return req, rr
+	return req, httptest.NewRecorder()
 }
 
+// configureHandlerAndServe configures the handler and serves the request
 func configureHandlerAndServe(t *testing.T, server *Server, rr *httptest.ResponseRecorder, req *http.Request) {
 	handler, err := server.ConfigureHandler()
 	require.Nil(t, err)
@@ -139,11 +143,20 @@ func TestGetV2ClustersNameKubeconfigs200(t *testing.T) {
 		activeProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
 		encodedKubeconfig := base64.StdEncoding.EncodeToString([]byte(exampleKubeconfig))
 
-		mockedk8sclient, _, _ := mockK8sClient(t, name, encodedKubeconfig, nil)
+		mockK8sClient := k8s.NewMockClient(t)
+		mockK8sClient.EXPECT().GetCached(mock.Anything, core.SecretResourceSchema, activeProjectID, name+"-kubeconfig").Return(&unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"data": map[string]interface{}{
+					"value": encodedKubeconfig,
+				},
+			},
+		}, nil)
+
 		serverConfig := config.Config{ClusterDomain: "kind.internal", Username: "admin"}
-		server := NewServer(mockedk8sclient)
+		server := NewServer(mockK8sClient)
 		server.config = &serverConfig
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
+
 		// Create a new request & response recorder
 		req, rr := createRequestAndRecorder(t, "GET", fmt.Sprintf("/v2/clusters/%s/kubeconfigs", name), activeProjectID, jwtToken)
 
@@ -157,6 +170,7 @@ func TestGetV2ClustersNameKubeconfigs200(t *testing.T) {
 	})
 }
 
+// Update TestGetV2ClustersNameKubeconfigs404 to use the new mock approach
 func TestGetV2ClustersNameKubeconfigs404(t *testing.T) {
 	expected404Response := `{"message":"404 Not Found: kubeconfig not found"}`
 	tests := []struct {
@@ -164,16 +178,16 @@ func TestGetV2ClustersNameKubeconfigs404(t *testing.T) {
 		clusterName      string
 		activeProjectID  string
 		authHeader       string
-		mockSetup        func(resource *k8s.MockResourceInterface, nsResource *k8s.MockNamespaceableResourceInterface, mockedk8sclient *k8s.MockInterface)
+		mockSetup        func(mockK8sClient *k8s.MockClient)
 		expectedCode     int
 		expectedResponse string
 	}{
 		{
-			name:            "no cluster name",
-			clusterName:     "",
-			activeProjectID: "655a6892-4280-4c37-97b1-31161ac0b99e",
-			mockSetup: func(resource *k8s.MockResourceInterface, nsResource *k8s.MockNamespaceableResourceInterface, mockedk8sclient *k8s.MockInterface) {
-			},
+			name:             "no cluster name",
+			clusterName:      "",
+			activeProjectID:  "655a6892-4280-4c37-97b1-31161ac0b99e",
+			authHeader:       "Bearer " + jwtToken, // Add valid token
+			mockSetup:        nil,
 			expectedCode:     http.StatusNotFound,
 			expectedResponse: "no matching operation was found\n",
 		},
@@ -181,11 +195,14 @@ func TestGetV2ClustersNameKubeconfigs404(t *testing.T) {
 			name:            "cluster Not Found",
 			clusterName:     "example-cluster",
 			activeProjectID: "655a6892-4280-4c37-97b1-31161ac0b99e",
-			mockSetup: func(resource *k8s.MockResourceInterface, nsResource *k8s.MockNamespaceableResourceInterface, mockedk8sclient *k8s.MockInterface) {
-				clusterSecret := &unstructured.Unstructured{
-					Object: map[string]interface{}{},
-				}
-				mockK8sClientSetup(resource, nsResource, mockedk8sclient, "example-cluster-kubeconfig", clusterSecret, errors.NewNotFound(core.SecretResourceSchema.GroupResource(), "example-cluster-kubeconfig"))
+			authHeader:      "Bearer " + jwtToken, // Add valid token
+			mockSetup: func(mockK8sClient *k8s.MockClient) {
+				mockK8sClient.EXPECT().GetCached(
+					mock.Anything,
+					core.SecretResourceSchema,
+					"655a6892-4280-4c37-97b1-31161ac0b99e",
+					"example-cluster-kubeconfig",
+				).Return(nil, errors.NewNotFound(core.SecretResourceSchema.GroupResource(), "example-cluster-kubeconfig"))
 			},
 			expectedCode:     http.StatusNotFound,
 			expectedResponse: expected404Response,
@@ -194,11 +211,16 @@ func TestGetV2ClustersNameKubeconfigs404(t *testing.T) {
 			name:            "no kubeconfig in secret",
 			clusterName:     "example-cluster",
 			activeProjectID: "655a6892-4280-4c37-97b1-31161ac0b99e",
-			mockSetup: func(resource *k8s.MockResourceInterface, nsResource *k8s.MockNamespaceableResourceInterface, mockedk8sclient *k8s.MockInterface) {
-				clusterSecret := &unstructured.Unstructured{
+			authHeader:      "Bearer " + jwtToken, // Add valid token
+			mockSetup: func(mockK8sClient *k8s.MockClient) {
+				mockK8sClient.EXPECT().GetCached(
+					mock.Anything,
+					core.SecretResourceSchema,
+					"655a6892-4280-4c37-97b1-31161ac0b99e",
+					"example-cluster-kubeconfig",
+				).Return(&unstructured.Unstructured{
 					Object: map[string]interface{}{},
-				}
-				mockK8sClientSetup(resource, nsResource, mockedk8sclient, "example-cluster-kubeconfig", clusterSecret, nil)
+				}, nil)
 			},
 			expectedCode:     http.StatusNotFound,
 			expectedResponse: expected404Response,
@@ -207,25 +229,34 @@ func TestGetV2ClustersNameKubeconfigs404(t *testing.T) {
 			name:            "not able to decode kubeconfig",
 			clusterName:     "example-cluster",
 			activeProjectID: "655a6892-4280-4c37-97b1-31161ac0b99e",
-			mockSetup: func(resource *k8s.MockResourceInterface, nsResource *k8s.MockNamespaceableResourceInterface, mockedk8sclient *k8s.MockInterface) {
-				clusterSecret := &unstructured.Unstructured{
+			authHeader:      "Bearer " + jwtToken, // Add valid token
+			mockSetup: func(mockK8sClient *k8s.MockClient) {
+				mockK8sClient.EXPECT().GetCached(
+					mock.Anything,
+					core.SecretResourceSchema,
+					"655a6892-4280-4c37-97b1-31161ac0b99e",
+					"example-cluster-kubeconfig",
+				).Return(&unstructured.Unstructured{
 					Object: map[string]interface{}{
 						"data": map[string]interface{}{
 							"value": "wrongEncodedKubeconfig",
 						},
 					},
-				}
-				mockK8sClientSetup(resource, nsResource, mockedk8sclient, "example-cluster-kubeconfig", clusterSecret, nil)
+				}, nil)
 			},
 			expectedCode:     http.StatusNotFound,
 			expectedResponse: expected404Response,
 		},
 	}
+
 	serverConfig := config.Config{ClusterDomain: "kind.internal", Username: "admin"}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockedk8sclient, _, _ := mockK8sClient(t, tt.clusterName, "", tt.mockSetup)
-			server := NewServer(mockedk8sclient)
+			mockK8sClient := k8s.NewMockClient(t)
+			if tt.mockSetup != nil {
+				tt.mockSetup(mockK8sClient)
+			}
+			server := NewServer(mockK8sClient)
 			server.config = &serverConfig
 			require.NotNil(t, server, "NewServer() returned nil, want not nil")
 			req, rr := createRequestAndRecorder(t, "GET", fmt.Sprintf("/v2/clusters/%s/kubeconfigs", tt.clusterName), tt.activeProjectID, tt.authHeader)
@@ -240,6 +271,7 @@ func TestGetV2ClustersNameKubeconfigs404(t *testing.T) {
 		})
 	}
 }
+
 func TestGetV2ClustersNameKubeconfig400(t *testing.T) {
 	tests := []struct {
 		name             string
@@ -269,13 +301,7 @@ func TestGetV2ClustersNameKubeconfig400(t *testing.T) {
 			server := NewServer(nil)
 			require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
-			req := httptest.NewRequest("GET", fmt.Sprintf("/v2/clusters/%s/kubeconfigs", name), nil)
-			if tt.activeProjectID != "" {
-				req.Header.Set("Activeprojectid", tt.activeProjectID)
-				req.Header.Set("Authorization", "Bearer "+jwtToken)
-			}
-			req.Header.Set("Content-Type", "application/json")
-			rr := httptest.NewRecorder()
+			req, rr := createRequestAndRecorder(t, "GET", fmt.Sprintf("/v2/clusters/%s/kubeconfigs", name), tt.activeProjectID, tt.authHeader)
 
 			configureHandlerAndServe(t, server, rr, req)
 			assert.Equal(t, tt.expectedCode, rr.Code)
@@ -295,7 +321,7 @@ func TestGetV2ClustersNameKubeconfigs401(t *testing.T) {
 			name:             "missing authorization header", // this is captured in the middleware
 			authHeader:       "",
 			expectedCode:     http.StatusBadRequest,
-			expectedResponse: `{"message":"parameter \"Authorization\" in header has an error: empty value is not allowed"}`,
+			expectedResponse: `{"message":"parameter \"Authorization\" in header has an error: value is required but missing"}`,
 		},
 		{
 			name:             "invalid authorization header",
@@ -310,11 +336,7 @@ func TestGetV2ClustersNameKubeconfigs401(t *testing.T) {
 			activeProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
 			server := NewServer(nil)
 			require.NotNil(t, server, "NewServer() returned nil, want not nil")
-			req := httptest.NewRequest("GET", fmt.Sprintf("/v2/clusters/%s/kubeconfigs", name), nil)
-			req.Header.Set("Activeprojectid", activeProjectID)
-			req.Header.Set("Authorization", tt.authHeader)
-			req.Header.Set("Content-Type", "application/json")
-			rr := httptest.NewRecorder()
+			req, rr := createRequestAndRecorder(t, "GET", fmt.Sprintf("/v2/clusters/%s/kubeconfigs", name), activeProjectID, tt.authHeader)
 			configureHandlerAndServe(t, server, rr, req)
 			assert.Equal(t, tt.expectedCode, rr.Code)
 			assert.JSONEq(t, tt.expectedResponse, rr.Body.String())
@@ -328,7 +350,7 @@ func TestGetV2ClustersNameKubeconfigs500(t *testing.T) {
 		clusterName      string
 		activeProjectID  string
 		authHeader       string
-		mockSetup        func(resource *k8s.MockResourceInterface, nsResource *k8s.MockNamespaceableResourceInterface, mockedk8sclient *k8s.MockInterface)
+		mockSetup        func(mockK8sClient *k8s.MockClient)
 		expectedCode     int
 		expectedResponse string
 	}{
@@ -337,16 +359,20 @@ func TestGetV2ClustersNameKubeconfigs500(t *testing.T) {
 			clusterName:     "demo-example-cluster",
 			activeProjectID: "655a6892-4280-4c37-97b1-31161ac0b99e",
 			authHeader:      "Bearer " + jwtToken,
-			mockSetup: func(resource *k8s.MockResourceInterface, nsResource *k8s.MockNamespaceableResourceInterface, mockedk8sclient *k8s.MockInterface) {
+			mockSetup: func(mockK8sClient *k8s.MockClient) {
 				encodedKubeconfig := base64.StdEncoding.EncodeToString([]byte(exampleKubeconfig))
-				clusterSecret := &unstructured.Unstructured{
+				mockK8sClient.EXPECT().GetCached(
+					mock.Anything,
+					core.SecretResourceSchema,
+					"655a6892-4280-4c37-97b1-31161ac0b99e",
+					"demo-example-cluster-kubeconfig",
+				).Return(&unstructured.Unstructured{
 					Object: map[string]interface{}{
 						"data": map[string]interface{}{
 							"value": encodedKubeconfig,
 						},
 					},
-				}
-				mockK8sClientSetup(resource, nsResource, mockedk8sclient, "demo-example-cluster-kubeconfig", clusterSecret, nil)
+				}, nil)
 			},
 			expectedCode:     http.StatusInternalServerError,
 			expectedResponse: `{"message":"500 Internal Server Error: failed to process kubeconfig"}`,
@@ -363,28 +389,22 @@ func TestGetV2ClustersNameKubeconfigs500(t *testing.T) {
 			defer func() {
 				updateKubeconfigWithTokenFunc = originalFunc
 			}()
-			mockedk8sclient, _, _ := mockK8sClient(t, tt.clusterName, "", tt.mockSetup)
-			server := NewServer(mockedk8sclient)
+
+			// Create mock client
+			mockK8sClient := k8s.NewMockClient(t)
+			if tt.mockSetup != nil {
+				tt.mockSetup(mockK8sClient)
+			}
+
+			server := NewServer(mockK8sClient)
 			server.config = &serverConfig
 			require.NotNil(t, server, "NewServer() returned nil, want not nil")
+
 			req, rr := createRequestAndRecorder(t, "GET", fmt.Sprintf("/v2/clusters/%s/kubeconfigs", tt.clusterName), tt.activeProjectID, tt.authHeader)
 			configureHandlerAndServe(t, server, rr, req)
 			assert.Equal(t, tt.expectedCode, rr.Code)
 			assert.JSONEq(t, tt.expectedResponse, rr.Body.String())
 		})
-	}
-}
-
-func createGetV2KubeconfigStubServer(t *testing.T) *Server {
-	clusterSecret := &unstructured.Unstructured{}
-	resource := k8s.NewMockResourceInterface(t)
-	resource.EXPECT().Get(mock.Anything, mock.Anything, metav1.GetOptions{}).Return(clusterSecret, nil).Maybe()
-	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-	nsResource.EXPECT().Namespace(mock.Anything).Return(resource).Maybe()
-	mockedk8sclient := k8s.NewMockInterface(t)
-	mockedk8sclient.EXPECT().Resource(mock.Anything).Return(nsResource).Maybe()
-	return &Server{
-		k8sclient: mockedk8sclient,
 	}
 }
 
@@ -461,4 +481,27 @@ func TestUpdateKubeconfigWithToken(t *testing.T) {
 			}
 		})
 	}
+}
+
+func createGetV2KubeconfigStubServer(t *testing.T) *Server {
+	mockK8sClient := k8s.NewMockClient(t)
+
+	// Mock the GetCached call that might be used to retrieve the kubeconfig
+	mockK8sClient.EXPECT().GetCached(
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+	).Return(&unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"data": map[string]interface{}{
+				"value": base64.StdEncoding.EncodeToString([]byte("dummy-kubeconfig")),
+			},
+		},
+	}, nil).Maybe()
+
+	serverConfig := config.Config{ClusterDomain: "kind.internal", Username: "admin"}
+	server := NewServer(mockK8sClient)
+	server.config = &serverConfig
+	return server
 }

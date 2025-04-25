@@ -88,15 +88,20 @@ func TestDeleteV2TemplatesNameVersion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resource := k8s.NewMockResourceInterface(t)
-			resource.EXPECT().Delete(mock.Anything, mock.Anything, metav1.DeleteOptions{}).Return(tt.mockDeleteReturn)
-			nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-			nsResource.EXPECT().Namespace(expectedActiveProjectID).Return(resource)
-			mockedk8sclient := k8s.NewMockInterface(t)
-			mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource)
+			// Create mock objects
+			mockResource := k8s.NewMockResourceInterface(t)
+			mockInterface := k8s.NewMockInterface(t)
+			mockNamespaceableResource := k8s.NewMockNamespaceableResourceInterface(t)
+			mockK8sClient := k8s.NewMockClient(t)
 
-			// create a new server with the mocked mockedk8sclient
-			server := NewServer(mockedk8sclient)
+			// Set up mock expectations
+			mockK8sClient.EXPECT().Dynamic().Return(mockInterface)
+			mockInterface.EXPECT().Resource(core.TemplateResourceSchema).Return(mockNamespaceableResource)
+			mockNamespaceableResource.EXPECT().Namespace(expectedActiveProjectID).Return(mockResource)
+			mockResource.EXPECT().Delete(mock.Anything, mock.Anything, metav1.DeleteOptions{}).Return(tt.mockDeleteReturn)
+
+			// create a new server with the mocked k8s client
+			server := NewServer(mockK8sClient)
 			require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 			// create a handler with middleware
@@ -139,14 +144,20 @@ func TestDeleteV2TemplatesNameVersion(t *testing.T) {
 }
 
 func createDeleteV2TemplatesNameStubServer(t *testing.T) *Server {
-	resource := k8s.NewMockResourceInterface(t)
-	resource.EXPECT().Delete(mock.Anything, mock.Anything, metav1.DeleteOptions{}).Return(nil).Maybe()
-	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-	nsResource.EXPECT().Namespace(mock.Anything).Return(resource).Maybe()
-	mockedk8sclient := k8s.NewMockInterface(t)
-	mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource).Maybe()
+	// Create mock objects
+	mockResource := k8s.NewMockResourceInterface(t)
+	mockInterface := k8s.NewMockInterface(t)
+	mockNamespaceableResource := k8s.NewMockNamespaceableResourceInterface(t)
+	mockK8sClient := k8s.NewMockClient(t)
+
+	// Set up mock expectations
+	mockK8sClient.EXPECT().Dynamic().Return(mockInterface).Maybe()
+	mockInterface.EXPECT().Resource(core.TemplateResourceSchema).Return(mockNamespaceableResource).Maybe()
+	mockNamespaceableResource.EXPECT().Namespace(mock.Anything).Return(mockResource).Maybe()
+	mockResource.EXPECT().Delete(mock.Anything, mock.Anything, metav1.DeleteOptions{}).Return(nil).Maybe()
+
 	return &Server{
-		k8sclient: mockedk8sclient,
+		k8sclient: mockK8sClient,
 	}
 }
 

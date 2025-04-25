@@ -19,20 +19,58 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func createMockServerTemplateNameVersion(t *testing.T, template v1alpha1.ClusterTemplate, activeProjectId string, getError error) *Server {
-	unstructuredTemplate, err := convert.ToUnstructured(template)
-	require.NoError(t, err, "convertAnyToUnstructured() error = %v, want nil")
+	// Create mock client
+	mockK8sClient := k8s.NewMockClient(t)
 
-	resource := k8s.NewMockResourceInterface(t)
-	resource.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(unstructuredTemplate, getError)
-	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-	nsResource.EXPECT().Namespace(activeProjectId).Return(resource)
-	mockedk8sclient := k8s.NewMockInterface(t)
-	mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource)
+	// Create a template name from the given template or using a placeholder
+	templateName := template.Name
+	if templateName == "" {
+		templateName = "foo-v1.0.0"
+	}
 
-	return NewServer(mockedk8sclient)
+	// For successful test cases, convert the entire template to unstructured
+	var unstructuredObj *unstructured.Unstructured
+	var err error
+
+	if template.Name != "" { // Check if we have a valid template
+		// Convert the entire template to unstructured properly
+		unstructuredObj, err = convert.ToUnstructured(template)
+		require.NoError(t, err, "convert.ToUnstructured() error = %v", err)
+	} else {
+		// Create an empty unstructured object for error cases
+		unstructuredObj = &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "edge-orchestrator.intel.com/v1alpha1",
+				"kind":       "ClusterTemplate",
+			},
+		}
+	}
+
+	// Mock GetCached
+	mockK8sClient.EXPECT().GetCached(
+		mock.Anything,
+		core.TemplateResourceSchema,
+		activeProjectId,
+		mock.Anything,
+	).Return(unstructuredObj, getError).Maybe()
+
+	// Mock DefaultTemplate
+	mockK8sClient.EXPECT().DefaultTemplate(
+		mock.Anything,
+		activeProjectId,
+	).Return(v1alpha1.ClusterTemplate{}, k8s.ErrDefaultTemplateNotFound).Maybe()
+
+	// Mock Templates
+	mockK8sClient.EXPECT().Templates(
+		mock.Anything,
+		activeProjectId,
+	).Return([]v1alpha1.ClusterTemplate{}, nil).Maybe()
+
+	return NewServer(mockK8sClient)
 }
 
 func TestGetV2TemplatesNameVersion(t *testing.T) {
@@ -149,18 +187,31 @@ func TestGetV2TemplatesNameVersion(t *testing.T) {
 }
 
 func createGetV2TemplatesNameStubServer(t *testing.T) *Server {
-	template := v1alpha1.ClusterTemplate{}
-	unstructuredTemplate, err := convert.ToUnstructured(template)
-	require.NoError(t, err, "convertAnyToUnstructured() error = %v, want nil")
-	resource := k8s.NewMockResourceInterface(t)
-	resource.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(unstructuredTemplate, nil).Maybe()
-	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-	nsResource.EXPECT().Namespace(mock.Anything).Return(resource).Maybe()
-	mockedk8sclient := k8s.NewMockInterface(t)
-	mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource).Maybe()
-	return &Server{
-		k8sclient: mockedk8sclient,
-	}
+	mockK8sClient := k8s.NewMockClient(t)
+
+	// Mock GetCached with flexible expectations for fuzzing
+	mockK8sClient.EXPECT().GetCached(
+		mock.Anything,
+		core.TemplateResourceSchema,
+		mock.Anything,
+		mock.Anything, 
+	).Return(&unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "edge-orchestrator.intel.com/v1alpha1",
+			"kind":       "ClusterTemplate",
+			"metadata": map[string]interface{}{
+				"name": "test-template-v0.0.1",
+			},
+			"spec": map[string]interface{}{
+				"kubernetesVersion": "1.21.0",
+			},
+		},
+	}, nil).Maybe()
+
+	mockK8sClient.EXPECT().DefaultTemplate(mock.Anything, mock.Anything).Return(v1alpha1.ClusterTemplate{}, k8s.ErrDefaultTemplateNotFound).Maybe()
+	mockK8sClient.EXPECT().Templates(mock.Anything, mock.Anything).Return([]v1alpha1.ClusterTemplate{}, nil).Maybe()
+
+	return NewServer(mockK8sClient)
 }
 
 func FuzzGetV2TemplatesName(f *testing.F) {

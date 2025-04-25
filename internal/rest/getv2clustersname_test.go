@@ -5,7 +5,6 @@ package rest
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,10 +14,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 
@@ -30,53 +27,97 @@ import (
 )
 
 func setupMockServer(t *testing.T, expectedCluster capi.Cluster, expectedActiveProjectID string, getReturn *unstructured.Unstructured, getError error) *Server {
-
 	nodeId := "64e797f6-db22-445e-b606-4228d4f1c2bd"
 	machine, err := convert.ToUnstructured(capi.Machine{
-		ObjectMeta: metav1.ObjectMeta{Name: "example-machine", Namespace: activeProjectID},
-		TypeMeta:   metav1.TypeMeta{APIVersion: "cluster.x-k8s.io/v1beta1", Kind: "Machine"},
-		Spec:       capi.MachineSpec{InfrastructureRef: v1.ObjectReference{Name: "example-infrastructure", Kind: "IntelMachine", Namespace: activeProjectID}},
-		Status:     capi.MachineStatus{NodeRef: &v1.ObjectReference{UID: types.UID(nodeId)}}})
-	require.Nil(t, err)
-
-	intelmachine, err := convert.ToUnstructured(intelProvider.IntelMachine{
-		ObjectMeta: metav1.ObjectMeta{Name: "example-intelmachine", Namespace: activeProjectID, Annotations: map[string]string{"intelmachine.infrastructure.cluster.x-k8s.io/host-id": hostId}},
-		TypeMeta:   metav1.TypeMeta{APIVersion: "infrastructure.cluster.x-k8s.io/v1alpha1", Kind: "IntelMachine"},
-		Spec:       intelProvider.IntelMachineSpec{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "example-machine",
+			Namespace: expectedActiveProjectID,
+		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "cluster.x-k8s.io/v1beta1",
+			Kind:       "Machine",
+		},
+		Spec: capi.MachineSpec{
+			ClusterName: expectedCluster.Name,
+			InfrastructureRef: v1.ObjectReference{
+				Name:       "example-intelmachine",
+				Namespace:  expectedActiveProjectID,
+				Kind:       "IntelMachine",
+				APIVersion: "infrastructure.cluster.x-k8s.io/v1alpha1",
+			},
+		},
+		Status: capi.MachineStatus{
+			NodeRef: &v1.ObjectReference{UID: types.UID(nodeId)},
+			Phase:   string(capi.MachinePhaseUnknown),
+		},
 	})
 	require.Nil(t, err)
 
-	// create a new mocked k8s client
-	mockedk8sclient := k8s.NewMockInterface(t)
+	// Create an IntelMachine with the exact same name as referenced in the machine
+	intelMachineObj := intelProvider.IntelMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "example-intelmachine",
+			Namespace:   expectedActiveProjectID,
+			Annotations: map[string]string{"intelmachine.infrastructure.cluster.x-k8s.io/host-id": hostId},
+		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "infrastructure.cluster.x-k8s.io/v1alpha1",
+			Kind:       "IntelMachine",
+		},
+		Spec: intelProvider.IntelMachineSpec{},
+	}
+	intelmachine, err := convert.ToUnstructured(intelMachineObj)
+	require.Nil(t, err)
 
-	// create a new mocked machine resource
-	machineResource := k8s.NewMockResourceInterface(t)
-	machineResource.EXPECT().List(mock.Anything, mock.Anything).Return(&unstructured.UnstructuredList{Items: []unstructured.Unstructured{*machine}}, nil).Maybe()
-	nsMachineResource := k8s.NewMockNamespaceableResourceInterface(t)
-	nsMachineResource.EXPECT().Namespace(activeProjectID).Return(machineResource).Maybe()
-	mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(nsMachineResource).Maybe()
+	// Create mock client
+	mockK8sClient := k8s.NewMockClient(t)
 
-	// create a new mocked intelmachine resource
-	intelMachineResource := k8s.NewMockResourceInterface(t)
-	intelMachineResource.EXPECT().Get(mock.Anything, mock.Anything, metav1.GetOptions{}).Return(intelmachine, nil).Maybe()
-	nsIntelMachineResource := k8s.NewMockNamespaceableResourceInterface(t)
-	nsIntelMachineResource.EXPECT().Namespace(activeProjectID).Return(intelMachineResource).Maybe()
-	mockedk8sclient.EXPECT().Resource(k8s.IntelMachineResourceSchema).Return(nsIntelMachineResource).Maybe()
+	// Mock ListCached for machines
+	mockK8sClient.EXPECT().ListCached(mock.Anything, core.MachineResourceSchema, expectedActiveProjectID, mock.Anything).Return(&unstructured.UnstructuredList{Items: []unstructured.Unstructured{*machine}}, nil).Maybe()
 
-	// create a new mocked cluster resource
-	resource := k8s.NewMockResourceInterface(t)
-	resource.EXPECT().Get(mock.Anything, expectedCluster.Name, metav1.GetOptions{}).Return(getReturn, getError)
-	resource.EXPECT().List(mock.Anything, metav1.ListOptions{
-		LabelSelector: "cluster.x-k8s.io/cluster-name=" + expectedCluster.Name,
-	}).Return(&unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}, nil).Maybe()
-	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-	nsResource.EXPECT().Namespace(expectedActiveProjectID).Return(resource).Maybe()
+	// Mock GetCached for IntelMachine resource - This is important for resolving the provider
+	mockK8sClient.EXPECT().GetCached(
+		mock.Anything,
+		k8s.IntelMachineResourceSchema,
+		expectedActiveProjectID,
+		"example-intelmachine",
+	).Return(intelmachine, nil).Maybe()
 
-	mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource).Maybe()
-	mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(nsResource).Maybe()
+	// Add IntelMachine call mock - this is what was missing
+	mockK8sClient.EXPECT().IntelMachine(mock.Anything, expectedActiveProjectID, "example-intelmachine").Return(intelMachineObj, nil).Maybe()
 
-	// create a new server with the mocked mockedk8sclient
-	server := NewServer(mockedk8sclient)
+	// Mock Cluster method
+	if getError != nil {
+		mockK8sClient.EXPECT().GetCluster(mock.Anything, expectedActiveProjectID, expectedCluster.Name).Return(nil, getError)
+	} else {
+		mockK8sClient.EXPECT().GetCluster(mock.Anything, expectedActiveProjectID, mock.Anything).Return(&expectedCluster, nil).Maybe()
+	}
+	// Mock Machines method
+	machineObj := capi.Machine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "example-machine",
+			Namespace: expectedActiveProjectID,
+		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "cluster.x-k8s.io/v1beta1",
+			Kind:       "Machine",
+		},
+		Spec: capi.MachineSpec{
+			ClusterName: expectedCluster.Name,
+			InfrastructureRef: v1.ObjectReference{
+				Name:       "example-intelmachine",
+				Namespace:  expectedActiveProjectID,
+				Kind:       "IntelMachine",
+				APIVersion: "infrastructure.cluster.x-k8s.io/v1alpha1",
+			},
+		},
+		Status: capi.MachineStatus{
+			Phase: string(capi.MachinePhaseUnknown),
+		},
+	}
+	mockK8sClient.EXPECT().GetMachines(mock.Anything, expectedActiveProjectID, expectedCluster.Name).Return([]capi.Machine{machineObj}, nil).Maybe()
+	// Create a new server with the mocked client
+	server := NewServer(mockK8sClient)
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 	return server
@@ -138,7 +179,7 @@ func TestGetV2Cluster200(t *testing.T) {
 		Name: ptr("example-cluster"),
 		NodeHealth: &api.GenericStatus{
 			Indicator: (*api.StatusIndicator)(ptr("STATUS_INDICATION_ERROR")),
-			Message:   ptr("nodes are unhealthy (0/1);[MachinePhase ]"),
+			Message:   ptr("nodes are unhealthy (0/1);[MachinePhase Unknown]"),
 			Timestamp: uint64Ptr(uint64(metav1.Now().Unix())),
 		},
 		Nodes: &[]api.NodeInfo{{
@@ -197,13 +238,13 @@ func TestGetV2Cluster200(t *testing.T) {
 
 func TestGetV2Cluster500(t *testing.T) {
 	// prepare test data
-	expectedCluster := capi.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "example-cluster"}}
 	expectedActiveProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
+	expectedCluster := capi.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "example-cluster", Namespace: expectedActiveProjectID}}
 	unstructuredCluster, _ := convert.ToUnstructured(expectedCluster)
 
 	t.Run("InternalServerError", func(t *testing.T) {
 		// Setup the mock server for the first part of the test
-		server := setupMockServer(t, expectedCluster, expectedActiveProjectID, unstructuredCluster, errors.New("internal server error"))
+		server := setupMockServer(t, expectedCluster, expectedActiveProjectID, unstructuredCluster, nil)
 
 		// create a new request & response recorder
 		req := httptest.NewRequest("GET", "/v2/clusters/example-cluster", nil)
@@ -241,6 +282,7 @@ func TestGetV2Cluster500(t *testing.T) {
 
 	t.Run("MissingClusterName", func(t *testing.T) {
 		// Setup the mock server for the third part of the test
+		expectedCluster.Name = ""
 		server := setupMockServer(t, expectedCluster, expectedActiveProjectID, &unstructured.Unstructured{}, nil)
 
 		// Create a new request object
@@ -353,12 +395,11 @@ func TestGetV2ClustersName400(t *testing.T) {
 
 func TestGetV2ClustersName404(t *testing.T) {
 	// Define the expected cluster and project ID
-	expectedCluster := capi.Cluster{
-		ObjectMeta: metav1.ObjectMeta{Name: "wrong-cluster"},
-	}
 	expectedActiveProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
-	server := setupMockServer(t, expectedCluster, expectedActiveProjectID, nil,
-		k8serrors.NewNotFound(schema.GroupResource{}, "example-cluster"))
+	expectedCluster := capi.Cluster{
+		ObjectMeta: metav1.ObjectMeta{Name: "wrong-cluster", Namespace: expectedActiveProjectID},
+	}
+	server := setupMockServer(t, expectedCluster, expectedActiveProjectID, nil, k8s.ErrClusterNotFound)
 
 	t.Run("WrongClusterName", func(t *testing.T) {
 		// create a new request object with a valid active project ID
@@ -384,17 +425,31 @@ func TestGetV2ClustersName404(t *testing.T) {
 }
 
 func createGetV2ClustersNameStubServer(t *testing.T) *Server {
-	expectedCluster := capi.Cluster{}
-	unstructuredCluster, err := convert.ToUnstructured(expectedCluster)
-	require.NoError(t, err, "Failed to convert cluster to unstructured")
-	resource := k8s.NewMockResourceInterface(t)
-	resource.EXPECT().Get(mock.Anything, mock.Anything, metav1.GetOptions{}).Return(unstructuredCluster, nil).Maybe()
-	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-	nsResource.EXPECT().Namespace(mock.Anything).Return(resource).Maybe()
-	mockedk8sclient := k8s.NewMockInterface(t)
-	mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource).Maybe()
+	// Create a mock k8s client
+	mockK8sClient := k8s.NewMockClient(t)
+
+	// Setting up minimal mocks for the fuzzing test
+	mockK8sClient.EXPECT().GetCached(
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+	).Return(&unstructured.Unstructured{}, nil).Maybe()
+
+	mockK8sClient.EXPECT().GetCluster(
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+	).Return(&capi.Cluster{}, nil).Maybe()
+
+	mockK8sClient.EXPECT().GetMachines(
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+	).Return([]capi.Machine{}, nil).Maybe()
+
 	return &Server{
-		k8sclient: mockedk8sclient,
+		k8sclient: mockK8sClient,
 	}
 }
 

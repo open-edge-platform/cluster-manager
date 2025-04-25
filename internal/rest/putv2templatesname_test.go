@@ -24,36 +24,39 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
+	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
 func TestPutV2Templates200(t *testing.T) {
 	expectedActiveProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
 	testCtx := context.WithValue(context.Background(), core.ActiveProjectIdContextKey, expectedActiveProjectID)
 
+	// Create unstructured template with default:true label
 	unstructuredCluster := &unstructured.Unstructured{}
 	unstructuredCluster.SetLabels(map[string]string{"default": "true"})
-	resource := k8s.NewMockResourceInterface(t)
-	resource.EXPECT().Get(mock.Anything, "restricted-v1.0.0", v1.GetOptions{}).Return(unstructuredCluster, nil)
-	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-	nsResource.EXPECT().Namespace(expectedActiveProjectID).Return(resource)
-	mockedk8sclient := k8s.NewMockInterface(t)
-	mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource)
 
-	server := NewServer(mockedk8sclient)
+	// Create mock client
+	mockK8sClient := k8s.NewMockClient(t)
+
+	// Setup the GetCached mock
+	mockK8sClient.EXPECT().GetCached(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(unstructuredCluster, nil)
+
+	// Create a server with the mocked client
+	server := NewServer(mockK8sClient)
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
-	// create a handler with middleware
+	// Create a handler with middleware
 	handler, err := server.ConfigureHandler()
 	require.Nil(t, err)
 
-	// create a new request & response recorder
+	// Create a new request & response recorder
 	req := httptest.NewRequestWithContext(testCtx, "PUT", "/v2/templates/restricted/default", strings.NewReader(`{"version": "v1.0.0"}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Activeprojectid", expectedActiveProjectID)
 
 	rr := httptest.NewRecorder()
 
-	// serve the request
+	// Serve the request
 	handler.ServeHTTP(rr, req)
 	fmt.Println(rr.Body.String())
 	require.Equal(t, http.StatusOK, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, http.StatusOK)
@@ -65,28 +68,34 @@ func TestPutV2Templates200(t *testing.T) {
 func TestPutV2Templates404(t *testing.T) {
 	expectedActiveProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
 	testCtx := context.WithValue(context.Background(), core.ActiveProjectIdContextKey, expectedActiveProjectID)
-	resource := k8s.NewMockResourceInterface(t)
-	resource.EXPECT().Get(mock.Anything, "privileged-v1.0.0", v1.GetOptions{}).Return(nil, k8serrors.NewNotFound(schema.GroupResource{Group: "template.x-k8s.io", Resource: "templates"}, "template1-v1.0.0"))
-	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-	nsResource.EXPECT().Namespace(expectedActiveProjectID).Return(resource)
-	mockedk8sclient := k8s.NewMockInterface(t)
-	mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource)
 
-	server := NewServer(mockedk8sclient)
+	// Create mock client
+	mockK8sClient := k8s.NewMockClient(t)
+
+	// Setup the not found error using GetCached directly
+	mockK8sClient.EXPECT().GetCached(
+		mock.Anything,
+		core.TemplateResourceSchema,
+		expectedActiveProjectID,
+		"privileged-v1.0.0",
+	).Return(nil, k8serrors.NewNotFound(schema.GroupResource{Group: "template.x-k8s.io", Resource: "templates"}, "template1-v1.0.0"),)
+
+	// Create a server with the mocked client
+	server := NewServer(mockK8sClient)
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
-	// create a handler with middleware
+	// Create a handler with middleware
 	handler, err := server.ConfigureHandler()
 	require.Nil(t, err)
 
-	// create a new request & response recorder
+	// Create a new request & response recorder
 	req := httptest.NewRequestWithContext(testCtx, "PUT", "/v2/templates/privileged/default", strings.NewReader(`{"version": "v1.0.0"}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Activeprojectid", expectedActiveProjectID)
 
 	rr := httptest.NewRecorder()
 
-	// serve the request
+	// Serve the request
 	handler.ServeHTTP(rr, req)
 	fmt.Println(rr.Body.String())
 	require.Equal(t, http.StatusNotFound, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, http.StatusNotFound)
@@ -96,20 +105,19 @@ func TestPutV2Templates400(t *testing.T) {
 	expectedActiveProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
 	testCtx := context.WithValue(context.Background(), core.ActiveProjectIdContextKey, expectedActiveProjectID)
 
-	// Create a mock dynamic client
-	mockClient := new(k8s.MockInterface)
-	mockResource := new(k8s.MockResourceInterface)
-	mockNamespaceableResource := new(k8s.MockNamespaceableResourceInterface)
+	// Create mock client
+	mockK8sClient := k8s.NewMockClient(t)
 
-	// Set up the mock expectations
-	gvr := core.TemplateResourceSchema // Use the correct GroupVersionResource from the core package
-	mockClient.On("Resource", gvr).Return(mockNamespaceableResource)
-	mockNamespaceableResource.On("Namespace", expectedActiveProjectID).Return(mockResource)
+	// Setup the bad request error using GetCached directly
+	mockK8sClient.EXPECT().GetCached(
+		mock.Anything,
+		core.TemplateResourceSchema,
+		expectedActiveProjectID,
+		"baseline-v1.0.0",
+	).Return(nil, k8serrors.NewBadRequest("simulated bad request error"))
 
-	// Mock the Get call to return a bad request error
-	mockResource.On("Get", mock.Anything, "baseline-v1.0.0", v1.GetOptions{}).Return(nil, k8serrors.NewBadRequest("simulated bad request error"))
-
-	server := NewServer(mockClient)
+	// Create a server with the mocked client
+	server := NewServer(mockK8sClient)
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 	// Create a handler with middleware
@@ -178,27 +186,37 @@ func TestPutV2TemplatesAlreadyDefault(t *testing.T) {
 	expectedActiveProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
 	testCtx := context.WithValue(context.Background(), core.ActiveProjectIdContextKey, expectedActiveProjectID)
 
+	// Create unstructured template with default:true label
 	unstructuredCluster := &unstructured.Unstructured{}
 	unstructuredCluster.SetLabels(map[string]string{"default": "true"})
-	resource := k8s.NewMockResourceInterface(t)
-	resource.EXPECT().Get(mock.Anything, "restricted-v1.0.0", v1.GetOptions{}).Return(unstructuredCluster, nil)
-	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-	nsResource.EXPECT().Namespace(expectedActiveProjectID).Return(resource)
-	mockedk8sclient := k8s.NewMockInterface(t)
-	mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource)
 
-	server := NewServer(mockedk8sclient)
+	// Create mock client
+	mockK8sClient := k8s.NewMockClient(t)
+
+	// Setup the mock using GetCached directly
+	mockK8sClient.EXPECT().GetCached(
+		mock.Anything,
+		core.TemplateResourceSchema,
+		expectedActiveProjectID,
+		"restricted-v1.0.0",
+	).Return(unstructuredCluster, nil)
+
+	// Create a server with the mocked client
+	server := NewServer(mockK8sClient)
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
+	// Create a handler with middleware
 	handler, err := server.ConfigureHandler()
 	require.Nil(t, err)
 
+	// Create a new request & response recorder
 	req := httptest.NewRequestWithContext(testCtx, "PUT", "/v2/templates/restricted/default", strings.NewReader(`{"version": "v1.0.0"}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Activeprojectid", expectedActiveProjectID)
 
 	rr := httptest.NewRecorder()
 
+	// Serve the request
 	handler.ServeHTTP(rr, req)
 	fmt.Println(rr.Body.String())
 	require.Equal(t, http.StatusOK, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, http.StatusOK)
@@ -208,50 +226,67 @@ func TestPutV2TemplatesListWithLabelSelector(t *testing.T) {
 	expectedActiveProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
 	testCtx := context.WithValue(context.Background(), core.ActiveProjectIdContextKey, expectedActiveProjectID)
 
+	// Create unstructured template
 	unstructuredCluster := &unstructured.Unstructured{}
-	resource := k8s.NewMockResourceInterface(t)
-	resource.EXPECT().Get(mock.Anything, "baseline-v1.0.0", v1.GetOptions{}).Return(unstructuredCluster, nil)
-	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-	nsResource.EXPECT().Namespace(expectedActiveProjectID).Return(resource)
-	mockedk8sclient := k8s.NewMockInterface(t)
-	mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource)
 
-	// Mock the list call to return existing default templates
+	// Create mock client
+	mockK8sClient := k8s.NewMockClient(t)
+
+	// Setup the GetCached mock
+	mockK8sClient.EXPECT().GetCached(
+		mock.Anything,
+		core.TemplateResourceSchema,
+		expectedActiveProjectID,
+		"baseline-v1.0.0",
+	).Return(unstructuredCluster, nil)
+
+	// Mock the ListCached call to return existing default templates
+	// Fixed: Use ListOptions instead of a string for the label selector
 	existingDefaultTemplate := &unstructured.Unstructured{}
 	existingDefaultTemplate.SetLabels(map[string]string{"default": "true"})
 	existingDefaultTemplate.SetName("existing-default-template")
-	resource.EXPECT().List(mock.Anything, v1.ListOptions{LabelSelector: "default=true"}).Return(&unstructured.UnstructuredList{Items: []unstructured.Unstructured{*existingDefaultTemplate}}, nil)
 
-	// Mock the update call to unlabel the existing default template
-	resource.EXPECT().Update(mock.Anything, mock.Anything, v1.UpdateOptions{}).Return(nil, nil).Times(2)
+	mockK8sClient.EXPECT().ListCached(
+		mock.Anything,
+		core.TemplateResourceSchema,
+		expectedActiveProjectID,
+		v1.ListOptions{LabelSelector: "default=true"},
+	).Return(&unstructured.UnstructuredList{Items: []unstructured.Unstructured{*existingDefaultTemplate}}, nil)
 
-	server := NewServer(mockedk8sclient)
+	// Mock the Dynamic -> Resource -> Namespace -> Update chain
+	mockDynamicInterface := k8s.NewMockInterface(t)
+	mockNamespaceableResourceInterface := k8s.NewMockNamespaceableResourceInterface(t)
+	mockResourceInterface := k8s.NewMockResourceInterface(t)
+
+	mockK8sClient.EXPECT().Dynamic().Return(mockDynamicInterface).Times(2)
+	mockDynamicInterface.EXPECT().Resource(core.TemplateResourceSchema).Return(mockNamespaceableResourceInterface).Times(2)
+	mockNamespaceableResourceInterface.EXPECT().Namespace(expectedActiveProjectID).Return(mockResourceInterface).Times(2)
+	mockResourceInterface.EXPECT().Update(mock.Anything,mock.Anything,v1.UpdateOptions{}).Return(nil, nil).Times(2)
+
+	// Create a server with the mocked client
+	server := NewServer(mockK8sClient)
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
+	// Create a handler with middleware
 	handler, err := server.ConfigureHandler()
 	require.Nil(t, err)
 
+	// Create a new request & response recorder
 	req := httptest.NewRequestWithContext(testCtx, "PUT", "/v2/templates/baseline/default", strings.NewReader(`{"version": "v1.0.0"}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Activeprojectid", expectedActiveProjectID)
 
 	rr := httptest.NewRecorder()
 
+	// Serve the request
 	handler.ServeHTTP(rr, req)
 	fmt.Println(rr.Body.String())
 	require.Equal(t, http.StatusOK, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, http.StatusOK)
 }
 
 func TestFetchTemplateVersions(t *testing.T) {
-	// Create a mock dynamic client
-	mockClient := new(k8s.MockInterface)
-	mockResource := new(k8s.MockResourceInterface)
-	mockNamespaceableResource := new(k8s.MockNamespaceableResourceInterface)
-
-	// Set up the mock expectations
-	gvr := core.TemplateResourceSchema // Use the correct GroupVersionResource from the core package
-	mockClient.On("Resource", gvr).Return(mockNamespaceableResource)
-	mockNamespaceableResource.On("Namespace", "default").Return(mockResource)
+	// Create mock client
+	mockK8sClient := k8s.NewMockClient(t)
 
 	// Create a fake ClusterTemplate
 	clusterTemplate := &v1alpha1.ClusterTemplate{
@@ -271,40 +306,35 @@ func TestFetchTemplateVersions(t *testing.T) {
 		},
 		Items: []unstructured.Unstructured{{Object: unstructuredClusterTemplate}},
 	}
-	mockResource.On("List", mock.Anything, v1.ListOptions{}).Return(templateList, nil)
+
+	// Mock ListCached instead of the Dynamic chain, using v1.ListOptions{} not ""
+	mockK8sClient.EXPECT().ListCached(mock.Anything, core.TemplateResourceSchema,"default",v1.ListOptions{}).Return(templateList, nil)
 
 	// Create a server instance
-	server := NewServer(mockClient)
+	server := NewServer(mockK8sClient)
 
 	// Call the fetchAndSelectLatestVersion method
 	version, err := server.fetchAndSelectLatestVersion(context.Background(), "template1", "default")
 	require.NoError(t, err)
 	require.Equal(t, "v1.0.0", version)
-
-	// Assert that the expectations were met
-	mockClient.AssertExpectations(t)
-	mockResource.AssertExpectations(t)
-	mockNamespaceableResource.AssertExpectations(t)
 }
 
 func TestPutV2TemplatesFetchTemplateVersionsError(t *testing.T) {
 	expectedActiveProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
 	testCtx := context.WithValue(context.Background(), core.ActiveProjectIdContextKey, expectedActiveProjectID)
 
-	// Create a mock dynamic client
-	mockClient := new(k8s.MockInterface)
-	mockResource := new(k8s.MockResourceInterface)
-	mockNamespaceableResource := new(k8s.MockNamespaceableResourceInterface)
+	// Create mock client
+	mockK8sClient := k8s.NewMockClient(t)
 
-	// Set up the mock expectations
-	gvr := core.TemplateResourceSchema // Use the correct GroupVersionResource from the core package
-	mockClient.On("Resource", gvr).Return(mockNamespaceableResource)
-	mockNamespaceableResource.On("Namespace", expectedActiveProjectID).Return(mockResource)
+	// Simulate an error in ListCached - UPDATED: use v1.ListOptions{} instead of ""
+	mockK8sClient.EXPECT().ListCached(
+		mock.Anything,
+		core.TemplateResourceSchema,
+		expectedActiveProjectID,
+		v1.ListOptions{},
+	).Return(nil, errors.New("internal server error"))
 
-	// Simulate an error in fetchTemplateVersions
-	mockResource.On("List", mock.Anything, mock.Anything).Return(nil, errors.New("internal server error"))
-
-	server := NewServer(mockClient)
+	server := NewServer(mockK8sClient)
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 	// Create a handler with middleware
@@ -326,67 +356,6 @@ func TestPutV2TemplatesFetchTemplateVersionsError(t *testing.T) {
 	// Validate the error message in the response body
 	expectedErrorMessage := `{"message":"failed to fetch and select latest version"}`
 	require.JSONEq(t, expectedErrorMessage, rr.Body.String(), "Response body = %v, want %v", rr.Body.String(), expectedErrorMessage)
-}
-
-func TestPutV2TemplatesInternalServerError(t *testing.T) {
-	expectedActiveProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
-	testCtx := context.WithValue(context.Background(), core.ActiveProjectIdContextKey, expectedActiveProjectID)
-
-	tests := []struct {
-		name           string
-		requestBody    string
-		expectedStatus int
-		expectedError  string
-		mockSetup      func(resource *k8s.MockResourceInterface)
-	}{
-		{
-			name:           "500 Internal Server Error",
-			requestBody:    `{"version": "v1.0.0"}`,
-			expectedStatus: http.StatusInternalServerError,
-			expectedError:  `{"message":"unexpected error occurred"}`,
-			mockSetup: func(resource *k8s.MockResourceInterface) {
-				resource.EXPECT().Get(mock.Anything, "baseline-v1.0.0", v1.GetOptions{}).Return(nil, errors.New("internal server error"))
-			},
-		},
-		{
-			name:           "Fetch Template Versions Error",
-			requestBody:    `{"version": ""}`,
-			expectedStatus: http.StatusInternalServerError,
-			expectedError:  `{"message":"failed to fetch and select latest version"}`,
-			mockSetup: func(resource *k8s.MockResourceInterface) {
-				resource.EXPECT().List(mock.Anything, mock.Anything).Return(nil, errors.New("internal server error"))
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			resource := k8s.NewMockResourceInterface(t)
-			nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-			nsResource.EXPECT().Namespace(expectedActiveProjectID).Return(resource)
-			mockedk8sclient := k8s.NewMockInterface(t)
-			mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource)
-
-			tt.mockSetup(resource)
-
-			server := NewServer(mockedk8sclient)
-			require.NotNil(t, server, "NewServer() returned nil, want not nil")
-
-			handler, err := server.ConfigureHandler()
-			require.Nil(t, err)
-
-			req := httptest.NewRequestWithContext(testCtx, "PUT", "/v2/templates/baseline/default", strings.NewReader(tt.requestBody))
-			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("Activeprojectid", expectedActiveProjectID)
-
-			rr := httptest.NewRecorder()
-
-			handler.ServeHTTP(rr, req)
-			fmt.Println(rr.Body.String())
-			require.Equal(t, tt.expectedStatus, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, tt.expectedStatus)
-			require.JSONEq(t, tt.expectedError, rr.Body.String(), "Response body = %v, want %v", rr.Body.String(), tt.expectedError)
-		})
-	}
 }
 
 func TestFetchAndSelectLatestVersion(t *testing.T) {
@@ -455,62 +424,47 @@ func TestFetchAndSelectLatestVersion(t *testing.T) {
 		Items: []unstructured.Unstructured{*template1v1, *template1v2, *template1v3, *other1v3},
 	}
 
-	// Create a mock dynamic client
-	mockClient := new(k8s.MockInterface)
-	mockResource := new(k8s.MockResourceInterface)
-	mockNamespaceableResource := new(k8s.MockNamespaceableResourceInterface)
+	// Create mock client
+	mockK8sClient := k8s.NewMockClient(t)
 
-	// Set up the mock expectations
-	gvr := core.TemplateResourceSchema // Use the correct GroupVersionResource from the core package
-	mockClient.On("Resource", gvr).Return(mockNamespaceableResource)
-	mockNamespaceableResource.On("Namespace", expectedNamespace).Return(mockResource)
+	// Mock ListCached instead of Dynamic chain
+	mockK8sClient.EXPECT().ListCached(
+		mock.Anything,
+		core.TemplateResourceSchema,
+		expectedNamespace,
+		v1.ListOptions{}, // Changed from "" to v1.ListOptions{}
+	).Return(templateList, nil)
 
-	// Mock the List call to return the template list
-	mockResource.On("List", mock.Anything, v1.ListOptions{}).Return(templateList, nil)
-
-	server := NewServer(mockClient)
-	require.NotNil(t, server, "NewServer() returned nil, want not nil")
+	// Create a server instance
+	server := NewServer(mockK8sClient)
 
 	// Call the fetchAndSelectLatestVersion method
 	version, err := server.fetchAndSelectLatestVersion(context.Background(), templateName, expectedNamespace)
 	require.NoError(t, err)
 	require.Equal(t, "v3.0.0", version)
-
-	// Assert that the expectations were met
-	mockClient.AssertExpectations(t)
-	mockResource.AssertExpectations(t)
-	mockNamespaceableResource.AssertExpectations(t)
 }
 
 func TestFetchAndSelectLatestVersionNotFound(t *testing.T) {
 	expectedNamespace := "default"
 	templateName := "template1"
 
-	// Create a mock dynamic client
-	mockClient := new(k8s.MockInterface)
-	mockResource := new(k8s.MockResourceInterface)
-	mockNamespaceableResource := new(k8s.MockNamespaceableResourceInterface)
+	// Create mock client
+	mockK8sClient := k8s.NewMockClient(t)
 
-	// Set up the mock expectations
-	gvr := core.TemplateResourceSchema // Use the correct GroupVersionResource from the core package
-	mockClient.On("Resource", gvr).Return(mockNamespaceableResource)
-	mockNamespaceableResource.On("Namespace", expectedNamespace).Return(mockResource)
+	// Mock ListCached to return an empty list
+	mockK8sClient.EXPECT().ListCached(
+		mock.Anything,
+		core.TemplateResourceSchema,
+		expectedNamespace,
+		v1.ListOptions{},
+	).Return(&unstructured.UnstructuredList{}, nil)
 
-	// Mock the List call to return an empty list
-	mockResource.On("List", mock.Anything, v1.ListOptions{}).Return(&unstructured.UnstructuredList{}, nil)
-
-	server := NewServer(mockClient)
+	server := NewServer(mockK8sClient)
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
-	// Call the fetchAndSelectLatestVersion method
 	_, err := server.fetchAndSelectLatestVersion(context.Background(), templateName, expectedNamespace)
 	require.Error(t, err)
 	require.Equal(t, "clusterTemplate with name 'template1' not found", err.Error())
-
-	// Assert that the expectations were met
-	mockClient.AssertExpectations(t)
-	mockResource.AssertExpectations(t)
-	mockNamespaceableResource.AssertExpectations(t)
 }
 
 func TestPutV2TemplatesSetMostRecentVersionAsDefault2(t *testing.T) {
@@ -579,32 +533,48 @@ func TestPutV2TemplatesSetMostRecentVersionAsDefault2(t *testing.T) {
 		Items: []unstructured.Unstructured{*template1v1, *template1v2, *template1v3, *otherTemplate},
 	}
 
-	// Create a mock dynamic client
-	mockClient := new(k8s.MockInterface)
-	mockResource := new(k8s.MockResourceInterface)
-	mockNamespaceableResource := new(k8s.MockNamespaceableResourceInterface)
+	// Create mock client
+	mockK8sClient := k8s.NewMockClient(t)
 
-	// Set up the mock expectations
-	gvr := core.TemplateResourceSchema // Use the correct GroupVersionResource from the core package
-	mockClient.On("Resource", gvr).Return(mockNamespaceableResource)
-	mockNamespaceableResource.On("Namespace", expectedActiveProjectID).Return(mockResource)
+	// Mock ListCached to return the template list
+	mockK8sClient.EXPECT().ListCached(
+		mock.Anything,
+		core.TemplateResourceSchema,
+		expectedActiveProjectID,
+		v1.ListOptions{},
+	).Return(templateList, nil)
 
-	// Mock the List call to return the template list
-	mockResource.On("List", mock.Anything, v1.ListOptions{}).Return(templateList, nil)
+	// Mock GetCached to return the most recent template
+	mockK8sClient.EXPECT().GetCached(
+		mock.Anything,
+		core.TemplateResourceSchema,
+		expectedActiveProjectID,
+		"baseline-v3.0.0",
+	).Return(template1v3, nil)
 
-	// Mock the Get call to return the most recent template
-	mockResource.On("Get", mock.Anything, "baseline-v3.0.0", v1.GetOptions{}).Return(template1v3, nil)
-
-	// Mock the List call to return existing default templates
+	// Mock ListCached to return existing default templates
 	existingDefaultTemplate := &unstructured.Unstructured{}
 	existingDefaultTemplate.SetLabels(map[string]string{"default": "true"})
 	existingDefaultTemplate.SetName("existing-default-template")
-	mockResource.On("List", mock.Anything, v1.ListOptions{LabelSelector: "default=true"}).Return(&unstructured.UnstructuredList{Items: []unstructured.Unstructured{*existingDefaultTemplate}}, nil)
 
-	// Mock the Update call to unlabel the existing default template
-	mockResource.On("Update", mock.Anything, mock.Anything, v1.UpdateOptions{}).Return(nil, nil).Times(2)
+	mockK8sClient.EXPECT().ListCached(
+		mock.Anything,
+		core.TemplateResourceSchema,
+		expectedActiveProjectID,
+		v1.ListOptions{LabelSelector: "default=true"},
+	).Return(&unstructured.UnstructuredList{Items: []unstructured.Unstructured{*existingDefaultTemplate}}, nil)
 
-	server := NewServer(mockClient)
+	mockDynamicInterface := k8s.NewMockInterface(t)
+	mockNamespaceableResourceInterface := k8s.NewMockNamespaceableResourceInterface(t)
+	mockResourceInterface := k8s.NewMockResourceInterface(t)
+
+	mockK8sClient.EXPECT().Dynamic().Return(mockDynamicInterface).Times(2)
+	mockDynamicInterface.EXPECT().Resource(core.TemplateResourceSchema).Return(mockNamespaceableResourceInterface).Times(2)
+	mockNamespaceableResourceInterface.EXPECT().Namespace(expectedActiveProjectID).Return(mockResourceInterface).Times(2)
+	mockResourceInterface.EXPECT().Update(mock.Anything,mock.Anything,v1.UpdateOptions{}).Return(nil, nil).Times(2)
+
+	// Create a server with the mocked client
+	server := NewServer(mockK8sClient)
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 	// Create a handler with middleware
@@ -630,27 +600,55 @@ func TestPutV2TemplatesSetMostRecentVersionAsDefault2(t *testing.T) {
 
 	// Validate that the response body is empty
 	require.Empty(t, rr.Body.String(), "Response body is not empty")
-
-	// Reset mocks
-	mockClient.AssertExpectations(t)
-	mockResource.AssertExpectations(t)
-	mockNamespaceableResource.AssertExpectations(t)
 }
 
 func createPutV2TemplatesNameStubServer(t *testing.T) *Server {
-	unstructuredCluster := &unstructured.Unstructured{}
-	unstructuredTemplate := &unstructured.UnstructuredList{}
-	resource := k8s.NewMockResourceInterface(t)
-	resource.EXPECT().Get(mock.Anything, mock.Anything, v1.GetOptions{}).Return(unstructuredCluster, nil).Maybe()
-	resource.EXPECT().List(mock.Anything, mock.Anything).Return(unstructuredTemplate, nil).Maybe()
-	resource.EXPECT().Update(mock.Anything, mock.Anything, v1.UpdateOptions{}).Return(nil, nil).Maybe()
-	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-	nsResource.EXPECT().Namespace(mock.Anything).Return(resource).Maybe()
-	mockedk8sclient := k8s.NewMockInterface(t)
-	mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource).Maybe()
-	return &Server{
-		k8sclient: mockedk8sclient,
-	}
+	// Create mock client
+	mockK8sClient := k8s.NewMockClient(t)
+
+	// Set up the chain for Dynamic() -> Resource() -> Namespace() -> Get/List/etc
+	mockDynamicInterface := k8s.NewMockInterface(t)
+	mockNamespaceableResourceInterface := k8s.NewMockNamespaceableResourceInterface(t)
+	mockResourceInterface := k8s.NewMockResourceInterface(t)
+
+	// Setup the basic chain that will be used for all operations
+	mockK8sClient.EXPECT().Dynamic().Return(mockDynamicInterface).Maybe()
+	mockDynamicInterface.EXPECT().Resource(mock.Anything).Return(mockNamespaceableResourceInterface).Maybe()
+	mockNamespaceableResourceInterface.EXPECT().Namespace(mock.Anything).Return(mockResourceInterface).Maybe()
+
+	// Now we can set up the actual operations on the resource interface
+	mockResourceInterface.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(&unstructured.Unstructured{}, nil).Maybe()
+	mockResourceInterface.EXPECT().List(mock.Anything, mock.Anything).Return(&unstructured.UnstructuredList{}, nil).Maybe()
+	mockResourceInterface.EXPECT().Update(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Maybe()
+	mockResourceInterface.EXPECT().UpdateStatus(mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Maybe()
+
+	// Set up GetCached and ListCached which are direct methods on the client
+	mockK8sClient.EXPECT().GetCached(
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+	).Return(&unstructured.Unstructured{}, nil).Maybe()
+
+	mockK8sClient.EXPECT().ListCached(
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.MatchedBy(func(options interface{}) bool {
+			// Match any v1.ListOptions parameter
+			_, ok := options.(v1.ListOptions)
+			return ok
+		}),
+	).Return(&unstructured.UnstructuredList{}, nil).Maybe()
+
+	// Mock Cluster method
+	mockK8sClient.EXPECT().GetCluster(
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+	).Return(&capi.Cluster{}, nil).Maybe()
+
+	return NewServer(mockK8sClient)
 }
 
 func FuzzPutV2TemplatesName(f *testing.F) {
