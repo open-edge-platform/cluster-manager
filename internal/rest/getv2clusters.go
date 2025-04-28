@@ -163,16 +163,16 @@ func (s *Server) convertClusters(ctx context.Context, namespace string, unstruct
 func filterClusters(cluster api.ClusterInfo, filter *Filter) bool {
 	switch filter.Name {
 	case "name":
-		return MatchWildcard(cluster.Name, filter.Value)
+		return MatchSubstring(cluster.Name, filter.Value)
 	case "kubernetesVersion":
-		return MatchWildcard(cluster.KubernetesVersion, filter.Value)
+		return MatchSubstring(cluster.KubernetesVersion, filter.Value)
 	case "providerStatus":
 		if cluster.ProviderStatus != nil {
-			return MatchWildcard(cluster.ProviderStatus.Message, filter.Value)
+			return MatchSubstring(cluster.ProviderStatus.Message, filter.Value)
 		}
 	case "lifecyclePhase":
 		if cluster.LifecyclePhase != nil {
-			return MatchWildcard(cluster.LifecyclePhase.Message, filter.Value)
+			return MatchSubstring(cluster.LifecyclePhase.Message, filter.Value)
 		}
 	default:
 		return false

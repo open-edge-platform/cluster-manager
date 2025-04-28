@@ -300,14 +300,11 @@ func ValidateParams(params any) (pageSize, offset *int, orderBy, filter *string,
 	return pageSize, offset, orderBy, filter, nil
 }
 
-// MatchWildcard checks if the target string starts with the prefix derived from the pattern.
-func MatchWildcard(target *string, pattern string) bool {
+// MatchSubstring checks if the target string contains the substring.
+func MatchSubstring(target *string, substring string) bool {
 	if target == nil {
 		return false
 	}
-	if strings.HasSuffix(pattern, "*") {
-		prefix := strings.TrimSuffix(pattern, "*")
-		return strings.HasPrefix(*target, prefix)
-	}
-	return *target == pattern
+
+	return strings.Contains(*target, substring)
 }
