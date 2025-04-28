@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+{{- if .Values.templateController.metrics.serviceMonitor.enabled -}}
+# Prometheus Monitor Service (Metrics)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: template-controller-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "templateController.serviceMonitorLabels" . | nindent 4 }}
+spec:
+  endpoints:
+    - path: /metrics
+      port: metrics
+      scheme: http
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  selector:
+    matchExpressions:
+    - key: prometheus.io/service-monitor
+      operator: NotIn
+      values:
+      - "false"
+    matchLabels:
+      {{- include "templateController.metricsServiceLabels" . | nindent 6 }}
+{{- end -}}

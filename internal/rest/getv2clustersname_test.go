@@ -379,7 +379,7 @@ func TestGetV2ClustersName404(t *testing.T) {
 		// check the response type and message
 		resp, ok := response.(api.GetV2ClustersName404JSONResponse)
 		require.True(t, ok, "GetV2ClustersName() response type = %T, want api.GetV2ClustersName404JSONResponse", response)
-		require.Equal(t, "cluster not found", *resp.N404NotFoundJSONResponse.Message, "GetV2ClustersName() message = %v, want %v", *resp.N404NotFoundJSONResponse.Message, "cluster not found")
+		require.Equal(t, "failed to get cluster, err: cluster not found", *resp.N404NotFoundJSONResponse.Message, "GetV2ClustersName() message = %v, want %v", *resp.N404NotFoundJSONResponse.Message, "cluster not found")
 	})
 }
 

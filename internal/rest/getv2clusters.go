@@ -4,6 +4,7 @@ package rest
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"math"
 
@@ -23,33 +24,40 @@ const MaxClusters = math.MaxInt32 // Maximum value for int32
 func (s *Server) GetV2Clusters(ctx context.Context, request api.GetV2ClustersRequestObject) (api.GetV2ClustersResponseObject, error) {
 	pageSize, offset, orderBy, filter, err := ValidateParams(request.Params)
 	if err != nil {
+		slog.Error("failed to validate parameters", "pageSize", pageSize, "offset", offset, "orderBy", orderBy, "filter", filter, "error", err)
 		return badRequestGetClustersResponse(err.Error()), nil
 	}
+
 	namespace := request.Params.Activeprojectid.String()
-	allClusters := s.getClusters(ctx, namespace, orderBy, filter)
-	if allClusters == nil {
+	clusters, err := s.getClusters(ctx, namespace, orderBy, filter)
+	if err != nil {
+		slog.Error("failed to get clusters", "namespace", namespace, "filter", filter, "order", orderBy, "error", err)
 		return internalServerErrorGetClustersResponse("failed to retrieve clusters"), nil
-	} else if len(*allClusters) == 0 {
+	}
+
+	if len(*clusters) == 0 {
 		return api.GetV2Clusters200JSONResponse{
-			Clusters:      allClusters,
+			Clusters:      clusters,
 			TotalElements: 0,
 		}, nil
 	}
 
-	paginatedClustersList, err := PaginateItems(*allClusters, *pageSize, *offset)
+	paginatedClusters, err := PaginateItems(*clusters, *pageSize, *offset)
 	if err != nil {
+		slog.Error("failed to paginate clusters", "namespace", namespace, "pageSize", pageSize, "offset", offset, "error", err)
 		return internalServerErrorGetClustersResponse(err.Error()), nil
 	}
 
-	if len(*paginatedClustersList) > MaxClusters {
+	if len(*paginatedClusters) > MaxClusters {
+		slog.Error("number of clusters exceeds the maximum allowed", "namespace", namespace, "count", len(*paginatedClusters))
 		return badRequestGetClustersResponse("number of clusters exceeds the maximum allowed"), nil
 	}
 
-	slog.Info("Clusters state read", "namespace", namespace, "count", len(*allClusters))
+	slog.Info("Clusters state read", "namespace", namespace, "count", len(*clusters))
 
 	return api.GetV2Clusters200JSONResponse{
-		Clusters:      paginatedClustersList,
-		TotalElements: int32(len(*allClusters)),
+		Clusters:      paginatedClusters,
+		TotalElements: int32(len(*clusters)),
 	}, nil
 }
 
@@ -71,16 +79,14 @@ func internalServerErrorGetClustersResponse(message string) api.GetV2Clusters500
 
 // getClusters retrieves and processes the list of clusters in the specified namespace by calling
 // the Cluster API (CAPI), returning a slice of ClusterInfo pointers or nil if an error occurs.
-func (s *Server) getClusters(ctx context.Context, namespace string, orderBy, filter *string) *[]api.ClusterInfo {
+func (s *Server) getClusters(ctx context.Context, namespace string, orderBy, filter *string) (*[]api.ClusterInfo, error) {
 	if namespace == "" {
-		slog.Warn("failed to get clusters project id")
-		return nil
+		return nil, fmt.Errorf("no namespace provided")
 	}
 
 	clusters, err := fetchClustersList(ctx, s, namespace)
 	if err != nil {
-		slog.Error("failed to fetch clusters", "namespace", namespace, "error", err)
-		return nil
+		return nil, fmt.Errorf("failed to fetch clusters: %w", err)
 	}
 
 	convertedClusters := s.convertClusters(ctx, namespace, clusters)
@@ -88,23 +94,27 @@ func (s *Server) getClusters(ctx context.Context, namespace string, orderBy, fil
 	if filter != nil {
 		convertedClusters, err = FilterItems(convertedClusters, *filter, filterClusters)
 		if err != nil {
-			slog.Error("failed to apply filters", "error", err)
-			return nil
+			return nil, fmt.Errorf("failed to apply filters: %w", err)
 		}
 	}
 
 	if orderBy != nil {
 		convertedClusters, err = OrderItems(convertedClusters, *orderBy, orderClustersBy)
 		if err != nil {
-			slog.Error("failed to apply order by", "error", err)
-			return nil
+			return nil, fmt.Errorf("failed to apply order by: %w", err)
 		}
 	}
-	return &convertedClusters
+
+	return &convertedClusters, nil
 }
 
 func (s *Server) convertClusters(ctx context.Context, namespace string, unstructuredClusters []unstructured.Unstructured) []api.ClusterInfo {
 	clusters := make([]api.ClusterInfo, 0, len(unstructuredClusters))
+	allMachines, err := fetchAllMachinesList(ctx, s, namespace)
+	if err != nil {
+		slog.Error("failed to fetch machines", "namespace", namespace, "error", err)
+		return nil
+	}
 	for _, item := range unstructuredClusters {
 		capiCluster := capi.Cluster{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.Object, &capiCluster); err != nil {
@@ -114,11 +124,7 @@ func (s *Server) convertClusters(ctx context.Context, namespace string, unstruct
 
 		slog.Debug("Processing cluster", "name", capiCluster.Name, "labels", capiCluster.Labels)
 		// get machines associated with the cluster
-		machines, err := fetchMachinesList(ctx, s, namespace, capiCluster.Name)
-		if err != nil {
-			slog.Error("failed to fetch machines for cluster", "cluster", capiCluster.Name, "error", err)
-			continue
-		}
+		machines := getClusterMachines(allMachines, capiCluster.Name)
 
 		labels := labels.Filter(capiCluster.Labels)
 		unstructuredLabels := convert.MapStringToAny(labels)
@@ -157,16 +163,16 @@ func (s *Server) convertClusters(ctx context.Context, namespace string, unstruct
 func filterClusters(cluster api.ClusterInfo, filter *Filter) bool {
 	switch filter.Name {
 	case "name":
-		return MatchWildcard(cluster.Name, filter.Value)
+		return MatchSubstring(cluster.Name, filter.Value)
 	case "kubernetesVersion":
-		return MatchWildcard(cluster.KubernetesVersion, filter.Value)
+		return MatchSubstring(cluster.KubernetesVersion, filter.Value)
 	case "providerStatus":
 		if cluster.ProviderStatus != nil {
-			return MatchWildcard(cluster.ProviderStatus.Message, filter.Value)
+			return MatchSubstring(cluster.ProviderStatus.Message, filter.Value)
 		}
 	case "lifecyclePhase":
 		if cluster.LifecyclePhase != nil {
-			return MatchWildcard(cluster.LifecyclePhase.Message, filter.Value)
+			return MatchSubstring(cluster.LifecyclePhase.Message, filter.Value)
 		}
 	default:
 		return false

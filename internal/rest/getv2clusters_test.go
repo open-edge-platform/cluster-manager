@@ -61,15 +61,37 @@ var clusterStatusInProgressControlPlane = capi.ClusterStatus{
 	},
 }
 
+var clusterStatusFailed = capi.ClusterStatus{
+	Phase: string(capi.ClusterPhaseProvisioning),
+	Conditions: []capi.Condition{
+		{
+			Type:   capi.ConditionType(capi.ClusterPhaseFailed),
+			Status: corev1.ConditionTrue,
+		},
+	},
+}
+
 func createMockServer(t *testing.T, clusters []capi.Cluster, projectID string, options ...bool) *Server {
 	unstructuredClusters := make([]unstructured.Unstructured, len(clusters))
+	machinesList := make([]unstructured.Unstructured, len(clusters))
 	for i, cluster := range clusters {
 		unstructuredCluster, err := convert.ToUnstructured(cluster)
 		require.NoError(t, err, "convertClusterToUnstructured() error = %v, want nil")
 		unstructuredClusters[i] = *unstructuredCluster
+		machine := capi.Machine{
+			ObjectMeta: metav1.ObjectMeta{Name: cluster.Name},
+			Spec:       capi.MachineSpec{ClusterName: cluster.Name},
+			Status:     capi.MachineStatus{Phase: string(capi.MachinePhaseRunning)},
+		}
+		unstructuredMachine, err := convert.ToUnstructured(machine)
+		require.NoError(t, err, "convertClusterToUnstructured() error = %v, want nil")
+		machinesList[i] = *unstructuredMachine
 	}
 	unstructuredClusterList := &unstructured.UnstructuredList{
 		Items: unstructuredClusters,
+	}
+	unstructuredMachineList := &unstructured.UnstructuredList{
+		Items: machinesList,
 	}
 	// default is to set up k8s client and machineResource mocks
 	setupK8sMocks := true
@@ -88,12 +110,16 @@ func createMockServer(t *testing.T, clusters []capi.Cluster, projectID string, o
 		mockedk8sclient = k8s.NewMockInterface(t)
 		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
 		if mockMachineResource {
+			machineResource := k8s.NewMockResourceInterface(t)
+			machineResource.EXPECT().List(mock.Anything, metav1.ListOptions{}).Return(unstructuredMachineList, nil)
+			namespacedMachineResource := k8s.NewMockNamespaceableResourceInterface(t)
 			for _, cluster := range clusters {
-				resource.EXPECT().List(mock.Anything, metav1.ListOptions{
+				machineResource.EXPECT().List(mock.Anything, metav1.ListOptions{
 					LabelSelector: "cluster.x-k8s.io/cluster-name=" + cluster.Name,
 				}).Return(&unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}, nil).Maybe()
 			}
-			mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(nsResource).Maybe()
+			namespacedMachineResource.EXPECT().Namespace(projectID).Return(machineResource)
+			mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(namespacedMachineResource).Maybe()
 		}
 	}
 	return NewServer(mockedk8sclient)
@@ -158,7 +184,7 @@ var expectedActiveProjectID = "655a6892-4280-4c37-97b1-31161ac0b99e"
 func TestGetV2Clusters200(t *testing.T) {
 	t.Run("No Clusters", func(t *testing.T) {
 		clusters := []capi.Cluster{}
-		server := createMockServer(t, clusters, expectedActiveProjectID, true, false)
+		server := createMockServer(t, clusters, expectedActiveProjectID, true, true)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -446,7 +472,7 @@ func TestGetV2Clusters200(t *testing.T) {
 		}
 		require.Equal(t, expectedResponse, actualResponse, "GetV2Clusters() response = %v, want %v", actualResponse, expectedResponse)
 	})
-	t.Run("filtered clusters by prepend name OR kubernetes version", func(t *testing.T) {
+	t.Run("filtered clusters by name OR kubernetes version", func(t *testing.T) {
 		clusters := []capi.Cluster{
 			generateCluster(ptr("example-cluster-1"), ptr("v1.30.6+rke2r1")),
 			generateCluster(ptr("example-cluster-2"), ptr("v1.20.4+rke2r1")),
@@ -455,7 +481,7 @@ func TestGetV2Clusters200(t *testing.T) {
 		server := createMockServer(t, clusters, expectedActiveProjectID)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 		// Create a new request & response recorder with filter by name prefix or kubernetes version
-		req := httptest.NewRequest("GET", "/v2/clusters?filter=name=cluster-*%20OR%20kubernetesVersion=v1.2*", nil)
+		req := httptest.NewRequest("GET", "/v2/clusters?filter=name=ster-exam%20OR%20kubernetesVersion=1.2", nil)
 		req.Header.Set("Activeprojectid", expectedActiveProjectID)
 		rr := httptest.NewRecorder()
 		handler, err := server.ConfigureHandler()
@@ -474,7 +500,7 @@ func TestGetV2Clusters200(t *testing.T) {
 		}
 		require.Equal(t, expectedResponse, actualResponse, "GetV2Clusters() response = %v, want %v", actualResponse, expectedResponse)
 	})
-	t.Run("filtered clusters by name prefix AND specific kubernetes version", func(t *testing.T) {
+	t.Run("filtered clusters by name AND specific kubernetes version", func(t *testing.T) {
 		clusters := []capi.Cluster{
 			generateCluster(ptr("example-cluster-1"), ptr("v1.30.6+rke2r1")),
 			generateCluster(ptr("example-cluster-2"), ptr("v1.20.4+rke2r1")),
@@ -485,7 +511,7 @@ func TestGetV2Clusters200(t *testing.T) {
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 		// Create a new request & response recorder with filter by name prefix and kubernetes version
 		// note: the space in the query string is %20 and + is %2B
-		req := httptest.NewRequest("GET", "/v2/clusters?filter=name=example-cluster-*%20AND%20kubernetesVersion=v1.20.4%2Brke2r1", nil)
+		req := httptest.NewRequest("GET", "/v2/clusters?filter=name=example-cluster%20AND%20kubernetesVersion=v1.20.4%2Brke2r1", nil)
 		req.Header.Set("Activeprojectid", expectedActiveProjectID)
 		rr := httptest.NewRecorder()
 		handler, err := server.ConfigureHandler()
@@ -516,7 +542,7 @@ func TestGetV2Clusters200(t *testing.T) {
 				name: "filtered clusters by providerStatus",
 				clusters: []capi.Cluster{
 					generateClusterWithStatus(ptr("example-cluster-1"), ptr("v1.30.6+rke2r1"), clusterStatusReady),
-					generateClusterWithStatus(ptr("example-cluster-2"), ptr("v1.20.4+rke2r1"), clusterStatusInProgressControlPlane),
+					generateClusterWithStatus(ptr("example-cluster-2"), ptr("v1.20.4+rke2r1"), clusterStatusFailed),
 				},
 				filter: "providerStatus=ready",
 				expectedResult: api.GetV2Clusters200JSONResponse{
