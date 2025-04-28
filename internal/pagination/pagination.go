@@ -261,35 +261,44 @@ func extractParamsFields(params any) (pageSize, offset *int, orderBy, filter *st
 // ValidateParams validates the incoming parameters for pagination
 func ValidateParams(params any) (pageSize, offset *int, orderBy, filter *string, err error) {
 	pageSize, offset, orderBy, filter, err = extractParamsFields(params)
-	switch {
-	case err != nil:
-		return nil, nil, nil, nil, fmt.Errorf("failed to extract params fields: %w", err)
-	case pageSize == nil, *pageSize <= 0:
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	if pageSize == nil || *pageSize <= 0 {
 		return nil, nil, nil, nil, fmt.Errorf("invalid pageSize: must be greater than 0")
-	case offset == nil, *offset < 0:
+	}
+	if offset == nil || *offset < 0 {
 		return nil, nil, nil, nil, fmt.Errorf("invalid offset: must be non-negative")
-	case orderBy == nil, *orderBy == "":
-		return nil, nil, nil, nil, fmt.Errorf("invalid orderBy: cannot be empty")
-	case filter == nil, *filter == "":
-		return nil, nil, nil, nil, fmt.Errorf("invalid filter: cannot be empty")
 	}
 
-	orderByParts := strings.Split(*orderBy, " ")
-	if len(orderByParts) == 1 {
-		orderBy = convert.Ptr(orderByParts[0] + " asc")
-	} else if len(orderByParts) == 2 {
-		if !validOrderByFields[orderByParts[0]] || (orderByParts[1] != "asc" && orderByParts[1] != "desc") {
-			return nil, nil, nil, nil, fmt.Errorf("invalid orderBy field: %s", *orderBy)
+	if orderBy != nil {
+		if *orderBy == "" {
+			return nil, nil, nil, nil, fmt.Errorf("invalid orderBy field")
+		}
+
+		orderByParts := strings.Split(*orderBy, " ")
+		if len(orderByParts) == 1 {
+			orderBy = convert.Ptr(orderByParts[0] + " asc")
+		} else if len(orderByParts) == 2 {
+			if !validOrderByFields[orderByParts[0]] || (orderByParts[1] != "asc" && orderByParts[1] != "desc") {
+				return nil, nil, nil, nil, fmt.Errorf("invalid orderBy field")
+			}
 		}
 	}
 
-	filterParts := strings.FieldsFunc(*filter, func(r rune) bool {
-		return r == ' ' || r == 'O' || r == 'R' || r == 'A' || r == 'N' || r == 'D'
-	})
-	for _, part := range filterParts {
-		subParts := strings.Split(part, "=")
-		if len(subParts) != 2 || !validFilterFields[subParts[0]] {
-			return nil, nil, nil, nil, fmt.Errorf("invalid filter field: %s", *filter)
+	if filter != nil {
+		if *filter == "" {
+			return nil, nil, nil, nil, fmt.Errorf("invalid filter: cannot be empty")
+		}
+
+		filterParts := strings.FieldsFunc(*filter, func(r rune) bool {
+			return r == ' ' || r == 'O' || r == 'R' || r == 'A' || r == 'N' || r == 'D'
+		})
+		for _, part := range filterParts {
+			subParts := strings.Split(part, "=")
+			if len(subParts) != 2 || !validFilterFields[subParts[0]] {
+				return nil, nil, nil, nil, fmt.Errorf("invalid filter field")
+			}
 		}
 	}
 
