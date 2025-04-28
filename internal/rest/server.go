@@ -120,7 +120,10 @@ func (s *Server) ConfigureHandler() (http.Handler, error) {
 func (s *Server) getServerHandler() (http.Handler, error) {
 	// create the router for the metrics endpoint
 	router := http.NewServeMux()
-	router.Handle("/v2/metrics", promhttp.HandlerFor(metrics.GetRegistry(), promhttp.HandlerOpts{}))
+
+	if !s.config.DisableMetrics {
+		router.Handle("/v2/metrics", promhttp.HandlerFor(metrics.GetRegistry(), promhttp.HandlerOpts{}))
+	}
 
 	// create the openapi handler with existing router
 	handler := api.HandlerWithOptions(api.NewStrictHandler(s, nil), api.StdHTTPServerOptions{

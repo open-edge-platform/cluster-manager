@@ -16,15 +16,23 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 )
 
+const (
+	// defaultMetricsPort is used to disable metrics
+	defaultMetricsPort = -1
+)
+
 type Config struct {
-	// DisableAuth disables authentication/authorization, should be true for production and false in integration without keycloak
+	// DisableAuth disables authentication/authorization, should be false for production and true in integration without keycloak
 	DisableAuth bool
 
-	// DisableMultitenancy disables multi-tenancy integration, should be true for production and false in integration without multi-tenancy
+	// DisableMultitenancy disables multi-tenancy integration, should be false for production and true in integration without multi-tenancy
 	DisableMultitenancy bool
 
-	// DisableInventory disables inventory integration, should be true for production and false in integration without infra-manager's inventory
+	// DisableInventory disables inventory integration, should be false for production and true in integration without infra-manager's inventory
 	DisableInventory bool
+
+	// DisableMetrics disables metrics, should be false for production and true in integration without prometheus
+	DisableMetrics bool
 
 	OidcUrl              string
 	OpaEnabled           bool
@@ -35,6 +43,7 @@ type Config struct {
 	ClusterDomain        string
 	Username             string
 	InventoryAddress     string
+	MetricsPort          int
 }
 
 // ParseConfig parses the configuration from flags and environment variables
@@ -48,9 +57,17 @@ func ParseConfig() *Config {
 	clusterDomain := flag.String("clusterdomain", "kind.internal", "(optional) cluster domain")
 	userName := flag.String("username", "admin", "(optional) user")
 	inventoryAddress := flag.String("inventory-endpoint", "mi-inventory:50051", "(optional) inventory address")
+	metricsPort := flag.Int("metrics-port", defaultMetricsPort, "(optional) metrics port")
 	flag.Parse()
 
+	disableMetrics := false
+	if *metricsPort == defaultMetricsPort {
+		slog.Info("metrics port not set, disabling metrics")
+		disableMetrics = true
+	}
+
 	cfg := &Config{
+		DisableMetrics:      disableMetrics,
 		DisableAuth:         *disableAuth,
 		DisableMultitenancy: *disableMt,
 		DisableInventory:    *disableInv,
@@ -59,6 +76,7 @@ func ParseConfig() *Config {
 		ClusterDomain:       *clusterDomain,
 		Username:            *userName,
 		InventoryAddress:    *inventoryAddress,
+		MetricsPort:         *metricsPort,
 	}
 
 	if *prefixes != "" {
