@@ -5,7 +5,6 @@ package pagination
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"math"
 	"regexp"
 	"sort"
@@ -172,9 +171,9 @@ func computePageRange(pageSize int32, offset int32, totalCount int) (int, int) {
 func PaginateItems[T any](items []T, pageSize, offset int) (*[]T, error) {
 	paginatedItems, err := applyPagination(items, pageSize, offset)
 	if err != nil {
-		slog.Error("failed to apply pagination", "pageSize", pageSize, "offset", offset, "error", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to apply pagination: %w", err)
 	}
+
 	return &paginatedItems, nil
 }
 
@@ -183,14 +182,14 @@ func applyPagination[T any](items []T, pageSize, offset int) ([]T, error) {
 	if end == -1 {
 		return nil, fmt.Errorf("no items to paginate")
 	}
+
 	return items[start:end], nil
 }
 
 func FilterItems[T any](items []T, filter string, filterFunc func(T, *Filter) bool) ([]T, error) {
 	filters, useAnd, err := parseFilter(filter)
 	if err != nil {
-		slog.Error("failed to parse filter", "filter", filter, "error", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to parse filter: %w", err)
 	}
 
 	var filteredItems []T
@@ -218,21 +217,16 @@ func FilterItems[T any](items []T, filter string, filterFunc func(T, *Filter) bo
 		}
 	}
 
-	slog.Debug("applied filter", "filter", filter, "items", filteredItems)
-
 	return filteredItems, nil
 }
 
 func OrderItems[T any](items []T, orderBy string, orderFunc func(T, T, *OrderBy) bool) ([]T, error) {
 	orderBys, err := parseOrderBy(orderBy)
 	if err != nil {
-		slog.Error("failed to parse order by", "orderBy", orderBy, "error", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to parse order by: %w", err)
 	}
 
-	orderedItems := applyOrderBy(items, orderBys, orderFunc)
-	slog.Debug("applied order by", "orderBy", orderBy, "items", orderedItems)
-	return orderedItems, nil
+	return applyOrderBy(items, orderBys, orderFunc), nil
 }
 
 func applyOrderBy[T any](items []T, orderBys []*OrderBy, orderFunc orderFunc[T]) []T {
@@ -244,6 +238,7 @@ func applyOrderBy[T any](items []T, orderBys []*OrderBy, orderFunc orderFunc[T])
 		}
 		return false
 	})
+
 	return items
 }
 
