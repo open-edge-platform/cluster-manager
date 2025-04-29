@@ -278,7 +278,7 @@ func TestGetV2Templates200(t *testing.T) {
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
-		req := httptest.NewRequest("GET", "/v2/templates?filter=name=te*", nil)
+		req := httptest.NewRequest("GET", "/v2/templates?filter=name=mpla", nil)
 		req.Header.Set("Activeprojectid", expectedActiveProjectID)
 		rr := httptest.NewRecorder()
 
