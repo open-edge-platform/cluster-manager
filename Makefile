@@ -521,8 +521,8 @@ check-oapi-codegen-version: ## Check oapi-codegen version
 ##@ Dev targets
 
 DEV_IMG               ?= cluster-manager-image:${DEV_TAG}
-DOCKER_DEV_REGISTRY	  ?= amr-registry-pre.caas.intel.com/
-DOCKER_DEV_REPOSITORY ?= one-intel-edge-sandbox/maestro-c/
+DOCKER_DEV_REGISTRY	  ?= <placeholder>
+DOCKER_DEV_REPOSITORY ?= <placeholder>
 DOCKER_DEV_IMG        := ${DOCKER_DEV_REGISTRY}${DOCKER_DEV_REPOSITORY}${DEV_IMG}
 
 .PHONY: dev-image
