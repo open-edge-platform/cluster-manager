@@ -142,7 +142,7 @@ templateController:
     logformat: "-logformat=human"
 
 metrics:
-  enabled: true
+  enabled: false
   service:
     port: 8080
     labels:
