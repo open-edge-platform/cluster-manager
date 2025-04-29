@@ -35,15 +35,24 @@ func appendMiddlewares(mw ...middleware) func(http.Handler) http.Handler {
 // logger logs the request and response
 func logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !slices.Contains(ignoredPaths, r.URL.Path) { // reduce log spam
-			slog.Debug("received request", "method", r.Method, "path", r.URL.Path)
+		if slices.Contains(ignoredPaths, r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
 		}
+
+		slog.Debug("received request", "method", r.Method, "path", r.URL.Path)
 		next.ServeHTTP(w, r)
 	})
 }
 
+// requestDurationMetrics measures the duration of the request and records it for Prometheus
 func requestDurationMetrics(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if slices.Contains(ignoredPaths, r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		start := time.Now()
 		next.ServeHTTP(w, r)
 		d := time.Since(start).Seconds()
@@ -51,9 +60,9 @@ func requestDurationMetrics(next http.Handler) http.Handler {
 	})
 }
 
+// responseCounterMetrics counts the number of responses and records it for Prometheus
 func responseCounterMetrics(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// skip endpoints that do not require a project id
 		if slices.Contains(ignoredPaths, r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
