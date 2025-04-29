@@ -142,12 +142,9 @@ templateController:
     logformat: "-logformat=human"
 
 metrics:
-  enabled: false
+  enabled: true
   service:
-    # Whether to create a service for scraping metrics
-    enabled: false
     port: 8080
-    # Labels to add to the service
     labels:
       clusterManager:
         app: "cluster-manager-metrics-svc"

@@ -9,15 +9,15 @@ import (
 
 var (
 	ResponseTime = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Name:    "http_response_time_seconds",
+		Name:    "cluster_manager_http_response_time_seconds_histogram",
 		Help:    "Response time to HTTP requests in seconds",
 		Buckets: prometheus.DefBuckets,
 	})
 
 	HttpResponseCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "http_response_codes",
-			Help: "Count of HTTP response codes for requests",
+			Name: "cluster_manager_http_response_codes_counter",
+			Help: "Count of HTTP response codes per endpoint",
 		},
 		[]string{"method", "path", "code"},
 	)

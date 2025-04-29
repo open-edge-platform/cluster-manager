@@ -46,7 +46,7 @@ spec:
         {{- if .Values.clusterManager.args.inventory }}
         - '-inventory-endpoint={{ .Values.clusterManager.args.inventory }}'
         {{- end }}
-        {{- if .Values.metrics.service.enabled }}
+        {{- if .Values.metrics.enabled }}
         - --metrics-port=:{{ .Values.metrics.service.port }}
         {{- end }}
         {{- range $key, $value := .Values.clusterManager.extraArgs }}
@@ -55,7 +55,7 @@ spec:
         ports:
         - name: rest
           containerPort: {{ .Values.clusterManager.service.rest.port }}
-        {{if .Values.metrics.service.enabled }}
+        {{if .Values.metrics.enabled }}
         - name: metrics
           containerPort: {{ .Values.metrics.service.port }}
           protocol: TCP

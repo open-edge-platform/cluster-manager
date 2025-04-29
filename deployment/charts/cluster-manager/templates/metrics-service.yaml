@@ -1,19 +1,22 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-{{ if .Values.metrics.service.enabled -}}
+{{ if .Values.metrics.enabled -}}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: cluster-manager-metrics
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "templateController.serviceMonitorLabels" . | nindent 4 }}
+    {{- toYaml .Values.metrics.serviceMonitor.labels | indent 4 }}
 spec:
   endpoints:
   - path: /metrics
-      port: metrics
-      scheme: http
+    port: metrics
+    scheme: http
+  - path: /v2/metrics
+    port: metrics
+    scheme: http
   namespaceSelector:
     matchNames:
     - {{ .Release.Namespace }}
@@ -23,37 +26,40 @@ spec:
       operator: NotIn
       values:
       - "false"
-    matchLabels:
-      {{- .Values.metrics.serviceMonitor.labels | nindent 6 }}
-
+    - key: app
+      operator: In
+      values:
+      - {{ .Values.metrics.service.labels.clusterManager.app | quote }}
+      - {{ .Values.metrics.service.labels.templateController.app | quote }}
+---
 apiVersion: v1
 kind: Service
 metadata:
-  name: clusters-metrics
+  name: cluster-metrics
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- .Values.metrics.service.labels.clusterManager | nindent 4 }}
+    {{- toYaml .Values.metrics.service.labels.clusterManager | nindent 4 }}
 spec:
   ports:
   - name: metrics
-    port: {{ .Values.metrics.service.port }}
     protocol: TCP
+    port: {{ .Values.metrics.service.port }}
     targetPort: {{ .Values.metrics.service.port }}
   selector:
     app: "{{.Chart.Name}}-cm"
-
+---
 apiVersion: v1
 kind: Service
 metadata:
   name: templates-metrics
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- .Values.metrics.service.labels.templateController | nindent 4 }}
+    {{- toYaml .Values.metrics.service.labels.templateController | nindent 4 }}
 spec:
   ports:
   - name: metrics
-    port: {{ .Values.metrics.service.port }}
     protocol: TCP
+    port: {{ .Values.metrics.service.port }}
     targetPort: {{ .Values.metrics.service.port }}
   selector:
     app: "{{.Chart.Name}}-controller"

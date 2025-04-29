@@ -290,8 +290,8 @@ helm-clean: ## Clean helm chart build annotations.
 
 .PHONY: helm-test
 helm-test: ## Template the charts.
-	for d in $(HELM_DIRS); do \
-		helm template intel $$d; \
+	@for d in $(HELM_DIRS); do \
+		helm --debug template --namespace orch-cluster intel $$d; \
 	done
 
 .PHONY: helm-build
@@ -538,8 +538,8 @@ dev-image: ## Build dev image and push to sandbox
 		-f deployment/images/Dockerfile.cluster-manager
 	${DOCKER_ENV} docker push ${DOCKER_DEV_IMG}
 
-.PHONY: dev-helm # Build dev helm chart and push to sandbox
-dev-helm: ## Build dev helm chart and push to sandbox
+.PHONY: dev-chart # Build dev helm chart and push to sandbox
+dev-chart: ## Build dev helm chart and push to sandbox
 	@if test -z $(DEV_TAG); \
 		then echo "Please specify dev tag, make dev DEV_TAG=<dev-tag> " && exit 1; \
 	fi

@@ -41,7 +41,7 @@ spec:
           - --leader-elect
           - --health-probe-bind-address=:8081
           - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
-          {{- if .Values.metrics.service.enabled }}
+          {{- if .Values.metrics.enabled }}
           - --metrics-bind-address=:{{ .Values.metrics.service.port }}
           - --metrics-secure=false
           {{- end }}
@@ -63,7 +63,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
         ports: 
-        {{if .Values.metrics.service.enabled }}
+        {{if .Values.metrics.enabled }}
           - containerPort: {{ .Values.metrics.service.port }}
             name: metrics
             protocol: TCP
