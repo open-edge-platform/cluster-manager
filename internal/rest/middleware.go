@@ -15,7 +15,7 @@ import (
 var (
 	ignoredPaths = []string{
 		"/v2/healthz",
-		"/v2/metrics",
+		"/metrics",
 	}
 )
 
@@ -35,7 +35,7 @@ func appendMiddlewares(mw ...middleware) func(http.Handler) http.Handler {
 // logger logs the request and response
 func logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v2/healthz" { // reduce log spam
+		if !slices.Contains(ignoredPaths, r.URL.Path) { // reduce log spam
 			slog.Debug("received request", "method", r.Method, "path", r.URL.Path)
 		}
 		next.ServeHTTP(w, r)

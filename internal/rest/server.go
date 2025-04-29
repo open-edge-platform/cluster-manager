@@ -122,7 +122,7 @@ func (s *Server) getServerHandler() (http.Handler, error) {
 	router := http.NewServeMux()
 
 	if !s.config.DisableMetrics {
-		router.Handle("/v2/metrics", promhttp.HandlerFor(metrics.GetRegistry(), promhttp.HandlerOpts{}))
+		router.Handle("/metrics", promhttp.HandlerFor(metrics.GetRegistry(), promhttp.HandlerOpts{}))
 	}
 
 	// create the openapi handler with existing router
