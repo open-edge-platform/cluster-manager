@@ -16,11 +16,6 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 )
 
-const (
-	// defaultMetricsPort is used to disable metrics
-	defaultMetricsPort = -1
-)
-
 type Config struct {
 	// DisableAuth disables authentication/authorization, should be false for production and true in integration without keycloak
 	DisableAuth bool
