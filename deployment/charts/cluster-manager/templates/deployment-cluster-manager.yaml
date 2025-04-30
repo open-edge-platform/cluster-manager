@@ -52,11 +52,6 @@ spec:
         ports:
         - name: rest
           containerPort: {{ .Values.clusterManager.service.rest.port }}
-        {{if .Values.metrics.enabled }}
-        - name: metrics
-          containerPort: {{ .Values.metrics.service.port }}
-          protocol: TCP
-        {{- end }}
         readinessProbe:
           httpGet:
             path: {{ .Values.clusterManager.readinessProbe.httpGet.path }}
