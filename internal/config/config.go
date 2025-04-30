@@ -43,7 +43,6 @@ type Config struct {
 	ClusterDomain        string
 	Username             string
 	InventoryAddress     string
-	MetricsPort          int
 }
 
 // ParseConfig parses the configuration from flags and environment variables
@@ -51,32 +50,25 @@ func ParseConfig() *Config {
 	disableAuth := flag.Bool("disable-auth", false, "(optional) disable rest authentication/authorization")
 	disableMt := flag.Bool("disable-mt", false, "(optional) disable multi-tenancy integration")
 	disableInv := flag.Bool("disable-inventory", false, "(optional) disable inventory integration")
+	disableMetrics := flag.Bool("disable-metrics", false, "(optional) disable prometheus metrics handler")
 	logLevel := flag.Int("loglevel", 0, "(optional) log level [trace:-8|debug:-4|info:0|warn:4|error:8]")
 	logFormat := flag.String("logformat", "json", "(optional) log format [json|human]")
 	prefixes := flag.String("system-labels-prefixes", "", "(optional) comma separated list of system labels prefixes; if not provided, sane defaults are used")
 	clusterDomain := flag.String("clusterdomain", "kind.internal", "(optional) cluster domain")
 	userName := flag.String("username", "admin", "(optional) user")
 	inventoryAddress := flag.String("inventory-endpoint", "mi-inventory:50051", "(optional) inventory address")
-	metricsPort := flag.Int("metrics-port", defaultMetricsPort, "(optional) metrics port")
 	flag.Parse()
 
-	disableMetrics := false
-	if *metricsPort == defaultMetricsPort {
-		slog.Info("metrics port not set, disabling metrics")
-		disableMetrics = true
-	}
-
 	cfg := &Config{
-		DisableMetrics:      disableMetrics,
 		DisableAuth:         *disableAuth,
 		DisableMultitenancy: *disableMt,
 		DisableInventory:    *disableInv,
+		DisableMetrics:      *disableMetrics,
 		LogLevel:            *logLevel,
 		LogFormat:           strings.ToLower(*logFormat),
 		ClusterDomain:       *clusterDomain,
 		Username:            *userName,
 		InventoryAddress:    *inventoryAddress,
-		MetricsPort:         *metricsPort,
 	}
 
 	if *prefixes != "" {

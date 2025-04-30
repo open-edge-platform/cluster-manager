@@ -74,6 +74,7 @@ clusterManager:
     disable-auth: false
     disable-mt: false
     disable-inventory: false
+    disable-metrics: true
 
   extraEnv: []
 
@@ -134,7 +135,6 @@ templateController:
   extraArgs:
     - "--webhook-enabled=true"
 
-
   extraEnv: []
 
   args:
@@ -146,8 +146,6 @@ metrics:
   service:
     port: 8080
     labels:
-      clusterManager:
-        app: "cluster-manager-metrics-svc"
       templateController:
         app: "template-controller-metrics-svc"
   serviceMonitor:

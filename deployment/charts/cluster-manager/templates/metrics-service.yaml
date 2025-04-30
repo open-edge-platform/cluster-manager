@@ -26,24 +26,8 @@ spec:
     - key: app
       operator: In
       values:
-      - {{ .Values.metrics.service.labels.clusterManager.app | quote }}
+      - "{{.Chart.Name}}-cm"
       - {{ .Values.metrics.service.labels.templateController.app | quote }}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: cluster-metrics
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- toYaml .Values.metrics.service.labels.clusterManager | nindent 4 }}
-spec:
-  ports:
-  - name: metrics
-    protocol: TCP
-    port: {{ .Values.metrics.service.port }}
-    targetPort: {{ .Values.metrics.service.port }}
-  selector:
-    app: "{{.Chart.Name}}-cm"
 ---
 apiVersion: v1
 kind: Service
