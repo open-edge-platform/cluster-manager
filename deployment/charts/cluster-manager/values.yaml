@@ -132,7 +132,7 @@ templateController:
 
   # Additional command line flags to pass.
   extraArgs:
-    - "--webhook-enabled=false"
+    - "--webhook-enabled=true"
 
 
   extraEnv: []
@@ -141,8 +141,22 @@ templateController:
     loglevel: "-loglevel=0"
     logformat: "-logformat=human"
 
+  metrics:
+    service:
+      # Whether to create a service for scraping metrics
+      enabled: false
+      port: 8080
+      # Labels to add to the service
+      labels:
+        app: "template-controller-metrics-svc"
+    serviceMonitor:
+      # Whether to create a service monitor for scraping metrics
+      enabled: false
+      # Labels to add to the service monitor
+      labels: {}
+
 webhookService:
-  enabled: false
+  enabled: true
   type: ClusterIP
   ports:
     - name: webhook-server
