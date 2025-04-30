@@ -11,8 +11,11 @@ metadata:
     {{- toYaml .Values.metrics.serviceMonitor.labels | indent 4 }}
 spec:
   endpoints:
-  - path: /metrics
-    port: metrics
+  - port: metrics
+    path: /metrics
+    scheme: http
+  - port: rest
+    path: /metrics
     scheme: http
   namespaceSelector:
     matchNames:
