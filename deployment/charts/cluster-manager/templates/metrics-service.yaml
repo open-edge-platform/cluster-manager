@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+{{ if .Values.metrics.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cluster-manager-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- toYaml .Values.metrics.serviceMonitor.labels | indent 4 }}
+spec:
+  endpoints:
+  - port: metrics
+    path: /metrics
+    scheme: http
+  - port: rest
+    path: /metrics
+    scheme: http
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}
+  selector:
+    matchExpressions:
+    - key: prometheus.io/service-monitor
+      operator: NotIn
+      values:
+      - "false"
+    - key: app
+      operator: In
+      values:
+      - "{{.Chart.Name}}-cm"
+      - {{ .Values.metrics.service.labels.templateController.app | quote }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: templates-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- toYaml .Values.metrics.service.labels.templateController | nindent 4 }}
+spec:
+  ports:
+  - name: metrics
+    protocol: TCP
+    port: {{ .Values.metrics.service.port }}
+    targetPort: {{ .Values.metrics.service.port }}
+  selector:
+    app: "{{.Chart.Name}}-controller"
+{{- end -}}

@@ -31,6 +31,9 @@ jobs:
       run: |
         if [[ `git status --porcelain` ]]; then
           echo "### Error: Changes detected after running make generate-api"
+          echo "### git status --porcelain"
+          git status --porcelain
+          echo "### git diff"
           git diff
           echo "### Error: Changes detected after running make generate-api" >> $GITHUB_STEP_SUMMARY
           exit 1

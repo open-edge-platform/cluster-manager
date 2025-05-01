@@ -6,6 +6,17 @@ package rest
 import (
 	"log/slog"
 	"net/http"
+	"slices"
+	"time"
+
+	"github.com/open-edge-platform/cluster-manager/v2/internal/metrics"
+)
+
+var (
+	ignoredPaths = []string{
+		"/v2/healthz",
+		"/metrics",
+	}
 )
 
 // middleware is a function definition that wraps an http.Handler
@@ -24,25 +35,61 @@ func appendMiddlewares(mw ...middleware) func(http.Handler) http.Handler {
 // logger logs the request and response
 func logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v2/healthz" { // reduce log spam
-			slog.Debug("received request", "method", r.Method, "path", r.URL.Path)
+		if slices.Contains(ignoredPaths, r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
 		}
+
+		slog.Debug("received request", "method", r.Method, "path", r.URL.Path)
 		next.ServeHTTP(w, r)
+	})
+}
+
+// requestDurationMetrics measures the duration of the request and records it for Prometheus
+func requestDurationMetrics(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if slices.Contains(ignoredPaths, r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		start := time.Now()
+		next.ServeHTTP(w, r)
+		d := time.Since(start).Seconds()
+		metrics.ResponseTime.Observe(d)
+	})
+}
+
+// responseCounterMetrics counts the number of responses and records it for Prometheus
+func responseCounterMetrics(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if slices.Contains(ignoredPaths, r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		srw := metrics.NewStatusResponseWriter(w)
+		next.ServeHTTP(srw, r)
+		metrics.HttpResponseCounter.WithLabelValues(r.Method, r.URL.Path, srw.Status()).Inc()
 	})
 }
 
 // projectIDValidator validates the project ID
 func projectIDValidator(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// ignore /v2/healthz endpoint as it doesn't require project ID
-		if r.URL.Path != "/v2/healthz" {
-			activeProjectId := r.Header.Get("Activeprojectid")
-			if activeProjectId == "" || activeProjectId == "00000000-0000-0000-0000-000000000000" {
-				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, `{"message": "no active project id provided"}`, http.StatusBadRequest)
-				return
-			}
+		// skip endpoints that do not require a project id
+		if slices.Contains(ignoredPaths, r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
 		}
+
+		activeProjectId := r.Header.Get("Activeprojectid")
+		if activeProjectId == "" || activeProjectId == "00000000-0000-0000-0000-000000000000" {
+			w.Header().Set("Content-Type", "application/json")
+			http.Error(w, `{"message": "no active project id provided"}`, http.StatusBadRequest)
+			return
+		}
+
 		next.ServeHTTP(w, r)
 	})
 }

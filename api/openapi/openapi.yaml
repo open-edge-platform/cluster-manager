@@ -6,7 +6,7 @@ openapi: 3.0.3
 info:
   title: Cluster Manager 2.0
   description: This document defines the schema for the Cluster Manager 2.0 REST API.
-  version: 2.0.0
+  version: 2.1.0
 
 security:
   - HTTP: []
@@ -143,7 +143,6 @@ paths:
         "500":
           $ref: '#/components/responses/500-InternalServerError'
 
-
   /v2/clusters/{name}:
     parameters:
       - $ref: '#/components/parameters/ActiveProjectIdHeader'
@@ -186,6 +185,7 @@ paths:
           $ref: '#/components/responses/404-NotFound'
         "500":
           $ref: '#/components/responses/500-InternalServerError'
+
   /v2/clusters/{nodeId}/clusterdetail:
     parameters:
       - $ref: '#/components/parameters/ActiveProjectIdHeader'
@@ -211,6 +211,7 @@ paths:
           $ref: '#/components/responses/400-BadRequest'
         "404":
           $ref: '#/components/responses/404-NotFound'
+
   /v2/clusters/{name}/nodes:
     parameters:
       - $ref: '#/components/parameters/ActiveProjectIdHeader'
@@ -387,21 +388,6 @@ paths:
           $ref: '#/components/responses/404-NotFound'
         "500":
           $ref: '#/components/responses/500-InternalServerError'
-  /v2/healthz:
-    get:
-      description: Gets the Cluster Manager REST API healthz status.
-      security: [] # skips authentication
-      tags:
-        - Health Check
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: string
-        "500":
-          $ref: '#/components/responses/500-InternalServerError'
 
   /v2/templates:
     parameters:
@@ -478,7 +464,6 @@ paths:
           $ref: '#/components/responses/404-NotFound'
         "500":
           $ref: '#/components/responses/500-InternalServerError'
-
     post:
       description: Import templates
       tags:
@@ -553,6 +538,7 @@ paths:
           $ref: '#/components/responses/404-NotFound'
         "500":
           $ref: '#/components/responses/500-InternalServerError'
+
   /v2/templates/{name}/versions:
     parameters:
       - $ref: '#/components/parameters/ActiveProjectIdHeader'
@@ -583,6 +569,7 @@ paths:
           $ref: '#/components/responses/404-NotFound'
         "500":
           $ref: '#/components/responses/500-InternalServerError'
+
   /v2/templates/{name}/default:
      parameters:
       - $ref: '#/components/parameters/ActiveProjectIdHeader'
@@ -612,6 +599,38 @@ paths:
           $ref: '#/components/responses/400-BadRequest'
         "404":
           $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+  /v2/healthz:
+    get:
+      description: Gets the Cluster Manager REST API healthz status.
+      security: [] # skips authentication
+      tags:
+        - Health Check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+  /metrics:
+    get:
+      description: Gets the Cluster Manager REST API prometheus metrics.
+      security: [] # skips authentication
+      tags:
+        - metrics
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
         "500":
           $ref: '#/components/responses/500-InternalServerError'
 
