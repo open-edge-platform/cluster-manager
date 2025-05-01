@@ -52,6 +52,7 @@ spec:
         ports:
         - name: rest
           containerPort: {{ .Values.clusterManager.service.rest.port }}
+          protocol: TCP
         readinessProbe:
           httpGet:
             path: {{ .Values.clusterManager.readinessProbe.httpGet.path }}
