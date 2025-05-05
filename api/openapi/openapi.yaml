@@ -536,6 +536,8 @@ paths:
           $ref: '#/components/responses/400-BadRequest'
         "404":
           $ref: '#/components/responses/404-NotFound'
+        "409":
+          $ref: '#/components/responses/409-Conflict'
         "500":
           $ref: '#/components/responses/500-InternalServerError'
 
