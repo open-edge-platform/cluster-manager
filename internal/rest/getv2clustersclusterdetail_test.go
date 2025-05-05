@@ -55,7 +55,8 @@ var exampleCluster = capi.Cluster{
 var exampleDetails = api.ClusterDetailInfo{
 	KubernetesVersion: ptr("v1.21.1"),
 	Labels: &map[string]interface{}{
-		"example-key": "user-labels",
+		"default-extension": "baseline",
+		"example-key":       "user-labels",
 	},
 	Name: ptr("example-cluster"),
 	LifecyclePhase: &api.GenericStatus{

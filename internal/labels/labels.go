@@ -17,11 +17,10 @@ const (
 	TrustedComputeLabelKey       = "trusted-compute-compatible"
 	capiDomainLabelKey           = "cluster.x-k8s.io"
 	capiTopologyLabelKey         = "topology.cluster.x-k8s.io"
-	extension                    = "default-extension"
 )
 
 var (
-	systemPrefixes  = []string{PlatformPrefix, capiDomainLabelKey, capiTopologyLabelKey, PrometheusMetricsUrlLabelKey, TrustedComputeLabelKey, extension}
+	systemPrefixes  = []string{PlatformPrefix, capiDomainLabelKey, capiTopologyLabelKey, PrometheusMetricsUrlLabelKey, TrustedComputeLabelKey}
 	labelKeyRegex   = regexp.MustCompile(`^(([A-Za-z0-9][-A-Za-z0-9_.]{0,250})?[A-Za-z0-9]\/)?([A-Za-z0-9][-A-Za-z0-9_.]{0,61})?[A-Za-z0-9]$`)
 	labelValueRegex = regexp.MustCompile(`^([A-Za-z0-9][-A-Za-z0-9_.]{0,61})?[A-Za-z0-9]?$`)
 )

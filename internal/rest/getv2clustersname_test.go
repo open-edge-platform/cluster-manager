@@ -127,7 +127,9 @@ func TestGetV2Cluster200(t *testing.T) {
 
 	expectedClusterDetailInfo := api.ClusterDetailInfo{
 		KubernetesVersion: ptr("v1.21.1"),
-		Labels:            &map[string]interface{}{},
+		Labels: &map[string]interface{}{
+			"default-extension": "baseline",
+		},
 		LifecyclePhase: &api.GenericStatus{
 			Indicator: (*api.StatusIndicator)(ptr("STATUS_INDICATION_IDLE")),
 			Message:   ptr("active"),

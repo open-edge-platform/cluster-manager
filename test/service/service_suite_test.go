@@ -218,8 +218,9 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp.StatusCode()).To(Equal(200))
 			Expect(*resp.JSON200.Name).To(Equal(clusterName))
-			Expect(*resp.JSON200.Labels).To(HaveLen(1))
+			Expect(*resp.JSON200.Labels).To(HaveLen(2))
 			Expect(*resp.JSON200.Labels).To(HaveKeyWithValue("app", "wordpress"))
+			Expect(*resp.JSON200.Labels).To(HaveKeyWithValue("default-extension", "baseline"))
 			Expect(*resp.JSON200.Nodes).To(HaveLen(1))
 			nodes := *resp.JSON200.Nodes
 			Expect(*nodes[0].Role).To(Equal("all"))
@@ -231,6 +232,7 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 
 			err = containsLabels(testTenantID.String(), clusterName, []string{
 				"app:wordpress",
+				"default-extension:baseline",
 				fmt.Sprintf("edge-orchestrator.intel.com/clustername:%v", clusterName),
 				fmt.Sprintf("edge-orchestrator.intel.com/project-id:%v", testTenantID.String()),
 			})
