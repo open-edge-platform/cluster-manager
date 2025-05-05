@@ -203,7 +203,7 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 			params := api.PutV2ClustersNameLabelsParams{}
 			params.Activeprojectid = testTenantID
 			body := api.PutV2ClustersNameLabelsJSONRequestBody{
-				Labels: &map[string]string{"app": "wordpress"},
+				Labels: &map[string]string{"app": "wordpress", "default-extension": "baseline"},
 			}
 			resp, err := cli.PutV2ClustersNameLabelsWithResponse(context.Background(), clusterName, &params, body)
 			Expect(err).ToNot(HaveOccurred())
@@ -237,6 +237,26 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 				fmt.Sprintf("edge-orchestrator.intel.com/project-id:%v", testTenantID.String()),
 			})
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("Should succesfully delete label", func() {
+			params := api.PutV2ClustersNameLabelsParams{}
+			params.Activeprojectid = testTenantID
+			body := api.PutV2ClustersNameLabelsJSONRequestBody{
+				Labels: &map[string]string{"default-extension:baseline"},
+			}
+			resp, err := cli.PutV2ClustersNameLabelsWithResponse(context.Background(), clusterName, &params, body)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(200))
+
+			params := api.GetV2ClustersNameParams{}
+			params.Activeprojectid = testTenantID
+			resp, err := cli.GetV2ClustersNameWithResponse(context.Background(), clusterName, &params)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(200))
+			Expect(*resp.JSON200.Name).To(Equal(clusterName))
+			Expect(*resp.JSON200.Labels).To(HaveLen(1))
+			Expect(*resp.JSON200.Labels).To(HaveKeyWithValue("default-extension"))
 		})
 
 		It("Should fail to delete cluster template if cluster is running", func() {
