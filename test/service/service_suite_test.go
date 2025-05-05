@@ -239,16 +239,19 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Should succesfully delete label", func() {
+		It("Should delete label", func() {
 			params := api.PutV2ClustersNameLabelsParams{}
 			params.Activeprojectid = testTenantID
 			body := api.PutV2ClustersNameLabelsJSONRequestBody{
-				Labels: &map[string]string{"default-extension:baseline"},
+				Labels: &map[string]string{"default-extension": "baseline"},
 			}
 			resp, err := cli.PutV2ClustersNameLabelsWithResponse(context.Background(), clusterName, &params, body)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp.StatusCode()).To(Equal(200))
 
+		})
+
+		It("Deleted label should be missing in label list", func() {
 			params := api.GetV2ClustersNameParams{}
 			params.Activeprojectid = testTenantID
 			resp, err := cli.GetV2ClustersNameWithResponse(context.Background(), clusterName, &params)
@@ -256,7 +259,7 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 			Expect(resp.StatusCode()).To(Equal(200))
 			Expect(*resp.JSON200.Name).To(Equal(clusterName))
 			Expect(*resp.JSON200.Labels).To(HaveLen(1))
-			Expect(*resp.JSON200.Labels).To(HaveKeyWithValue("default-extension"))
+			Expect(*resp.JSON200.Labels).To(HaveKeyWithValue("default-extension", "baseline"))
 		})
 
 		It("Should fail to delete cluster template if cluster is running", func() {
