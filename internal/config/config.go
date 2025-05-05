@@ -17,14 +17,17 @@ import (
 )
 
 type Config struct {
-	// DisableAuth disables authentication/authorization, should be true for production and false in integration without keycloak
+	// DisableAuth disables authentication/authorization, should be false for production and true in integration without keycloak
 	DisableAuth bool
 
-	// DisableMultitenancy disables multi-tenancy integration, should be true for production and false in integration without multi-tenancy
+	// DisableMultitenancy disables multi-tenancy integration, should be false for production and true in integration without multi-tenancy
 	DisableMultitenancy bool
 
-	// DisableInventory disables inventory integration, should be true for production and false in integration without infra-manager's inventory
+	// DisableInventory disables inventory integration, should be false for production and true in integration without infra-manager's inventory
 	DisableInventory bool
+
+	// DisableMetrics disables metrics, should be false for production and true in integration without prometheus
+	DisableMetrics bool
 
 	OidcUrl              string
 	OpaEnabled           bool
@@ -42,6 +45,7 @@ func ParseConfig() *Config {
 	disableAuth := flag.Bool("disable-auth", false, "(optional) disable rest authentication/authorization")
 	disableMt := flag.Bool("disable-mt", false, "(optional) disable multi-tenancy integration")
 	disableInv := flag.Bool("disable-inventory", false, "(optional) disable inventory integration")
+	disableMetrics := flag.Bool("disable-metrics", false, "(optional) disable prometheus metrics handler")
 	logLevel := flag.Int("loglevel", 0, "(optional) log level [trace:-8|debug:-4|info:0|warn:4|error:8]")
 	logFormat := flag.String("logformat", "json", "(optional) log format [json|human]")
 	prefixes := flag.String("system-labels-prefixes", "", "(optional) comma separated list of system labels prefixes; if not provided, sane defaults are used")
@@ -54,6 +58,7 @@ func ParseConfig() *Config {
 		DisableAuth:         *disableAuth,
 		DisableMultitenancy: *disableMt,
 		DisableInventory:    *disableInv,
+		DisableMetrics:      *disableMetrics,
 		LogLevel:            *logLevel,
 		LogFormat:           strings.ToLower(*logFormat),
 		ClusterDomain:       *clusterDomain,

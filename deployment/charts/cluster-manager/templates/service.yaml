@@ -4,17 +4,19 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{template "cluster-manager.fullname" .}}
+  name: {{ include "cluster-manager.fullname" . }}
   namespace: {{.Release.Namespace}}
   labels:
     app: "{{.Chart.Name}}-cm"
 spec:
   selector:
     app: "{{.Chart.Name}}-cm"
-  type: {{.Values.clusterManager.service.type}}
+  type: {{ .Values.clusterManager.service.type }}
   ports:
-    - name: "rest"
-      port: {{.Values.clusterManager.service.rest.port}}
+    - name: rest
+      port: {{ .Values.clusterManager.service.rest.port }}
+      targetPort: {{ .Values.clusterManager.service.rest.port }}
+      protocol: TCP
 
 {{- if .Values.openpolicyagent.enabled -}}
 {{- if .Values.service.opa.enabled }}
@@ -23,15 +25,16 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "cluster-manager.fullname" . }}-opa
+  namespace: {{.Release.Namespace}}
   labels:
     {{- include "cluster-manager.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.opa.type }}
   ports:
     - port: {{ .Values.service.opa.port }}
-      targetPort: opa
+      targetPort: {{ .Values.service.opa.port }}
       protocol: TCP
-      name: http-opa
+      name: opa
   selector:
     {{- include "cluster-manager.selectorLabels" . | nindent 4 }}
 {{- end}}

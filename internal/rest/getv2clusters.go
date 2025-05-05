@@ -122,7 +122,6 @@ func (s *Server) convertClusters(ctx context.Context, namespace string, unstruct
 			continue
 		}
 
-		slog.Debug("Processing cluster", "name", capiCluster.Name, "labels", capiCluster.Labels)
 		// get machines associated with the cluster
 		machines := getClusterMachines(allMachines, capiCluster.Name)
 
