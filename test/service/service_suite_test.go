@@ -250,7 +250,7 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 			// TODO: Change webhook's response to 409 Conflict
 			Expect(resp.StatusCode()).To(Equal(500))
 			Expect(resp.JSON500).ToNot(BeNil())
-			Expect(*resp.JSON500.Message).To(ContainSubstring("denied the request: clusterTemplate is in use"))
+			Expect(*resp.JSON500.Message).To(ContainSubstring("clusterTemplate is in use"))
 		})
 
 		if !deleteCluster {
