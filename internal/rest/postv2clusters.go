@@ -115,11 +115,11 @@ func fetchTemplate(ctx context.Context, cli k8s.Client, activeProjectID string, 
 	var err error
 	if templateName == nil || *templateName == "" {
 		slog.Info("template name not provided, using default template")
-		if template, err = cli.DefaultTemplate(ctx, namespace); err != nil {
+		if template, err = cli.DefaultTemplate(ctx, activeProjectID); err != nil {
 			return ct.ClusterTemplate{}, err
 		}
 	} else {
-		if template, err = cli.Template(ctx, namespace, *templateName); err != nil {
+		if template, err = cli.Template(ctx, activeProjectID, *templateName); err != nil {
 			return ct.ClusterTemplate{}, err
 		}
 	}

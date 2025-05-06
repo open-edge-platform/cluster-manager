@@ -61,8 +61,13 @@ func (s *Server) getClusterKubeconfig(ctx context.Context, namespace, clusterNam
 	}
 
 	unstructuredClusterSecret, err := s.k8sclient.GetCached(ctx, core.SecretResourceSchema, namespace, fmt.Sprintf("%s-kubeconfig", clusterName))
-	if err != nil || unstructuredClusterSecret == nil {
-		return kubeconfigParameters{}, fmt.Errorf("failed to get kubeconfig secret: %w", err)
+	if err != nil {
+		return kubeconfigParameters{}, fmt.Errorf("failed to get kubeconfig secret namespace=%s, name=%s : %w",clusterName, namespace, err)
+	}
+
+	if unstructuredClusterSecret == nil {
+		msg := fmt.Sprintf("failed getting kubeconfig for cluster %s in namespace %s", clusterName, namespace)
+		return kubeconfigParameters{}, fmt.Errorf("%s", msg)
 	}
 
 	dataValue, found, err := unstructured.NestedString(unstructuredClusterSecret.Object, "data", "value")

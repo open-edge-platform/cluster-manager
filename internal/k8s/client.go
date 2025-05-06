@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ import (
 	intelProvider "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
 	ct "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,12 +28,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	dockerProvider "sigs.k8s.io/cluster-api/test/infrastructure/docker/api/v1beta1"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-    "k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -118,6 +120,15 @@ type ManagerClient struct {
     Informers dynamicinformer.DynamicSharedInformerFactory
 }
 
+var resourceSchemas = []schema.GroupVersionResource{
+	clusterResourceSchema,
+	templateResourceSchema,
+	bindingsResourceSchema,
+	machineResourceSchema,
+	IntelMachineResourceSchema,
+	core.SecretResourceSchema,
+}
+
 // New creates a new Client with optional configurations.
 func New(opts ...func(*ManagerClient)) (*ManagerClient, error) {
     client := &ManagerClient{}
@@ -129,15 +140,9 @@ func New(opts ...func(*ManagerClient)) (*ManagerClient, error) {
 	}
     // initialize the dynamic informer factory
     client.Informers = dynamicinformer.NewDynamicSharedInformerFactory(client.Dyn, 10*time.Minute)
-
+	
     // start informers (docker machines not in use yet)
-    if err := client.StartInformers(context.Background(), []schema.GroupVersionResource{
-        clusterResourceSchema,
-        templateResourceSchema,
-		bindingsResourceSchema,
-		machineResourceSchema,
-		IntelMachineResourceSchema,
-    }); err != nil {
+    if err := client.StartInformers(context.Background(), resourceSchemas); err != nil {
         return nil, fmt.Errorf("failed to start informers: %w", err)
     }
 
@@ -173,10 +178,13 @@ func (cli *ManagerClient) StartInformers(ctx context.Context, resources []schema
 // GetCached retrieves an object from the informer cache or falls back to the API if not found.
 func (cli *ManagerClient) GetCached(ctx context.Context, resourceSchema schema.GroupVersionResource, namespace, name string) (*unstructured.Unstructured, error) {
     informer := cli.Informers.ForResource(resourceSchema).Informer()
-
+	if !slices.Contains[[]schema.GroupVersionResource](resourceSchemas, resourceSchema){
+		slog.Info("resource is not cached, falling back to API", "resource", resourceSchema.Resource)
+		return cli.Dyn.Resource(resourceSchema).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+	}
     // wait for the cache to sync before accessing it
     if !cache.WaitForCacheSync(ctx.Done(), informer.HasSynced) {
-        return nil, fmt.Errorf("cache not synced for resource: %v", resourceSchema.Resource)
+        return nil, fmt.Errorf("cache not synced")
     }
 
     // attempt to retrieve the object from the cache
@@ -199,10 +207,13 @@ func (cli *ManagerClient) GetCached(ctx context.Context, resourceSchema schema.G
 // ListCached retrieves a list of objects from the informer cache or falls back to the API if not found.
 func (cli *ManagerClient) ListCached(ctx context.Context, resourceSchema schema.GroupVersionResource, namespace string, listOptions metav1.ListOptions) (*unstructured.UnstructuredList, error) {
     informer := cli.Informers.ForResource(resourceSchema).Informer()
-
+	if !slices.Contains[[]schema.GroupVersionResource](resourceSchemas, resourceSchema){
+		slog.Info("resource is not cached, falling back to API", "resource", resourceSchema.Resource)
+		return cli.Dyn.Resource(resourceSchema).Namespace(namespace).List(ctx, listOptions)
+	}
     // Wait for the cache to sync before accessing it
     if !cache.WaitForCacheSync(ctx.Done(), informer.HasSynced) {
-        return nil, fmt.Errorf("cache not synced for resource: %v", resourceSchema.Resource)
+        slog.Warn("cache not synced, falling back to API", "resource", resourceSchema.Resource)
     }
 
     // Attempt to retrieve the objects from the cache
@@ -235,16 +246,6 @@ func (cli *ManagerClient) ListCached(ctx context.Context, resourceSchema schema.
         }
 
         filteredObjects = append(filteredObjects, *obj)
-    }
-
-    // If no objects are found in the cache, fall back to the API
-    if len(filteredObjects) == 0 {
-        slog.Info("cache miss, falling back to API", "resource", resourceSchema.Resource, "namespace", namespace)
-        unstructuredList, err := cli.Dyn.Resource(resourceSchema).Namespace(namespace).List(ctx, listOptions)
-        if err != nil {
-            return nil, fmt.Errorf("error retrieving objects from API: %w", err)
-        }
-        return unstructuredList, nil
     }
 
     // Convert the filtered objects into an UnstructuredList

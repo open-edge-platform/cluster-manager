@@ -14,7 +14,6 @@ import (
 	"github.com/getkin/kin-openapi/openapi3filter"
 	httpmid "github.com/oapi-codegen/nethttp-middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"k8s.io/client-go/dynamic"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
