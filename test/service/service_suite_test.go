@@ -247,10 +247,9 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 			resp, err := cli.DeleteV2TemplatesNameVersionWithResponse(context.Background(), templateOnlyName, templateOnlyVersion, &params)
 			Expect(err).ToNot(HaveOccurred())
 
-			// TODO: Change webhook's response to 409 Conflict
-			Expect(resp.StatusCode()).To(Equal(500))
-			Expect(resp.JSON500).ToNot(BeNil())
-			Expect(*resp.JSON500.Message).To(ContainSubstring("clusterTemplate is in use"))
+			Expect(resp.StatusCode()).To(Equal(409))
+			Expect(resp.JSON409).ToNot(BeNil())
+			Expect(*resp.JSON409.Message).To(ContainSubstring("clusterTemplate is in use"))
 		})
 
 		if !deleteCluster {

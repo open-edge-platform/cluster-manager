@@ -59,6 +59,19 @@ func TestDeleteV2TemplatesNameVersion(t *testing.T) {
 			},
 		},
 		{
+			name:                 "409 Conflict - template in use",
+			expectedStatusCode:   http.StatusConflict,
+			expectedErrorMessage: "Is in use",
+			mockDeleteReturn: &errors.StatusError{
+				ErrStatus: metav1.Status{
+					Status:  metav1.StatusFailure,
+					Code:    http.StatusConflict,
+					Reason:  metav1.StatusReasonConflict,
+					Message: "Is in use",
+				},
+			},
+		},
+		{
 			name:                 "500 Internal Server Error",
 			expectedStatusCode:   http.StatusInternalServerError,
 			expectedErrorMessage: "Internal server error",
@@ -113,6 +126,8 @@ func TestDeleteV2TemplatesNameVersion(t *testing.T) {
 					actualMessage = resp.JSON400.Message
 				case http.StatusNotFound:
 					actualMessage = resp.JSON404.Message
+				case http.StatusConflict:
+					actualMessage = resp.JSON409.Message
 				case http.StatusInternalServerError:
 					actualMessage = resp.JSON500.Message
 				}
