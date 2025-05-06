@@ -2031,6 +2031,15 @@ func (response DeleteV2TemplatesNameVersion404JSONResponse) VisitDeleteV2Templat
 	return json.NewEncoder(w).Encode(response)
 }
 
+type DeleteV2TemplatesNameVersion409JSONResponse struct{ N409ConflictJSONResponse }
+
+func (response DeleteV2TemplatesNameVersion409JSONResponse) VisitDeleteV2TemplatesNameVersionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type DeleteV2TemplatesNameVersion500JSONResponse struct {
 	N500InternalServerErrorJSONResponse
 }

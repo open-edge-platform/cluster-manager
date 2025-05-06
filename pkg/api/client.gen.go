@@ -2031,6 +2031,7 @@ type DeleteV2TemplatesNameVersionResponse struct {
 	HTTPResponse *http.Response
 	JSON400      *N400BadRequest
 	JSON404      *N404NotFound
+	JSON409      *N409Conflict
 	JSON500      *N500InternalServerError
 }
 
@@ -2999,6 +3000,13 @@ func ParseDeleteV2TemplatesNameVersionResponse(rsp *http.Response) (*DeleteV2Tem
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest N409Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest N500InternalServerError

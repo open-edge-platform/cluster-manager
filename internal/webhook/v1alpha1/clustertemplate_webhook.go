@@ -11,14 +11,17 @@ import (
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 	clusterv1alpha1 "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 	rke2cpv1beta1 "github.com/rancher/cluster-api-provider-rke2/controlplane/api/v1beta1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	kubeadmcp "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -132,7 +135,11 @@ func (v *ClusterTemplateCustomValidator) templateNotInUse(ctx context.Context, t
 	}
 
 	if len(clusters.Items) > 0 {
-		return fmt.Errorf("clusterTemplate is in use")
+		return k8serrors.NewConflict(
+			schema.GroupResource{Group: v1alpha1.SchemeBuilder.GroupVersion.Group, Resource: "clustertemplates"},
+			template.Name,
+			fmt.Errorf("clusterTemplate is in use"),
+		)
 	}
 	return nil
 }
