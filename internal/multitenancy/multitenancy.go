@@ -28,13 +28,13 @@ var (
 
 	GetClusterConfigFunc  = rest.InClusterConfig
 	GetNexusClientSetFunc = nexus.NewForConfig
-	GetK8sClientFunc      = k8s.NewClient
+	GetK8sClientFunc      = k8s.New
 	GetTemplatesFunc      = template.ReadDefaultTemplates
 )
 
 type TenancyDatamodel struct {
 	client    *nexus.Clientset
-	k8s       *k8s.Client
+	k8s       k8s.Client
 	templates []*ct.ClusterTemplate
 }
 
@@ -50,7 +50,7 @@ func NewDatamodelClient() (*TenancyDatamodel, error) {
 	}
 
 	// Prepare k8s connection
-	k8s, err := GetK8sClientFunc(nil)
+	k8s, err := GetK8sClientFunc(k8s.WithInClusterConfig())
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to kubernetes: %w", err)
 	}

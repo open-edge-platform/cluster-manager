@@ -145,6 +145,7 @@ test: ## Run unit tests.
 .PHONY: run-service-test
 run-service-test: clusterctl ## Run service tests.
 	make kind-create
+	make provider-install
 	make helm-install
 	make kind-expose-cm
 	make test-service
@@ -489,6 +490,11 @@ docker-load:
 	docker tag ${DOCKER_IMAGE_CLUSTER_MANAGER} ${RS_DOCKER_IMAGE_CLUSTER_MANAGER}
 	kind load docker-image ${RS_DOCKER_IMAGE_TEMPLATE_CONTROLLER} -n $(KIND_CLUSTER)
 	kind load docker-image ${RS_DOCKER_IMAGE_CLUSTER_MANAGER} -n $(KIND_CLUSTER)
+
+provider-install: # install capi provider
+	git clone https://github.com/open-edge-platform/cluster-api-provider-intel.git
+	cd cluster-api-provider-intel && $(MAKE) helm-install
+	rm -rf cluster-api-provider-intel/
 
 helm-install: docker-build docker-load helm-build ## Install helm charts to the K8s cluster specified in ~/.kube/config.
 	helm upgrade --install --wait --debug cluster-template-crd $(BUILD_DIR)/cluster-template-crd-${HELM_VERSION}.tgz --set args.loglevel=DEBUG

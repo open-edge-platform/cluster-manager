@@ -11,10 +11,15 @@ import (
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func TestGetV2TemplatesNameVersions(t *testing.T) {
@@ -123,7 +128,52 @@ func FuzzGetV2VersionTemplatesName(f *testing.F) {
 		byte(8), byte(9), byte(10), byte(11), byte(12), byte(13), byte(14), byte(15))
 	f.Fuzz(func(t *testing.T, name string,
 		u0, u1, u2, u3, u4, u5, u6, u7, u8, u9, u10, u11, u12, u13, u14, u15 byte) {
-		server := createGetV2TemplatesStubServer(t)
+		// Create a mock client for the fuzz test
+		mockK8sClient := k8s.NewMockClient(t)
+
+		// Add templates with two versions to support the versions listing
+		templates := []v1alpha1.ClusterTemplate{
+			{
+				ObjectMeta: v1.ObjectMeta{
+					Name: fmt.Sprintf("%s-v0.0.1", name),
+				},
+			},
+			{
+				ObjectMeta: v1.ObjectMeta{
+					Name: fmt.Sprintf("%s-v0.0.2", name),
+				},
+			},
+		}
+
+		// Convert templates to unstructured for ListCached
+		unstructuredTemplates := make([]unstructured.Unstructured, len(templates))
+		for i, template := range templates {
+			unstructuredObj, err := convert.ToUnstructured(template)
+			if err != nil {
+				// Skip test if conversion fails (might happen with invalid input)
+				return
+			}
+			unstructuredTemplates[i] = *unstructuredObj
+		}
+
+		// Mock ListCached which seems to be used in the handler
+		mockK8sClient.EXPECT().ListCached(
+			mock.Anything,
+			core.TemplateResourceSchema,
+			mock.Anything, // any project ID
+			mock.Anything, // any ListOptions
+		).Return(&unstructured.UnstructuredList{
+			Items: unstructuredTemplates,
+		}, nil).Maybe()
+
+		// Mock Templates method which may also be used
+		mockK8sClient.EXPECT().Templates(mock.Anything, mock.Anything).Return(templates, nil).Maybe()
+
+		// Add DefaultTemplate mock for completeness
+		mockK8sClient.EXPECT().DefaultTemplate(mock.Anything, mock.Anything).Return(v1alpha1.ClusterTemplate{}, k8s.ErrDefaultTemplateNotFound).Maybe()
+
+		server := NewServer(mockK8sClient)
+
 		uuid := [16]byte{u0, u1, u2, u3, u4, u5, u6, u7, u8, u9, u10, u11, u12, u13, u14, u15}
 		activeprojectid := api.ActiveProjectIdHeader(openapi_types.UUID(uuid))
 		req := api.GetV2TemplatesNameVersionsRequestObject{

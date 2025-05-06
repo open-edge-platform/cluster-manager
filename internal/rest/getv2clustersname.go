@@ -75,13 +75,7 @@ func (s *Server) GetV2ClustersName(ctx context.Context, request api.GetV2Cluster
 func (s *Server) getCluster(ctx context.Context, activeProjectID, name string) (api.ClusterDetailInfo, error) {
 	namespace := activeProjectID
 
-	cli, err := k8s.New(k8s.WithDynamicClient(s.k8sclient))
-	if err != nil {
-		slog.Error("failed to create k8s client", "error", err)
-		return api.ClusterDetailInfo{}, fmt.Errorf("failed to create k8s client, err: %w", err)
-	}
-
-	capiCluster, err := cli.GetCluster(ctx, namespace, name)
+	capiCluster, err := s.k8sclient.GetCluster(ctx, namespace, name)
 	if err != nil {
 		slog.Error("failed to get cluster", "name", name, "error", err)
 		return api.ClusterDetailInfo{}, fmt.Errorf("failed to get cluster, err: %w", err)
@@ -100,7 +94,7 @@ func (s *Server) getCluster(ctx context.Context, activeProjectID, name string) (
 	labels := labels.Filter(capiCluster.Labels)
 	unstrucutreLabels := convert.MapStringToAny(labels)
 
-	nodes, err := cluster.Nodes(ctx, cli, capiCluster)
+	nodes, err := cluster.Nodes(ctx, s.k8sclient, capiCluster)
 	if err != nil {
 		slog.Error("failed to get nodes", "cluster", capiCluster.Name, "error", err)
 		return api.ClusterDetailInfo{}, fmt.Errorf("failed to get nodes, err: %w", err)

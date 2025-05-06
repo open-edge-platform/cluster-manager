@@ -91,16 +91,27 @@ func createMockServer(t *testing.T, clusters []capi.Cluster, projectID string, o
 	unstructuredClusterList := &unstructured.UnstructuredList{
 		Items: unstructuredClusters,
 	}
-	// default is to set up k8s client and machineResource mocks
+
+	// Create mock client
+	mockK8sClient := k8s.NewMockClient(t)
+
+	// Mock ListCached for clusters
+	mockK8sClient.EXPECT().ListCached(
+		mock.Anything,
+		core.ClusterResourceSchema,
+		projectID,
+		metav1.ListOptions{},
+	).Return(unstructuredClusterList, nil)
+
+	// Setup mocks for machine resources if needed
 	setupK8sMocks := true
 	mockMachineResource := true
 	if len(options) > 0 {
 		setupK8sMocks = options[0]
 		mockMachineResource = options[1]
 	}
-	var mockedk8sclient *k8s.MockInterface
-	mockedk8sclient = k8s.NewMockInterface(t)
-	if setupK8sMocks {
+
+	if setupK8sMocks && mockMachineResource {
 		machine := capi.Machine{
 			Status: capi.MachineStatus{
 				Phase: "Running",
@@ -113,22 +124,30 @@ func createMockServer(t *testing.T, clusters []capi.Cluster, projectID string, o
 		}
 		unstructuredMachine, err := convert.ToUnstructured(machine)
 		require.NoError(t, err, "convertMachineToUnstructured() error = %v, want nil")
-		resource := k8s.NewMockResourceInterface(t)
-		resource.EXPECT().List(mock.Anything, metav1.ListOptions{}).Return(unstructuredClusterList, nil)
-		nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-		nsResource.EXPECT().Namespace(projectID).Return(resource)
-		mockedk8sclient = k8s.NewMockInterface(t)
-		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
-		if mockMachineResource {
-			for _, cluster := range clusters {
-				resource.EXPECT().List(mock.Anything, metav1.ListOptions{
+
+		// Add mock for general machines listing (without label selector)
+		// This is being called by the GetV2ClustersSummary handler
+		mockK8sClient.EXPECT().ListCached(
+			mock.Anything,
+			core.MachineResourceSchema,
+			projectID,
+			mock.Anything, // Using mock.Anything to match any ListOptions
+		).Return(&unstructured.UnstructuredList{Items: []unstructured.Unstructured{*unstructuredMachine}}, nil).Maybe()
+
+		// Also keep the cluster-specific machine mocks
+		for _, cluster := range clusters {
+			mockK8sClient.EXPECT().ListCached(
+				mock.Anything,
+				core.MachineResourceSchema,
+				projectID,
+				metav1.ListOptions{
 					LabelSelector: "cluster.x-k8s.io/cluster-name=" + cluster.Name,
-				}).Return(&unstructured.UnstructuredList{Items: []unstructured.Unstructured{*unstructuredMachine}}, nil).Maybe()
-			}
-			mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(nsResource).Maybe()
+				},
+			).Return(&unstructured.UnstructuredList{Items: []unstructured.Unstructured{*unstructuredMachine}}, nil).Maybe()
 		}
 	}
-	return rest.NewServer(mockedk8sclient)
+
+	return rest.NewServer(mockK8sClient)
 }
 
 func generateClusterWithStatus(name, version *string, status capi.ClusterStatus) capi.Cluster {
@@ -230,14 +249,13 @@ func TestGetV2ClustersSummary200(t *testing.T) {
 func TestGetV2ClustersSummary500(t *testing.T) {
 	expectedActiveProjectID := "c61b80c6-f45a-11ef-95cb-5f5567b72329"
 	t.Run("Failed to Retrieve Clusters", func(t *testing.T) {
-		resource := k8s.NewMockResourceInterface(t)
-		resource.EXPECT().List(mock.Anything, metav1.ListOptions{}).Return(nil, errors.New("failed to list clusters"))
-		nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-		nsResource.EXPECT().Namespace(expectedActiveProjectID).Return(resource)
-		mockedk8sclient := k8s.NewMockInterface(t)
-		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
+		// Create mock client
+		mockK8sClient := k8s.NewMockClient(t)
 
-		server := rest.NewServer(mockedk8sclient)
+		// Mock ListCached to return an error
+		mockK8sClient.EXPECT().ListCached(mock.Anything, core.ClusterResourceSchema, expectedActiveProjectID, metav1.ListOptions{}).Return(nil, errors.New("failed to list clusters"))
+
+		server := rest.NewServer(mockK8sClient)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		req := httptest.NewRequest("GET", "/v2/clusters/summary", nil)

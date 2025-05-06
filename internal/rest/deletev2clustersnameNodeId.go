@@ -11,7 +11,6 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	intelProvider "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
-	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,13 +48,7 @@ func (s *Server) DeleteV2ClustersNameNodesNodeId(ctx context.Context, request ap
 	if force {
 		// track down the machine binding and remove the finalizer
 		// a cluster object may not exist for it anymore so we want to do this first before erroring out
-		cli, err := k8s.New(k8s.WithDynamicClient(s.k8sclient))
-		if err != nil {
-			errMsg := fmt.Sprintf("failed to create k8s client: %v", err)
-			slog.Error(errMsg)
-			return api.DeleteV2ClustersNameNodesNodeId500JSONResponse{N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{Message: &errMsg}}, nil
-		}
-		intelMachines, err := cli.IntelMachines(ctx, activeProjectID, clusterName)
+		intelMachines, err := s.k8sclient.IntelMachines(ctx, activeProjectID, clusterName)
 		if err != nil {
 			errMsg := "failed to retrieve intel machines"
 			slog.Error(errMsg, "error", err)
@@ -77,7 +70,7 @@ func (s *Server) DeleteV2ClustersNameNodesNodeId(ctx context.Context, request ap
 				slog.Error(errMsg, "error", err)
 				continue
 			}
-			_, err = s.k8sclient.Resource(core.IntelMachineResourceSchema).Namespace(activeProjectID).Patch(ctx, intelMachine.Name, types.MergePatchType, intelMachineBytes, v1.PatchOptions{})
+			_, err = s.k8sclient.Dynamic().Resource(core.IntelMachineResourceSchema).Namespace(activeProjectID).Patch(ctx, intelMachine.Name, types.MergePatchType, intelMachineBytes, v1.PatchOptions{})
 			if err != nil {
 				errMsg := "failed to remove finalizers"
 				slog.Error(errMsg, "error", err)
@@ -118,7 +111,7 @@ func (s *Server) DeleteV2ClustersNameNodesNodeId(ctx context.Context, request ap
 }
 
 func deleteCluster(ctx context.Context, s *Server, activeProjectID, clusterName string, options v1.DeleteOptions) error {
-	err := s.k8sclient.Resource(core.ClusterResourceSchema).Namespace(activeProjectID).Delete(ctx, clusterName, options)
+	err := s.k8sclient.Dynamic().Resource(core.ClusterResourceSchema).Namespace(activeProjectID).Delete(ctx, clusterName, options)
 	if errors.IsNotFound(err) {
 		return fmt.Errorf("cluster %s not found in namespace %s", clusterName, activeProjectID)
 	}
@@ -134,7 +127,7 @@ func scaleDownCluster(ctx context.Context, s *Server, capiCluster *capi.Cluster,
 		return err
 	}
 	// delete the machine
-	err = s.k8sclient.Resource(core.MachineResourceSchema).Namespace(capiCluster.Namespace).Delete(ctx, machine.Name, options)
+	err = s.k8sclient.Dynamic().Resource(core.MachineResourceSchema).Namespace(capiCluster.Namespace).Delete(ctx, machine.Name, options)
 	if errors.IsNotFound(err) {
 		return fmt.Errorf("machine %s not found in namespace %s", machine.Name, capiCluster.Namespace)
 	}
@@ -143,7 +136,7 @@ func scaleDownCluster(ctx context.Context, s *Server, capiCluster *capi.Cluster,
 	if err != nil {
 		return err
 	}
-	err = s.k8sclient.Resource(core.BindingsResourceSchema).Namespace(capiCluster.Namespace).Delete(ctx, intelMachine.Name, options)
+	err = s.k8sclient.Dynamic().Resource(core.BindingsResourceSchema).Namespace(capiCluster.Namespace).Delete(ctx, intelMachine.Name, options)
 	if errors.IsNotFound(err) {
 		return fmt.Errorf("could not delete machine binding %s in namespace %s", intelMachine.Name, capiCluster.Namespace)
 	}
@@ -155,7 +148,7 @@ func scaleDownCluster(ctx context.Context, s *Server, capiCluster *capi.Cluster,
 		return err
 	}
 	unstructuredCluster := &unstructured.Unstructured{Object: unstructuredClusterInfo}
-	_, err = s.k8sclient.Resource(core.ClusterResourceSchema).Namespace(capiCluster.Namespace).Update(ctx, unstructuredCluster, v1.UpdateOptions{})
+	_, err = s.k8sclient.Dynamic().Resource(core.ClusterResourceSchema).Namespace(capiCluster.Namespace).Update(ctx, unstructuredCluster, v1.UpdateOptions{})
 	return err
 }
 

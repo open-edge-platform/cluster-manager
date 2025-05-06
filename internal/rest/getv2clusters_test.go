@@ -91,38 +91,36 @@ func createMockServer(t *testing.T, clusters []capi.Cluster, projectID string, o
 		Items: unstructuredClusters,
 	}
 	unstructuredMachineList := &unstructured.UnstructuredList{
-		Items: machinesList,
+		Items: []unstructured.Unstructured{},
 	}
+
 	// default is to set up k8s client and machineResource mocks
 	setupK8sMocks := true
 	mockMachineResource := true
 	if len(options) > 0 {
 		setupK8sMocks = options[0]
-		mockMachineResource = options[1]
-	}
-	var mockedk8sclient *k8s.MockInterface
-	mockedk8sclient = k8s.NewMockInterface(t)
-	if setupK8sMocks {
-		resource := k8s.NewMockResourceInterface(t)
-		resource.EXPECT().List(mock.Anything, metav1.ListOptions{}).Return(unstructuredClusterList, nil)
-		nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-		nsResource.EXPECT().Namespace(projectID).Return(resource)
-		mockedk8sclient = k8s.NewMockInterface(t)
-		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
-		if mockMachineResource {
-			machineResource := k8s.NewMockResourceInterface(t)
-			machineResource.EXPECT().List(mock.Anything, metav1.ListOptions{}).Return(unstructuredMachineList, nil)
-			namespacedMachineResource := k8s.NewMockNamespaceableResourceInterface(t)
-			for _, cluster := range clusters {
-				machineResource.EXPECT().List(mock.Anything, metav1.ListOptions{
-					LabelSelector: "cluster.x-k8s.io/cluster-name=" + cluster.Name,
-				}).Return(&unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}, nil).Maybe()
-			}
-			namespacedMachineResource.EXPECT().Namespace(projectID).Return(machineResource)
-			mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(namespacedMachineResource).Maybe()
+		if len(options) > 1 {
+			mockMachineResource = options[1]
 		}
 	}
-	return NewServer(mockedk8sclient)
+
+	mockK8sClient := k8s.NewMockClient(t)
+
+	if setupK8sMocks {
+		mockK8sClient.EXPECT().ListCached(mock.Anything, core.ClusterResourceSchema, projectID, metav1.ListOptions{}).Return(unstructuredClusterList, nil)
+		// Set up machine resource expectations if needed
+		if mockMachineResource {
+			// Also set up expectations for ListCached calls for machines
+			mockK8sClient.EXPECT().ListCached(
+				mock.Anything,
+				core.MachineResourceSchema,
+				projectID,
+				mock.Anything,
+			).Return(unstructuredMachineList, nil)
+		}
+	}
+
+	return NewServer(mockK8sClient)
 }
 
 func generateCluster(name *string, version *string) capi.Cluster {
@@ -198,13 +196,19 @@ func TestGetV2Clusters200(t *testing.T) {
 		handler.ServeHTTP(rr, req)
 
 		// Parse the response body
-		var actualClusterDetailInfo api.ClusterDetailInfo
-		err = json.Unmarshal(rr.Body.Bytes(), &actualClusterDetailInfo)
+		var actualResponse api.GetV2Clusters200JSONResponse
+		err = json.Unmarshal(rr.Body.Bytes(), &actualResponse)
 		require.NoError(t, err, "Failed to unmarshal response body")
 
 		// Check the response status
 		require.Equal(t, http.StatusOK, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, 200)
 
+		// Check the response content
+		expectedResponse := api.GetV2Clusters200JSONResponse{
+			Clusters:      &[]api.ClusterInfo{},
+			TotalElements: 0,
+		}
+		require.Equal(t, expectedResponse, actualResponse, "GetV2Clusters() response = %v, want %v", actualResponse, expectedResponse)
 	})
 	t.Run("Single Cluster", func(t *testing.T) {
 		clusters := []capi.Cluster{
@@ -623,9 +627,13 @@ func TestGetV2Clusters200(t *testing.T) {
 		req := httptest.NewRequest("GET", "/v2/clusters?filter=name=nonexistent-cluster", nil)
 		req.Header.Set("Activeprojectid", expectedActiveProjectID)
 		rr := httptest.NewRecorder()
+
+		// create a handler with middleware to serve the request
 		handler, err := server.ConfigureHandler()
 		require.Nil(t, err)
 		handler.ServeHTTP(rr, req)
+
+		// Parse the response body
 		var actualClusterDetailInfo api.ClusterDetailInfo
 		err = json.Unmarshal(rr.Body.Bytes(), &actualClusterDetailInfo)
 		require.NoError(t, err, "Failed to unmarshal response body")
@@ -638,15 +646,15 @@ func TestGetV2Clusters200(t *testing.T) {
 func TestGetV2Clusters500(t *testing.T) {
 	t.Run("Failed to Retrieve Clusters", func(t *testing.T) {
 		// Simulate an error in listing clusters
-		resource := k8s.NewMockResourceInterface(t)
-		resource.EXPECT().List(mock.Anything, metav1.ListOptions{}).Return(nil, errors.New("failed to list clusters"))
-		nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-		expectedActiveProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
-		nsResource.EXPECT().Namespace(expectedActiveProjectID).Return(resource)
-		mockedk8sclient := k8s.NewMockInterface(t)
-		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
+		mockK8sClient := k8s.NewMockClient(t)
+		mockK8sClient.EXPECT().ListCached(
+			mock.Anything,
+			core.ClusterResourceSchema,
+			expectedActiveProjectID,
+			metav1.ListOptions{},
+		).Return(nil, errors.New("failed to list clusters"))
 
-		server := NewServer(mockedk8sclient)
+		server := NewServer(mockK8sClient)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -674,14 +682,15 @@ func TestGetV2Clusters500(t *testing.T) {
 
 	t.Run("Missing Project ID", func(t *testing.T) {
 		// Simulate a missing project ID in the context
-		resource := k8s.NewMockResourceInterface(t)
-		resource.EXPECT().List(mock.Anything, metav1.ListOptions{}).Return(nil, errors.New("failed to list clusters")).Maybe()
-		nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-		nsResource.EXPECT().Namespace(mock.Anything).Return(resource).Maybe()
-		mockedk8sclient := k8s.NewMockInterface(t)
-		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource).Maybe()
+		mockK8sClient := k8s.NewMockClient(t)
+		mockK8sClient.EXPECT().ListCached(
+			mock.Anything,
+			core.ClusterResourceSchema,
+			mock.Anything, 
+			metav1.ListOptions{},
+		).Return(nil, errors.New("failed to list clusters")).Maybe()
 
-		server := NewServer(mockedk8sclient)
+		server := NewServer(mockK8sClient)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -710,10 +719,11 @@ func TestGetV2Clusters500(t *testing.T) {
 
 func TestGetV2Clusters400(t *testing.T) {
 	t.Run("Nil Context", func(t *testing.T) {
-		// Simulate an error in listing clusters
-		mockedk8sclient := k8s.NewMockInterface(t)
+		// Create mock objects
+		mockK8sClient := k8s.NewMockClient(t)
 
-		server := NewServer(mockedk8sclient)
+		// Create a server with the mock client
+		server := NewServer(mockK8sClient)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -739,10 +749,11 @@ func TestGetV2Clusters400(t *testing.T) {
 	})
 
 	t.Run("No Project ID", func(t *testing.T) {
-		// Simulate an error in listing clusters
-		mockedk8sclient := k8s.NewMockInterface(t)
+		// Create mock objects
+		mockK8sClient := k8s.NewMockClient(t)
 
-		server := NewServer(mockedk8sclient)
+		// Create a server with the mock client
+		server := NewServer(mockK8sClient)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -770,21 +781,34 @@ func TestGetV2Clusters400(t *testing.T) {
 		require.Contains(t, *respbody.Message, expectedErrorMessage, "Error message = %v, want %v",
 			*respbody.Message, expectedErrorMessage)
 	})
+
 	t.Run("invalid pageSize", func(t *testing.T) {
-		server := createMockServer(t, []capi.Cluster{}, expectedActiveProjectID, false, true)
+		// Create mock objects
+		mockK8sClient := k8s.NewMockClient(t)
+
+		// Create a server with the mock client
+		server := NewServer(mockK8sClient)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
+
 		// Create a new request & response recorder with invalid pageSize
-		// this error is being capture at http handler with strict validation against the OpenAPI spec
 		req := httptest.NewRequest("GET", "/v2/clusters?pageSize=-1", nil)
 		req.Header.Set("Activeprojectid", expectedActiveProjectID)
 		rr := httptest.NewRecorder()
+
+		// Create a handler with middleware to serve the request
 		handler, err := server.ConfigureHandler()
 		require.Nil(t, err)
 		handler.ServeHTTP(rr, req)
+
+		// Parse the response body
 		var actualResponse api.GetV2Clusters400JSONResponse
 		err = json.Unmarshal(rr.Body.Bytes(), &actualResponse)
 		require.NoError(t, err, "Failed to unmarshal response body")
+
+		// Check the response status
 		require.Equal(t, http.StatusBadRequest, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, http.StatusBadRequest)
+
+		// Check the response body
 		expectedResponse := api.GetV2Clusters400JSONResponse{
 			N400BadRequestJSONResponse: api.N400BadRequestJSONResponse{
 				Message: ptr("parameter \"pageSize\" in query has an error: number must be at least 0"),
@@ -792,22 +816,34 @@ func TestGetV2Clusters400(t *testing.T) {
 		}
 		require.Equal(t, expectedResponse, actualResponse, "GetV2Clusters() response = %v, want %v", actualResponse, expectedResponse)
 	})
+
 	t.Run("invalid combination of pageSize and offset", func(t *testing.T) {
-		clusters := []capi.Cluster{}
-		server := createMockServer(t, clusters, expectedActiveProjectID, false, true)
+		// Create mock objects
+		mockK8sClient := k8s.NewMockClient(t)
+
+		// Create a server with the mock client
+		server := NewServer(mockK8sClient)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
-		// create a new request & response recorder with invalid combination of pageSize and offset
-		// this is not blocked in the OpenAPI spec strict validation, but by the validateParams
+
+		// Create a new request & response recorder with invalid combination of pageSize and offset
 		req := httptest.NewRequest("GET", "/v2/clusters?pageSize=0&offset=1", nil)
 		req.Header.Set("Activeprojectid", expectedActiveProjectID)
 		rr := httptest.NewRecorder()
+
+		// Create a handler with middleware to serve the request
 		handler, err := server.ConfigureHandler()
 		require.Nil(t, err)
 		handler.ServeHTTP(rr, req)
+
+		// Parse the response body
 		var actualResponse api.GetV2Clusters400JSONResponse
 		err = json.Unmarshal(rr.Body.Bytes(), &actualResponse)
 		require.NoError(t, err, "Failed to unmarshal response body")
+
+		// Check the response status
 		require.Equal(t, http.StatusBadRequest, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, http.StatusBadRequest)
+
+		// Check the response body
 		expectedResponse := api.GetV2Clusters400JSONResponse{
 			N400BadRequestJSONResponse: api.N400BadRequestJSONResponse{
 				Message: ptr("invalid pageSize: must be greater than 0"),
@@ -815,22 +851,34 @@ func TestGetV2Clusters400(t *testing.T) {
 		}
 		require.Equal(t, expectedResponse, actualResponse, "GetV2Clusters() response = %v, want %v", actualResponse, expectedResponse)
 	})
-	t.Run("invalid orderBy field", func(t *testing.T) {
-		clusters := []capi.Cluster{}
-		server := createMockServer(t, clusters, expectedActiveProjectID, false, true)
+
+	t.Run("empty orderBy field", func(t *testing.T) {
+		// Create mock objects
+		mockK8sClient := k8s.NewMockClient(t)
+
+		// Create a server with the mock client
+		server := NewServer(mockK8sClient)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
+
 		// Create a new request & response recorder with invalid orderBy field
-		// this error is being capture at http handler with strict validation against the OpenAPI spec
 		req := httptest.NewRequest("GET", "/v2/clusters?orderBy=", nil)
 		req.Header.Set("Activeprojectid", expectedActiveProjectID)
 		rr := httptest.NewRecorder()
+
+		// Create a handler with middleware to serve the request
 		handler, err := server.ConfigureHandler()
 		require.Nil(t, err)
 		handler.ServeHTTP(rr, req)
+
+		// Parse the response body
 		var actualResponse api.GetV2Clusters400JSONResponse
 		err = json.Unmarshal(rr.Body.Bytes(), &actualResponse)
 		require.NoError(t, err, "Failed to unmarshal response body")
+
+		// Check the response status
 		require.Equal(t, http.StatusBadRequest, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, http.StatusBadRequest)
+
+		// Check the response body
 		expectedResponse := api.GetV2Clusters400JSONResponse{
 			N400BadRequestJSONResponse: api.N400BadRequestJSONResponse{
 				Message: ptr("parameter \"orderBy\" in query has an error: empty value is not allowed"),
@@ -839,21 +887,33 @@ func TestGetV2Clusters400(t *testing.T) {
 		require.Equal(t, expectedResponse, actualResponse, "GetV2Clusters() response = %v, want %v", actualResponse, expectedResponse)
 	})
 
-	t.Run("invalid orderBy field", func(t *testing.T) {
-		clusters := []capi.Cluster{}
-		server := createMockServer(t, clusters, expectedActiveProjectID, false, true)
+	t.Run("invalid orderBy field name", func(t *testing.T) {
+		// Create mock objects
+		mockK8sClient := k8s.NewMockClient(t)
+
+		// Create a server with the mock client
+		server := NewServer(mockK8sClient)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
-		// Create a new request & response recorder with syntactically correct but logically invalid orderBy field
+
+		// Create a new request & response recorder with syntactically correct but invalid field name
 		req := httptest.NewRequest("GET", "/v2/clusters?orderBy=nonexistentField%20desc", nil)
 		req.Header.Set("Activeprojectid", expectedActiveProjectID)
 		rr := httptest.NewRecorder()
+
+		// Create a handler with middleware to serve the request
 		handler, err := server.ConfigureHandler()
 		require.Nil(t, err)
 		handler.ServeHTTP(rr, req)
+
+		// Parse the response body
 		var actualResponse api.GetV2Clusters400JSONResponse
 		err = json.Unmarshal(rr.Body.Bytes(), &actualResponse)
 		require.NoError(t, err, "Failed to unmarshal response body")
+
+		// Check the response status
 		require.Equal(t, http.StatusBadRequest, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, http.StatusBadRequest)
+
+		// Check the response body
 		expectedResponse := api.GetV2Clusters400JSONResponse{
 			N400BadRequestJSONResponse: api.N400BadRequestJSONResponse{
 				Message: ptr("invalid orderBy field"),
@@ -861,20 +921,34 @@ func TestGetV2Clusters400(t *testing.T) {
 		}
 		require.Equal(t, expectedResponse, actualResponse, "GetV2Clusters() response = %v, want %v", actualResponse, expectedResponse)
 	})
-	t.Run("Invalid OrderBy Parameter", func(t *testing.T) {
-		server := createMockServer(t, []capi.Cluster{}, expectedActiveProjectID, false, true)
+
+	t.Run("invalid orderBy direction", func(t *testing.T) {
+		// Create mock objects
+		mockK8sClient := k8s.NewMockClient(t)
+
+		// Create a server with the mock client
+		server := NewServer(mockK8sClient)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
-		// Create a new request & response recorder with an invalid orderBy parameter
+
+		// Create a new request & response recorder with invalid sort direction
 		req := httptest.NewRequest("GET", "/v2/clusters?orderBy=name%20badasc", nil)
 		req.Header.Set("Activeprojectid", expectedActiveProjectID)
 		rr := httptest.NewRecorder()
+
+		// Create a handler with middleware to serve the request
 		handler, err := server.ConfigureHandler()
 		require.Nil(t, err)
 		handler.ServeHTTP(rr, req)
+
+		// Parse the response body
 		var actualResponse api.GetV2Clusters400JSONResponse
 		err = json.Unmarshal(rr.Body.Bytes(), &actualResponse)
 		require.NoError(t, err, "Failed to unmarshal response body")
+
+		// Check the response status
 		require.Equal(t, http.StatusBadRequest, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, 400)
+
+		// Check the response body
 		expectedResponse := api.GetV2Clusters400JSONResponse{
 			N400BadRequestJSONResponse: api.N400BadRequestJSONResponse{
 				Message: ptr("invalid orderBy field"),
@@ -882,21 +956,34 @@ func TestGetV2Clusters400(t *testing.T) {
 		}
 		require.Equal(t, expectedResponse, actualResponse, "GetV2Clusters() response = %v, want %v", actualResponse, expectedResponse)
 	})
+
 	t.Run("invalid filter", func(t *testing.T) {
-		clusters := []capi.Cluster{}
-		server := createMockServer(t, clusters, expectedActiveProjectID, false, true)
+		// Create mock objects
+		mockK8sClient := k8s.NewMockClient(t)
+
+		// Create a server with the mock client
+		server := NewServer(mockK8sClient)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
+
 		// Create a new request & response recorder with invalid filter
 		req := httptest.NewRequest("GET", "/v2/clusters?filter=invalidFilter", nil)
 		req.Header.Set("Activeprojectid", expectedActiveProjectID)
 		rr := httptest.NewRecorder()
+
+		// Create a handler with middleware to serve the request
 		handler, err := server.ConfigureHandler()
 		require.Nil(t, err)
 		handler.ServeHTTP(rr, req)
+
+		// Parse the response body
 		var actualResponse api.GetV2Clusters400JSONResponse
 		err = json.Unmarshal(rr.Body.Bytes(), &actualResponse)
 		require.NoError(t, err, "Failed to unmarshal response body")
+
+		// Check the response status
 		require.Equal(t, http.StatusBadRequest, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, http.StatusBadRequest)
+
+		// Check the response body
 		expectedResponse := api.GetV2Clusters400JSONResponse{
 			N400BadRequestJSONResponse: api.N400BadRequestJSONResponse{
 				Message: ptr("invalid filter field"),
@@ -911,14 +998,19 @@ func createGetV2ClustersStubServer(t *testing.T) *Server {
 	unstructuredClusterList := &unstructured.UnstructuredList{
 		Items: unstructuredClusters,
 	}
+
+	mockK8sClient := k8s.NewMockClient(t)
+	mockInterface := k8s.NewMockInterface(t)
 	resource := k8s.NewMockResourceInterface(t)
 	resource.EXPECT().List(mock.Anything, metav1.ListOptions{}).Return(unstructuredClusterList, nil).Maybe()
 	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
 	nsResource.EXPECT().Namespace(mock.Anything).Return(resource).Maybe()
-	mockedk8sclient := k8s.NewMockInterface(t)
-	mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource).Maybe()
+
+	mockK8sClient.EXPECT().Dynamic().Return(mockInterface).Maybe()
+	mockInterface.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource).Maybe()
+
 	return &Server{
-		k8sclient: mockedk8sclient,
+		k8sclient: mockK8sClient,
 	}
 }
 

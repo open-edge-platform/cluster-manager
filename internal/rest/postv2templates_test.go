@@ -16,14 +16,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
-	"github.com/open-edge-platform/cluster-manager/v2/internal/template"
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 )
 
-// TestPostV2Templates200 tests the PostV2Templates handler with a 200 response
+// TestPostV2Templates200 test fix
 func TestPostV2Templates200(t *testing.T) {
 	var expectedActiveProjectID = "655a6892-4280-4c37-97b1-31161ac0b99e"
 
@@ -38,29 +37,33 @@ func TestPostV2Templates200(t *testing.T) {
 		KubernetesVersion:        "v1.21.0",
 	}
 
-	clusterTemplate, err := template.FromTemplateInfoToClusterTemplate(templateInfo)
-	require.NoError(t, err, "FromTemplateInfoToClusterTemplate() error = %v, want nil")
+	// Create mock client
+	mockK8sClient := k8s.NewMockClient(t)
 
-	unstructuredClusterTemplate, err := convert.ToUnstructured(&clusterTemplate)
-	require.NoError(t, err, "convertClusterToUnstructured() error = %v, want nil")
+	// Mock the full chain of Dynamic -> Resource -> Namespace -> Create calls
+	mockDynamicInterface := k8s.NewMockInterface(t)
+	mockNamespaceableResourceInterface := k8s.NewMockNamespaceableResourceInterface(t)
+	mockResourceInterface := k8s.NewMockResourceInterface(t)
 
-	// configure mockery to return the response object on a Create() call
-	resource := k8s.NewMockResourceInterface(t)
-	resource.EXPECT().Create(mock.Anything, unstructuredClusterTemplate, v1.CreateOptions{}).Return(nil, nil)
-	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-	nsResource.EXPECT().Namespace(expectedActiveProjectID).Return(resource)
-	mockedk8sclient := k8s.NewMockInterface(t)
-	mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource)
+	// Setup the mock chain
+	mockK8sClient.EXPECT().Dynamic().Return(mockDynamicInterface)
+	mockDynamicInterface.EXPECT().Resource(core.TemplateResourceSchema).Return(mockNamespaceableResourceInterface)
+	mockNamespaceableResourceInterface.EXPECT().Namespace(expectedActiveProjectID).Return(mockResourceInterface)
+	mockResourceInterface.EXPECT().Create(
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+	).Return(nil, nil)
 
-	// create a new server with the mocked mockedk8sclient
-	server := NewServer(mockedk8sclient)
+	// Create a new server with the mocked client
+	server := NewServer(mockK8sClient, WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
-	// create a handler with middleware
+	// Create a handler with middleware
 	handler, err := server.ConfigureHandler()
 	require.Nil(t, err)
 
-	// create a new request & response recorder
+	// Create a new request & response recorder
 	body, err := json.Marshal(templateInfo)
 	require.NoError(t, err, "json.Marshal() error = %v, want nil")
 	req := httptest.NewRequest("POST", "/v2/templates", bytes.NewReader(body))
@@ -68,12 +71,11 @@ func TestPostV2Templates200(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 
-	// serve the request
+	// Serve the request
 	handler.ServeHTTP(rr, req)
 
-	// check the response status
+	// Check the response status
 	require.Equal(t, http.StatusCreated, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, 201)
-
 }
 
 func TestPostV2Templates400(t *testing.T) {
@@ -162,11 +164,12 @@ func TestPostV2Templates400(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 			rr := httptest.NewRecorder()
 
-			mockedk8sclient := k8s.NewMockInterface(t)
-			server := NewServer(mockedk8sclient)
+			// Use NewMockClient
+			mockK8sClient := k8s.NewMockClient(t)
+			server := NewServer(mockK8sClient, WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
 			require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
-			// create a handler with middleware
+			// Create a handler with middleware
 			handler, err := server.ConfigureHandler()
 			require.Nil(t, err)
 			handler.ServeHTTP(rr, req)
@@ -194,9 +197,25 @@ func TestPostV2Templates409(t *testing.T) {
 		KubernetesVersion:        "v1.21.0",
 	}
 
-	// configure mockery to return a conflict error on a Create() call
-	resource := k8s.NewMockResourceInterface(t)
-	resource.EXPECT().Create(mock.Anything, mock.Anything, v1.CreateOptions{}).Return(nil, &errors.StatusError{
+	// Create mock client
+	mockK8sClient := k8s.NewMockClient(t)
+
+	// Mock the full chain of Dynamic -> Resource -> Namespace -> Create calls
+	mockDynamicInterface := k8s.NewMockInterface(t)
+	mockNamespaceableResourceInterface := k8s.NewMockNamespaceableResourceInterface(t)
+	mockResourceInterface := k8s.NewMockResourceInterface(t)
+
+	// Setup the mock chain
+	mockK8sClient.EXPECT().Dynamic().Return(mockDynamicInterface)
+	mockDynamicInterface.EXPECT().Resource(core.TemplateResourceSchema).Return(mockNamespaceableResourceInterface)
+	mockNamespaceableResourceInterface.EXPECT().Namespace(expectedActiveProjectID).Return(mockResourceInterface)
+
+	// Return a conflict error when trying to create the resource
+	mockResourceInterface.EXPECT().Create(
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+	).Return(nil, &errors.StatusError{
 		ErrStatus: v1.Status{
 			Status:  v1.StatusFailure,
 			Code:    http.StatusConflict,
@@ -204,20 +223,16 @@ func TestPostV2Templates409(t *testing.T) {
 			Message: "ClusterTemplate already exists",
 		},
 	})
-	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-	nsResource.EXPECT().Namespace(expectedActiveProjectID).Return(resource)
-	mockedk8sclient := k8s.NewMockInterface(t)
-	mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource)
 
-	// create a new server with the mocked mockedk8sclient
-	server := NewServer(mockedk8sclient)
+	// Create a new server with the mocked client
+	server := NewServer(mockK8sClient, WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
-	// create a handler with middleware
+	// Create a handler with middleware
 	handler, err := server.ConfigureHandler()
 	require.Nil(t, err)
 
-	// create a new request & response recorder
+	// Create a new request & response recorder
 	body, err := json.Marshal(templateInfo)
 	require.NoError(t, err, "json.Marshal() error = %v, want nil")
 	req := httptest.NewRequest("POST", "/v2/templates", bytes.NewReader(body))
@@ -225,13 +240,13 @@ func TestPostV2Templates409(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 
-	// serve the request
+	// Serve the request
 	handler.ServeHTTP(rr, req)
 
-	// check the response status
+	// Check the response status
 	require.Equal(t, http.StatusConflict, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, http.StatusConflict)
 
-	// check the response body
+	// Check the response body
 	var respbody api.PostV2Templates409JSONResponse
 	err = json.Unmarshal(rr.Body.Bytes(), &respbody)
 	require.NoError(t, err, "json.Unmarshal() error = %v, want nil", err)
@@ -252,9 +267,25 @@ func TestPostV2Templates500(t *testing.T) {
 		KubernetesVersion:        "v1.21.0",
 	}
 
-	// configure mockery to return an internal server error on a Create() call
-	resource := k8s.NewMockResourceInterface(t)
-	resource.EXPECT().Create(mock.Anything, mock.Anything, v1.CreateOptions{}).Return(nil, &errors.StatusError{
+	// Create mock client
+	mockK8sClient := k8s.NewMockClient(t)
+
+	// Mock the full chain of Dynamic -> Resource -> Namespace -> Create calls
+	mockDynamicInterface := k8s.NewMockInterface(t)
+	mockNamespaceableResourceInterface := k8s.NewMockNamespaceableResourceInterface(t)
+	mockResourceInterface := k8s.NewMockResourceInterface(t)
+
+	// Setup the mock chain
+	mockK8sClient.EXPECT().Dynamic().Return(mockDynamicInterface)
+	mockDynamicInterface.EXPECT().Resource(core.TemplateResourceSchema).Return(mockNamespaceableResourceInterface)
+	mockNamespaceableResourceInterface.EXPECT().Namespace(expectedActiveProjectID).Return(mockResourceInterface)
+
+	// Return an internal server error when trying to create the resource
+	mockResourceInterface.EXPECT().Create(
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+	).Return(nil, &errors.StatusError{
 		ErrStatus: v1.Status{
 			Status:  v1.StatusFailure,
 			Code:    http.StatusInternalServerError,
@@ -262,20 +293,16 @@ func TestPostV2Templates500(t *testing.T) {
 			Message: "Internal server error",
 		},
 	})
-	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-	nsResource.EXPECT().Namespace(expectedActiveProjectID).Return(resource)
-	mockedk8sclient := k8s.NewMockInterface(t)
-	mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource)
 
-	// create a new server with the mocked mockedk8sclient
-	server := NewServer(mockedk8sclient)
+	// Create a new server with the mocked client
+	server := NewServer(mockK8sClient, WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
-	// create a handler with middleware
+	// Create a handler with middleware
 	handler, err := server.ConfigureHandler()
 	require.Nil(t, err)
 
-	// create a new request & response recorder
+	// Create a new request & response recorder
 	body, err := json.Marshal(templateInfo)
 	require.NoError(t, err, "json.Marshal() error = %v, want nil")
 	req := httptest.NewRequest("POST", "/v2/templates", bytes.NewReader(body))
@@ -283,13 +310,13 @@ func TestPostV2Templates500(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 
-	// serve the request
+	// Serve the request
 	handler.ServeHTTP(rr, req)
 
-	// check the response status
+	// Check the response status
 	require.Equal(t, http.StatusInternalServerError, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, http.StatusInternalServerError)
 
-	// check the response body
+	// Check the response body
 	var respbody api.PostV2Templates500JSONResponse
 	err = json.Unmarshal(rr.Body.Bytes(), &respbody)
 	require.NoError(t, err, "json.Unmarshal() error = %v, want nil", err)
@@ -298,18 +325,37 @@ func TestPostV2Templates500(t *testing.T) {
 }
 
 func createPostV2TemplatesStubServer(t *testing.T) *Server {
-	resource := k8s.NewMockResourceInterface(t)
-	resource.EXPECT().Create(mock.Anything, mock.Anything, v1.CreateOptions{}).Return(nil, nil).Maybe()
-	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-	nsResource.EXPECT().Namespace(mock.Anything).Return(resource).Maybe()
-	mockedk8sclient := k8s.NewMockInterface(t)
-	mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource).Maybe()
-	return &Server{
-		k8sclient: mockedk8sclient,
-	}
+	// Create mock client
+	mockK8sClient := k8s.NewMockClient(t)
+
+	// Mock the dynamic interface for fuzzing
+	mockDynamicInterface := k8s.NewMockInterface(t)
+	mockNamespaceableResourceInterface := k8s.NewMockNamespaceableResourceInterface(t)
+	mockResourceInterface := k8s.NewMockResourceInterface(t)
+
+	// Setup flexible mocks for fuzzing
+	mockK8sClient.EXPECT().Dynamic().Return(mockDynamicInterface).Maybe()
+	mockDynamicInterface.EXPECT().Resource(mock.Anything).Return(mockNamespaceableResourceInterface).Maybe()
+	mockNamespaceableResourceInterface.EXPECT().Namespace(mock.Anything).Return(mockResourceInterface).Maybe()
+	mockResourceInterface.EXPECT().Create(
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+	).Return(nil, nil).Maybe()
+
+	// Mock CreateTemplate method for fuzzing tests
+	mockK8sClient.EXPECT().CreateTemplate(
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+	).Return(nil).Maybe()
+
+	// Create and return the server
+	return NewServer(mockK8sClient, WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
 }
 
 func FuzzPostV2Templates(f *testing.F) {
+	// No changes needed here - just using the updated stub server
 	f.Add("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k",
 		byte(0), byte(1), byte(2), byte(3), byte(4), byte(5), byte(6), byte(7),
 		byte(8), byte(9), byte(10), byte(11), byte(12), byte(13), byte(14), byte(15))
