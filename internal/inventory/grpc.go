@@ -69,7 +69,11 @@ func NewInventoryClientWithOptions(opt Options) (*InventoryClient, error) {
 func (c *InventoryClient) GetHostTrustedCompute(ctx context.Context, tenantId, hostUuid string) (bool, error) {
 	host, err := c.getHost(ctx, tenantId, hostUuid)
 	if err != nil {
-		return false, err
+		return false, errors.New("failed to get host")
+	}
+
+	if host.Instance == nil {
+		return false, errors.New("host instance is nil")
 	}
 
 	return host.Instance.SecurityFeature == osv1.SecurityFeature_SECURITY_FEATURE_SECURE_BOOT_AND_FULL_DISK_ENCRYPTION, nil
