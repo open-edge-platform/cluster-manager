@@ -106,7 +106,7 @@ jobs:
   
   pre-merge:
     needs: [lint, build, test]
-    uses: open-edge-platform/orch-ci/.github/workflows/pre-merge.yml@main
+    uses: open-edge-platform/orch-ci/.github/workflows/pre-merge.yml@jd-save-docker-issue
     with:
       bootstrap_tools: "base,go"
       cache_go: true
