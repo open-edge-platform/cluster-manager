@@ -1,4 +1,12 @@
+<!---
+  SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+  SPDX-License-Identifier: Apache-2.0
+-->
+
 # Cluster Manager
+
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/open-edge-platform/cluster-manager/badge)](https://scorecard.dev/viewer/?uri=github.com/open-edge-platform/cluster-manager)
 
 ## Table of Contents
 
