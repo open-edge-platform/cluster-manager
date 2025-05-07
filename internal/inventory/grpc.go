@@ -69,7 +69,7 @@ func NewInventoryClientWithOptions(opt Options) (*InventoryClient, error) {
 func (c *InventoryClient) GetHostTrustedCompute(ctx context.Context, tenantId, hostUuid string) (bool, error) {
 	host, err := c.getHost(ctx, tenantId, hostUuid)
 	if err != nil {
-		return false, errors.New("failed to get host")
+		return false, err
 	}
 
 	if host.Instance == nil {
