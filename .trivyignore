@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# CM needs to access CAPI kubeconfig secrets from all project namespaces which contain Edge Cluster CAPI resources
+# The namespaces are created by CM at runtime, hence we would need to also configure permissions to access secrets at this specific namespaces at runtime.
+# This is not trivial, hence for our initial implementation we chosen the simplest method and we give access to all the secrets via ClusterRole.
+#
+# This issue is tracked in our issue tracker and will be addressed eventually. We are silencing it as known and accepted issue for now until it gets properly resolved. 
+# AVD-KSV-0041 (CRITICAL): ClusterRole 'cluster-manager' shouldn't have access to manage resource 'secrets'
+AVD-KSV-0041
