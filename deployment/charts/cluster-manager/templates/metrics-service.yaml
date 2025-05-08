@@ -7,8 +7,10 @@ kind: ServiceMonitor
 metadata:
   name: cluster-manager-metrics
   namespace: {{ .Release.Namespace }}
+  {{- if .Values.metrics.serviceMonitor.labels }}
   labels:
     {{- toYaml .Values.metrics.serviceMonitor.labels | indent 4 }}
+  {{- end }}
 spec:
   endpoints:
   - port: metrics
