@@ -102,6 +102,14 @@ func TestGetHostTrustedCompute(t *testing.T) {
 			expectedVal: false,
 		},
 		{
+			name: "host instance nil",
+			mock: func() {
+				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(&computev1.HostResource{}, nil).Once()
+			},
+			expectedErr: errors.New("host instance is nil"),
+			expectedVal: false,
+		},
+		{
 			name: "host resource nil",
 			mock: func() {
 				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Once()
