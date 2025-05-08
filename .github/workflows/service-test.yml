@@ -4,7 +4,9 @@
 ---
 
 name: Run service tests
-  
+
+permissions: {}
+
 on:
   pull_request:
     branches:
@@ -14,15 +16,18 @@ on:
   
 jobs:
   integration-smoke-test:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
     - name: Checkout orch ci
-      uses: actions/checkout@v4
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       with:
         ref: ${{ github.head_ref }}
+        persist-credentials: false
 
     - name: Bootstrap CI environment
-      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@main
+      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@13722579bc8edfb712203cb8e88fcc404d2218bc  # 0.1.9
       with:
         gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
 
