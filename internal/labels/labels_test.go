@@ -102,31 +102,6 @@ func TestMerge(t *testing.T) {
 	}
 }
 
-func TestRemove(t *testing.T) {
-	clusterLabels := map[string]string{
-		"edge-orchestrator.intel.com/cluster-id":  "cluster-479656a6",
-		"edge-orchestrator.intel.com/clustername": "scale-0a9c889f-97a4-5a27-aa57-e82300a2b19c",
-		"edge-orchestrator.intel.com/project-id":  "0ba9d4dc-c4c2-4904-b526-57ace6e76922",
-		"edge-orchestrator.intel.com/template":    "scaletest-v0.0.2",
-		"clustername":                             "scale-0a9c889f-97a4-5a27-aa57-e82300a2b19c",
-		"cpumanager":                              "true",
-		"prometheusMetricsURL":                    "metrics-node.scale.espd.infra-host.com",
-	}
-
-	want := map[string]string{
-		"edge-orchestrator.intel.com/cluster-id":  "cluster-479656a6",
-		"edge-orchestrator.intel.com/clustername": "scale-0a9c889f-97a4-5a27-aa57-e82300a2b19c",
-		"edge-orchestrator.intel.com/project-id":  "0ba9d4dc-c4c2-4904-b526-57ace6e76922",
-		"edge-orchestrator.intel.com/template":    "scaletest-v0.0.2",
-		"cpumanager":                              "true",
-	}
-
-	got := labels.Delete(clusterLabels, "clustername", "prometheusMetricsURL")
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("remove mismatch (-want +got):\n%s", diff)
-	}
-}
-
 /*
 // Valid verifies label format against https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
 

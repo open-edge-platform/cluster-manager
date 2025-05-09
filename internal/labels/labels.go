@@ -4,7 +4,6 @@ package labels
 
 import (
 	"regexp"
-	"slices"
 	"strings"
 )
 
@@ -80,17 +79,6 @@ func Merge(labels ...map[string]string) map[string]string {
 		}
 	}
 	return mergedLabels
-}
-
-// Delete returns a new map with the specified keys removed
-func Delete(labels map[string]string, keys ...string) map[string]string {
-	newLabels := make(map[string]string)
-	for k, v := range labels {
-		if !slices.Contains(keys, k) {
-			newLabels[k] = v
-		}
-	}
-	return newLabels
 }
 
 // Valid verifies label format against https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
