@@ -150,6 +150,7 @@ metrics:
         app: "template-controller-metrics-svc"
   serviceMonitor:
     labels: {}
+  dashboardAdminFolder: orchestrator
 
 webhookService:
   enabled: true
