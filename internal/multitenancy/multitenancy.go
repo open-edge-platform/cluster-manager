@@ -170,7 +170,7 @@ func (tdm *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.Ru
 	}
 
 	labels := map[string]string{labels.DefaultLabelKey: labels.DefaultLabelVal}
-	if err = tdm.k8s.CreateTemplateLabels(ctx, projectId, defaultTemplateName, labels); err != nil {
+	if err = tdm.k8s.SetTemplateLabels(ctx, projectId, defaultTemplateName, labels); err != nil {
 		return fmt.Errorf("failed to label default template: %w", err)
 	}
 
