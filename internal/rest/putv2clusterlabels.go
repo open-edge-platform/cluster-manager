@@ -38,10 +38,10 @@ func (s *Server) PutV2ClustersNameLabels(ctx context.Context, request api.PutV2C
 		}, nil
 	}
 
-	newLabels := *request.Body.Labels
-	if !labels.Valid(newLabels) {
+	newUserLabels := *request.Body.Labels
+	if !labels.Valid(newUserLabels) {
 		errMsg := "invalid cluster label keys"
-		slog.Warn(errMsg, "labels", newLabels)
+		slog.Warn(errMsg, "labels", newUserLabels)
 		return api.PutV2ClustersNameLabels400JSONResponse{
 			N400BadRequestJSONResponse: api.N400BadRequestJSONResponse{
 				Message: &errMsg,
@@ -56,7 +56,7 @@ func (s *Server) PutV2ClustersNameLabels(ctx context.Context, request api.PutV2C
 		return api.PutV2ClustersNameLabels500JSONResponse{N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{Message: &message}}, nil
 	}
 
-	err = cli.CreateClusterLabels(ctx, activeProjectID, clusterName, newLabels)
+	err = cli.SetClusterLabels(ctx, activeProjectID, clusterName, newUserLabels)
 
 	switch {
 	case errors.IsBadRequest(err):
@@ -73,6 +73,6 @@ func (s *Server) PutV2ClustersNameLabels(ctx context.Context, request api.PutV2C
 		return api.PutV2ClustersNameLabels500JSONResponse{N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{Message: &message}}, nil
 	}
 
-	slog.Info("Cluster labels updated", "namespace", activeProjectID, "name", request.Name, "labels", newLabels)
+	slog.Info("Cluster labels updated", "namespace", activeProjectID, "name", request.Name, "labels", newUserLabels)
 	return api.PutV2ClustersNameLabels200Response{}, nil
 }
