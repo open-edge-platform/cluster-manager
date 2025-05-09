@@ -56,7 +56,7 @@ func (s *Server) PutV2ClustersNameLabels(ctx context.Context, request api.PutV2C
 		return api.PutV2ClustersNameLabels500JSONResponse{N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{Message: &message}}, nil
 	}
 
-	err = cli.SetClusterLabels(ctx, activeProjectID, clusterName, newLabels)
+	err = cli.CreateClusterLabels(ctx, activeProjectID, clusterName, newLabels)
 
 	switch {
 	case errors.IsBadRequest(err):

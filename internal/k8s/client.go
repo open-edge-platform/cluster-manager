@@ -240,28 +240,28 @@ func (cli *Client) DeleteNamespace(ctx context.Context, namespace string) error 
 	return cli.Dyn.Resource(namespaceRes).Delete(ctx, namespace, deleteOptions)
 }
 
-// SetClusterLabels creates new labels on the cluster object in the given namespace
-func (cli *Client) SetClusterLabels(ctx context.Context, namespace string, clusterName string, newLabels map[string]string) error {
+// CreateClusterLabels creates new labels on the cluster object in the given namespace
+func (cli *Client) CreateClusterLabels(ctx context.Context, namespace string, clusterName string, newLabels map[string]string) error {
 	if newLabels == nil {
 		return nil
 	}
 
-	return setLabels(ctx, cli, namespace, clusterResourceSchema, clusterName, newLabels)
+	return createLabels(ctx, cli, namespace, clusterResourceSchema, clusterName, newLabels)
 }
 
-// SetTemplateLabels creates new labels on the template object in the given namespace
-func (cli *Client) SetTemplateLabels(ctx context.Context, namespace string, templateName string, newLabels map[string]string) error {
+// CreateTemplateLabels creates new labels on the template object in the given namespace
+func (cli *Client) CreateTemplateLabels(ctx context.Context, namespace string, templateName string, newLabels map[string]string) error {
 	if newLabels == nil {
 		return nil
 	}
 
-	return setLabels(ctx, cli, namespace, templateResourceSchema, templateName, newLabels)
+	return createLabels(ctx, cli, namespace, templateResourceSchema, templateName, newLabels)
 }
 
-// setLabels sets the labels on the given resource in the given namespace
+// createLabels creates new labels on the resource object in the given namespace
 // It retries on transient "the object has been modified" error, which is expected when the cluster object was updated by another process after we fetched it
 // It returns an error if the operation fails after all retries
-func setLabels(ctx context.Context, cli *Client, namespace string, resourceSchema schema.GroupVersionResource, resourceName string, labels map[string]string) error {
+func createLabels(ctx context.Context, cli *Client, namespace string, resourceSchema schema.GroupVersionResource, resourceName string, newLabels map[string]string) error {
 	transientError := func(err error) bool {
 		tryAgainErrPattern := "the object has been modified; please apply your changes to the latest version and try again"
 		return strings.Contains(err.Error(), tryAgainErrPattern)
@@ -272,7 +272,7 @@ func setLabels(ctx context.Context, cli *Client, namespace string, resourceSchem
 		if err != nil {
 			return backoff.Permanent(err)
 		}
-		resource.SetLabels(labels)
+		resource.SetLabels(labels.Merge(resource.GetLabels(), newLabels))
 		if _, err = cli.Dyn.Resource(resourceSchema).Namespace(namespace).Update(ctx, resource, metav1.UpdateOptions{}); err != nil {
 			if transientError(err) {
 				return err // retry on transient error
