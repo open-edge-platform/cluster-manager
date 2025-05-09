@@ -261,7 +261,7 @@ func (cli *Client) CreateTemplateLabels(ctx context.Context, namespace string, t
 // createLabels creates new labels on the resource object in the given namespace
 // It retries on transient "the object has been modified" error, which is expected when the cluster object was updated by another process after we fetched it
 // It returns an error if the operation fails after all retries
-func createLabels(ctx context.Context, cli *Client, namespace string, resourceSchema schema.GroupVersionResource, resourceName string, newUserLabels map[string]string) error {
+func createLabels(ctx context.Context, cli *Client, namespace string, resourceSchema schema.GroupVersionResource, resourceName string, newLabels map[string]string) error {
 	transientError := func(err error) bool {
 		tryAgainErrPattern := "the object has been modified; please apply your changes to the latest version and try again"
 		return strings.Contains(err.Error(), tryAgainErrPattern)
@@ -272,12 +272,7 @@ func createLabels(ctx context.Context, cli *Client, namespace string, resourceSc
 		if err != nil {
 			return backoff.Permanent(err)
 		}
-		allLabels := resource.GetLabels()
-		previousUserLabels := labels.Filter(allLabels)
-		for key := range previousUserLabels {
-			delete(allLabels, key)
-		}
-		resource.SetLabels(labels.Merge(allLabels, newUserLabels))
+		resource.SetLabels(labels.Merge(resource.GetLabels(), newLabels))
 		if _, err = cli.Dyn.Resource(resourceSchema).Namespace(namespace).Update(ctx, resource, metav1.UpdateOptions{}); err != nil {
 			if transientError(err) {
 				return err // retry on transient error
