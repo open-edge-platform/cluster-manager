@@ -30,3 +30,17 @@ metadata:
 data:
 {{ (.Files.Glob "files/openpolicyagent/v1/*.rego").AsConfig | indent 2 }}
 {{- end}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "cluster-manager.fullname" . }}-dashboards-orchestrator
+  labels:
+    grafana_dashboard: "orchestrator"
+    {{- include "cluster-manager.labels" . | nindent 4 }}
+  {{- with .Values.metrics.dashboardAdminFolder }}
+  annotations:
+    grafana_folder: {{ . }}
+  {{- end }}
+data:
+{{ (.Files.Glob "files/dashboards/*.json").AsConfig | indent 2 }}
