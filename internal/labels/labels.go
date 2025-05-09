@@ -4,6 +4,7 @@ package labels
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -29,10 +30,8 @@ func OverrideSystemPrefixes(prefixes []string) {
 	systemPrefixes = prefixes
 }
 
-// Filter returns new map with only user defined labels
-func Filter(clusterLabels map[string]string) map[string]string {
-	f := map[string]string{}
-
+// UserLabels returns new map with only user defined labels
+func UserLabels(clusterLabels map[string]string) map[string]string {
 	keep := func(s string) bool {
 		for _, p := range systemPrefixes {
 			if strings.HasPrefix(s, p) {
@@ -42,7 +41,27 @@ func Filter(clusterLabels map[string]string) map[string]string {
 		return true
 	}
 
-	for key, value := range clusterLabels {
+	return filter(clusterLabels, keep)
+}
+
+// SystemLabels returns new map with only system defined labels
+func SystemLabels(clusterLabels map[string]string) map[string]string {
+	keep := func(s string) bool {
+		for _, p := range systemPrefixes {
+			if strings.HasPrefix(s, p) {
+				return true
+			}
+		}
+		return false
+	}
+
+	return filter(clusterLabels, keep)
+}
+
+func filter(labels map[string]string, keep func(string) bool) map[string]string {
+	f := map[string]string{}
+
+	for key, value := range labels {
 		if !keep(key) {
 			continue
 		}
@@ -61,6 +80,17 @@ func Merge(labels ...map[string]string) map[string]string {
 		}
 	}
 	return mergedLabels
+}
+
+// Delete returns a new map with the specified keys removed
+func Delete(labels map[string]string, keys ...string) map[string]string {
+	newLabels := make(map[string]string)
+	for k, v := range labels {
+		if !slices.Contains(keys, k) {
+			newLabels[k] = v
+		}
+	}
+	return newLabels
 }
 
 // Valid verifies label format against https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set

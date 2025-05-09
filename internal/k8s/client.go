@@ -240,28 +240,32 @@ func (cli *Client) DeleteNamespace(ctx context.Context, namespace string) error 
 	return cli.Dyn.Resource(namespaceRes).Delete(ctx, namespace, deleteOptions)
 }
 
-// CreateClusterLabels creates new labels on the cluster object in the given namespace
-func (cli *Client) CreateClusterLabels(ctx context.Context, namespace string, clusterName string, newLabels map[string]string) error {
+// SetClusterLabels overrides the labels of the cluster object in the given namespace
+func (cli *Client) SetClusterLabels(ctx context.Context, namespace string, clusterName string, newUserLabels map[string]string) error {
+	if newUserLabels == nil {
+		return nil
+	}
+
+	return modifyLabels(ctx, cli, namespace, clusterResourceSchema, clusterName, func(cluster *unstructured.Unstructured) {
+		cluster.SetLabels(labels.Merge(labels.SystemLabels(cluster.GetLabels()), newUserLabels))
+	})
+}
+
+// AddTemplateLabels appends new labels on the template object in the given namespace
+func (cli *Client) AddTemplateLabels(ctx context.Context, namespace string, templateName string, newLabels map[string]string) error {
 	if newLabels == nil {
 		return nil
 	}
 
-	return createLabels(ctx, cli, namespace, clusterResourceSchema, clusterName, newLabels)
+	return modifyLabels(ctx, cli, namespace, templateResourceSchema, templateName, func(template *unstructured.Unstructured) {
+		template.SetLabels(labels.Merge(template.GetLabels(), newLabels))
+	})
 }
 
-// CreateTemplateLabels creates new labels on the template object in the given namespace
-func (cli *Client) CreateTemplateLabels(ctx context.Context, namespace string, templateName string, newLabels map[string]string) error {
-	if newLabels == nil {
-		return nil
-	}
-
-	return createLabels(ctx, cli, namespace, templateResourceSchema, templateName, newLabels)
-}
-
-// createLabels creates new labels on the resource object in the given namespace
+// modifyLabels modifies the labels of the given resource in the given namespace
 // It retries on transient "the object has been modified" error, which is expected when the cluster object was updated by another process after we fetched it
 // It returns an error if the operation fails after all retries
-func createLabels(ctx context.Context, cli *Client, namespace string, resourceSchema schema.GroupVersionResource, resourceName string, newLabels map[string]string) error {
+func modifyLabels(ctx context.Context, cli *Client, namespace string, resourceSchema schema.GroupVersionResource, resourceName string, op func(*unstructured.Unstructured)) error {
 	transientError := func(err error) bool {
 		tryAgainErrPattern := "the object has been modified; please apply your changes to the latest version and try again"
 		return strings.Contains(err.Error(), tryAgainErrPattern)
@@ -272,7 +276,7 @@ func createLabels(ctx context.Context, cli *Client, namespace string, resourceSc
 		if err != nil {
 			return backoff.Permanent(err)
 		}
-		resource.SetLabels(labels.Merge(resource.GetLabels(), newLabels))
+		op(resource)
 		if _, err = cli.Dyn.Resource(resourceSchema).Namespace(namespace).Update(ctx, resource, metav1.UpdateOptions{}); err != nil {
 			if transientError(err) {
 				return err // retry on transient error

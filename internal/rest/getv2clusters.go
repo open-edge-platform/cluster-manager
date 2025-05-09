@@ -125,7 +125,7 @@ func (s *Server) convertClusters(ctx context.Context, namespace string, unstruct
 		// get machines associated with the cluster
 		machines := getClusterMachines(allMachines, capiCluster.Name)
 
-		labels := labels.Filter(capiCluster.Labels)
+		labels := labels.UserLabels(capiCluster.Labels)
 		unstructuredLabels := convert.MapStringToAny(labels)
 
 		lp, errs := getClusterLifecyclePhase(&capiCluster)

@@ -10,7 +10,7 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
 )
 
-func TestFilter(t *testing.T) {
+func TestUserLabels(t *testing.T) {
 	clusterLabels := map[string]string{
 		"edge-orchestrator.intel.com/cluster-id":  "cluster-479656a6",
 		"edge-orchestrator.intel.com/clustername": "scale-0a9c889f-97a4-5a27-aa57-e82300a2b19c",
@@ -25,6 +25,7 @@ func TestFilter(t *testing.T) {
 		"default":                                 "true",
 		"edge-orchestrator.intel.com/users-label": "user-value",
 		"topology.cluster.x-k8s.io/owned":         "",
+		"trusted-compute-compatible":              "true",
 	}
 
 	want := map[string]string{
@@ -35,7 +36,43 @@ func TestFilter(t *testing.T) {
 		"default":     "true",
 	}
 
-	got := labels.Filter(clusterLabels)
+	got := labels.UserLabels(clusterLabels)
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("filter mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestSystemLabels(t *testing.T) {
+	clusterLabels := map[string]string{
+		"edge-orchestrator.intel.com/cluster-id":  "cluster-479656a6",
+		"edge-orchestrator.intel.com/clustername": "scale-0a9c889f-97a4-5a27-aa57-e82300a2b19c",
+		"edge-orchestrator.intel.com/project-id":  "0ba9d4dc-c4c2-4904-b526-57ace6e76922",
+		"edge-orchestrator.intel.com/template":    "scaletest-v0.0.2",
+		"clustername":                             "scale-0a9c889f-97a4-5a27-aa57-e82300a2b19c",
+		"cpumanager":                              "true",
+		"prometheusMetricsURL":                    "metrics-node.scale.espd.infra-host.com",
+		"test-app":                                "enabled",
+		"tests":                                   "scale",
+		"cluster.x-k8s.io/cluster-name":           "demo-cluster",
+		"default":                                 "true",
+		"edge-orchestrator.intel.com/users-label": "user-value",
+		"topology.cluster.x-k8s.io/owned":         "",
+		"trusted-compute-compatible":              "false",
+	}
+
+	want := map[string]string{
+		"edge-orchestrator.intel.com/cluster-id":  "cluster-479656a6",
+		"edge-orchestrator.intel.com/clustername": "scale-0a9c889f-97a4-5a27-aa57-e82300a2b19c",
+		"edge-orchestrator.intel.com/project-id":  "0ba9d4dc-c4c2-4904-b526-57ace6e76922",
+		"edge-orchestrator.intel.com/template":    "scaletest-v0.0.2",
+		"prometheusMetricsURL":                    "metrics-node.scale.espd.infra-host.com",
+		"cluster.x-k8s.io/cluster-name":           "demo-cluster",
+		"edge-orchestrator.intel.com/users-label": "user-value",
+		"topology.cluster.x-k8s.io/owned":         "",
+		"trusted-compute-compatible":              "false",
+	}
+
+	got := labels.SystemLabels(clusterLabels)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("filter mismatch (-want +got):\n%s", diff)
 	}
@@ -62,6 +99,31 @@ func TestMerge(t *testing.T) {
 	got := labels.Merge(specLabels, templateLabels)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("merge mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestRemove(t *testing.T) {
+	clusterLabels := map[string]string{
+		"edge-orchestrator.intel.com/cluster-id":  "cluster-479656a6",
+		"edge-orchestrator.intel.com/clustername": "scale-0a9c889f-97a4-5a27-aa57-e82300a2b19c",
+		"edge-orchestrator.intel.com/project-id":  "0ba9d4dc-c4c2-4904-b526-57ace6e76922",
+		"edge-orchestrator.intel.com/template":    "scaletest-v0.0.2",
+		"clustername":                             "scale-0a9c889f-97a4-5a27-aa57-e82300a2b19c",
+		"cpumanager":                              "true",
+		"prometheusMetricsURL":                    "metrics-node.scale.espd.infra-host.com",
+	}
+
+	want := map[string]string{
+		"edge-orchestrator.intel.com/cluster-id":  "cluster-479656a6",
+		"edge-orchestrator.intel.com/clustername": "scale-0a9c889f-97a4-5a27-aa57-e82300a2b19c",
+		"edge-orchestrator.intel.com/project-id":  "0ba9d4dc-c4c2-4904-b526-57ace6e76922",
+		"edge-orchestrator.intel.com/template":    "scaletest-v0.0.2",
+		"cpumanager":                              "true",
+	}
+
+	got := labels.Delete(clusterLabels, "clustername", "prometheusMetricsURL")
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("remove mismatch (-want +got):\n%s", diff)
 	}
 }
 
