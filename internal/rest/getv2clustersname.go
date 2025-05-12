@@ -74,6 +74,7 @@ func (s *Server) GetV2ClustersName(ctx context.Context, request api.GetV2Cluster
 // getCluster retrieves a cluster from the k8s client
 func (s *Server) getCluster(ctx context.Context, activeProjectID, name string) (api.ClusterDetailInfo, error) {
 	namespace := activeProjectID
+	var clusterDetailInfo api.ClusterDetailInfo
 
 	cli, err := k8s.New(k8s.WithDynamicClient(s.k8sclient))
 	if err != nil {
@@ -105,6 +106,17 @@ func (s *Server) getCluster(ctx context.Context, activeProjectID, name string) (
 		slog.Error("failed to get nodes", "cluster", capiCluster.Name, "error", err)
 		return api.ClusterDetailInfo{}, fmt.Errorf("failed to get nodes, err: %w", err)
 	}
+	if clusterDetailInfo.Nodes == nil || len(*clusterDetailInfo.Nodes) == 0 {
+		slog.Warn("no nodes found for cluster", "cluster", capiCluster.Name)
+		clusterDetailInfo.Nodes = &[]api.NodeInfo{
+			{
+				//assign empty values to node until it becomes available
+				Id:     nil, // Empty ID
+				Role:   nil, // Empty Role
+				Status: nil, // Empty Status
+			},
+		}
+	}
 
 	template := cluster.Template(capiCluster)
 	lp, errs := getClusterLifecyclePhase(capiCluster)
@@ -112,7 +124,7 @@ func (s *Server) getCluster(ctx context.Context, activeProjectID, name string) (
 		slog.Debug("errors while building cluster lifecycle phase", "cluster", capiCluster.Name, "errors", errs)
 	}
 
-	clusterDetailInfo := api.ClusterDetailInfo{
+	clusterDetailInfo = api.ClusterDetailInfo{
 		Name:                &capiCluster.Name,
 		ProviderStatus:      getProviderStatus(capiCluster),
 		Labels:              &unstrucutreLabels,
