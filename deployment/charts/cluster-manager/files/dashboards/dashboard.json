@@ -1,4 +1,4 @@
-  {
+{
     "annotations": {
       "list": [
         {
@@ -18,7 +18,7 @@
     "editable": true,
     "fiscalYearStartMonth": 0,
     "graphTooltip": 1,
-    "id": 24,
+    "id": 7,
     "links": [],
     "panels": [
       {
@@ -116,10 +116,6 @@
                 {
                   "color": "green",
                   "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
                 }
               ]
             }
