@@ -97,7 +97,7 @@ func (s *Server) getCluster(ctx context.Context, activeProjectID, name string) (
 		slog.Error("failed to fetch machines for cluster", "cluster", capiCluster.Name, "error", err)
 	}
 
-	labels := labels.Filter(capiCluster.Labels)
+	labels := labels.UserLabels(capiCluster.Labels)
 	unstrucutreLabels := convert.MapStringToAny(labels)
 
 	nodes, err := cluster.Nodes(ctx, cli, capiCluster)

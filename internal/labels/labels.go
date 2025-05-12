@@ -20,7 +20,7 @@ const (
 )
 
 var (
-	systemPrefixes  = []string{PlatformPrefix, capiDomainLabelKey, capiTopologyLabelKey, PrometheusMetricsUrlLabelKey}
+	systemPrefixes  = []string{PlatformPrefix, capiDomainLabelKey, capiTopologyLabelKey, PrometheusMetricsUrlLabelKey, TrustedComputeLabelKey}
 	labelKeyRegex   = regexp.MustCompile(`^(([A-Za-z0-9][-A-Za-z0-9_.]{0,250})?[A-Za-z0-9]\/)?([A-Za-z0-9][-A-Za-z0-9_.]{0,61})?[A-Za-z0-9]$`)
 	labelValueRegex = regexp.MustCompile(`^([A-Za-z0-9][-A-Za-z0-9_.]{0,61})?[A-Za-z0-9]?$`)
 )
@@ -29,10 +29,8 @@ func OverrideSystemPrefixes(prefixes []string) {
 	systemPrefixes = prefixes
 }
 
-// Filter returns new map with only user defined labels
-func Filter(clusterLabels map[string]string) map[string]string {
-	f := map[string]string{}
-
+// UserLabels returns new map with only user defined labels
+func UserLabels(clusterLabels map[string]string) map[string]string {
 	keep := func(s string) bool {
 		for _, p := range systemPrefixes {
 			if strings.HasPrefix(s, p) {
@@ -42,7 +40,27 @@ func Filter(clusterLabels map[string]string) map[string]string {
 		return true
 	}
 
-	for key, value := range clusterLabels {
+	return filter(clusterLabels, keep)
+}
+
+// SystemLabels returns new map with only system defined labels
+func SystemLabels(clusterLabels map[string]string) map[string]string {
+	keep := func(s string) bool {
+		for _, p := range systemPrefixes {
+			if strings.HasPrefix(s, p) {
+				return true
+			}
+		}
+		return false
+	}
+
+	return filter(clusterLabels, keep)
+}
+
+func filter(labels map[string]string, keep func(string) bool) map[string]string {
+	f := map[string]string{}
+
+	for key, value := range labels {
 		if !keep(key) {
 			continue
 		}

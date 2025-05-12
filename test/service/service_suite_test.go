@@ -203,7 +203,7 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 			params := api.PutV2ClustersNameLabelsParams{}
 			params.Activeprojectid = testTenantID
 			body := api.PutV2ClustersNameLabelsJSONRequestBody{
-				Labels: &map[string]string{"app": "wordpress"},
+				Labels: &map[string]string{"app": "wordpress", "default-extension": "baseline"},
 			}
 			resp, err := cli.PutV2ClustersNameLabelsWithResponse(context.Background(), clusterName, &params, body)
 			Expect(err).ToNot(HaveOccurred())
@@ -218,10 +218,9 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp.StatusCode()).To(Equal(200))
 			Expect(*resp.JSON200.Name).To(Equal(clusterName))
-			Expect(*resp.JSON200.Labels).To(HaveLen(3))
+			Expect(*resp.JSON200.Labels).To(HaveLen(2))
 			Expect(*resp.JSON200.Labels).To(HaveKeyWithValue("app", "wordpress"))
 			Expect(*resp.JSON200.Labels).To(HaveKeyWithValue("default-extension", "baseline"))
-			Expect(*resp.JSON200.Labels).To(HaveKeyWithValue("trusted-compute-compatible", "false"))
 			Expect(*resp.JSON200.Nodes).To(HaveLen(1))
 			nodes := *resp.JSON200.Nodes
 			Expect(*nodes[0].Role).To(Equal("all"))
@@ -234,11 +233,33 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 			err = containsLabels(testTenantID.String(), clusterName, []string{
 				"app:wordpress",
 				"default-extension:baseline",
-				"trusted-compute-compatible:false",
 				fmt.Sprintf("edge-orchestrator.intel.com/clustername:%v", clusterName),
 				fmt.Sprintf("edge-orchestrator.intel.com/project-id:%v", testTenantID.String()),
 			})
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("Should delete label", func() {
+			params := api.PutV2ClustersNameLabelsParams{}
+			params.Activeprojectid = testTenantID
+			body := api.PutV2ClustersNameLabelsJSONRequestBody{
+				Labels: &map[string]string{"default-extension": "baseline"},
+			}
+			resp, err := cli.PutV2ClustersNameLabelsWithResponse(context.Background(), clusterName, &params, body)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(200))
+
+		})
+
+		It("Deleted label should be missing in label list", func() {
+			params := api.GetV2ClustersNameParams{}
+			params.Activeprojectid = testTenantID
+			resp, err := cli.GetV2ClustersNameWithResponse(context.Background(), clusterName, &params)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(200))
+			Expect(*resp.JSON200.Name).To(Equal(clusterName))
+			Expect(*resp.JSON200.Labels).To(HaveLen(1))
+			Expect(*resp.JSON200.Labels).To(HaveKeyWithValue("default-extension", "baseline"))
 		})
 
 		It("Should fail to delete cluster template if cluster is running", func() {
