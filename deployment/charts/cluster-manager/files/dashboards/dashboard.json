@@ -18,7 +18,7 @@
     "editable": true,
     "fiscalYearStartMonth": 0,
     "graphTooltip": 0,
-    "id": 24,
+    "id": 17,
     "links": [],
     "panels": [
       {
@@ -84,6 +84,7 @@
         },
         "id": 1,
         "options": {
+          "combine": false,
           "legend": {
             "calcs": [],
             "displayMode": "list",
@@ -104,6 +105,7 @@
             },
             "disableTextWrap": false,
             "editorMode": "builder",
+            "exemplar": false,
             "expr": "cluster_manager_http_response_time_seconds_histogram_bucket",
             "format": "heatmap",
             "fullMetaSearch": false,
@@ -165,7 +167,7 @@
             "values": false
           },
           "showPercentChange": false,
-          "textMode": "auto",
+          "textMode": "value_and_name",
           "wideLayout": true
         },
         "pluginVersion": "11.4.0",
@@ -203,6 +205,6 @@
     "timezone": "browser",
     "title": "Cluster Orch - Cluster Manager",
     "uid": "belcotnnxolj4d",
-    "version": 4,
+    "version": 2,
     "weekStart": ""
 }
