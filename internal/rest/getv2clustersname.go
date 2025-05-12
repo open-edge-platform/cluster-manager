@@ -105,7 +105,7 @@ func (s *Server) getCluster(ctx context.Context, activeProjectID, name string) (
 		slog.Error("failed to get nodes", "cluster", capiCluster.Name, "error", err)
 		return api.ClusterDetailInfo{}, fmt.Errorf("failed to get nodes, err: %w", err)
 	}
-	if nodes == nil || len(nodes) == 0 {
+	if len(nodes) == 0 {
 		slog.Warn("no nodes found for cluster", "cluster", capiCluster.Name)
 		nodes = []api.NodeInfo{
 			{
