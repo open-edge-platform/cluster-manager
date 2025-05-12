@@ -71,7 +71,8 @@
                   "value": 80
                 }
               ]
-            }
+            },
+            "unit": "requests"
           },
           "overrides": []
         },
@@ -87,7 +88,7 @@
             "calcs": [],
             "displayMode": "list",
             "placement": "bottom",
-            "showLegend": true
+            "showLegend": false
           },
           "tooltip": {
             "mode": "single",
@@ -202,6 +203,6 @@
     "timezone": "browser",
     "title": "Cluster Orch - Cluster Manager",
     "uid": "belcotnnxolj4d",
-    "version": 3,
+    "version": 4,
     "weekStart": ""
 }
