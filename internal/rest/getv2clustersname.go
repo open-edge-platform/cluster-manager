@@ -109,14 +109,15 @@ func (s *Server) getCluster(ctx context.Context, activeProjectID, name string) (
 		slog.Warn("no nodes found for cluster", "cluster", capiCluster.Name)
 		nodes = []api.NodeInfo{
 			{
-				//assign empty values to node until it becomes available
-				Id:     nil, // Empty ID
-				Role:   nil, // Empty Role
-				Status: nil, // Empty Status
+				Id:   nil,
+				Role: ptr("all"),
+				Status: &api.StatusInfo{
+					Condition: ptr(api.StatusInfoCondition("STATUS_CONDITION_UNKNOWN")),
+					Reason:    ptr("No nodes found"),
+				},
 			},
 		}
 	}
-
 	template := cluster.Template(capiCluster)
 	lp, errs := getClusterLifecyclePhase(capiCluster)
 	if len(errs) > 0 {
