@@ -37,15 +37,7 @@
             "mkdir -p /etc/systemd/system/rke2-server.service.d",
             "echo '[Service]\nEnvironmentFile=/etc/environment' > /etc/systemd/system/rke2-server.service.d/override.conf"
           ],
-          "privateRegistriesConfig": {
-            "mirrors": {
-              "edge-node-release-proxy.local": {
-                "endpoint": [
-                  "https://localhost.internal:9443"
-                ]
-              }
-            }
-          },
+          "privateRegistriesConfig": {},
           "serverConfig": {
             "cni": "calico",
             "cniMultusEnable": true,
