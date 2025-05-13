@@ -74,7 +74,6 @@ func (s *Server) GetV2ClustersName(ctx context.Context, request api.GetV2Cluster
 // getCluster retrieves a cluster from the k8s client
 func (s *Server) getCluster(ctx context.Context, activeProjectID, name string) (api.ClusterDetailInfo, error) {
 	namespace := activeProjectID
-	slog.Debug("activeProjectID passed to Namespace", "activeProjectID", activeProjectID)
 	cli, err := k8s.New(k8s.WithDynamicClient(s.k8sclient))
 	if err != nil {
 		slog.Error("failed to create k8s client", "error", err)
