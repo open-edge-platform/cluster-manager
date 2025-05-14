@@ -22,12 +22,12 @@ serviceAccount:
 clusterManager:
   image:
     registry:
-      name: registry-rs.edgeorchestration.intel.com
+      name: localhost:5000
     #  name:
     #  imagePullSecrets: []
-    repository: edge-orch/cluster/cluster-manager
+    repository: cluster-manager
     pullPolicy: IfNotPresent
-    tag: ""
+    tag: "2.1.1-dev-1"
 
   replicaCount: 1
 
@@ -93,12 +93,12 @@ clusterManager:
 templateController:
   image:
     registry:
-      name: registry-rs.edgeorchestration.intel.com
+      name: localhost:5000
     #  name:
     #  imagePullSecrets: []
-    repository: edge-orch/cluster/template-controller
+    repository: template-controller
     pullPolicy: IfNotPresent
-    tag: ""
+    tag: "2.1.1-dev-1"
 
   replicaCount: 1
 
