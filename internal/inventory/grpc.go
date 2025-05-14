@@ -5,10 +5,12 @@ package inventory
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"time"
 
+	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	computev1 "github.com/open-edge-platform/infra-core/inventory/v2/pkg/api/compute/v1"
 	inventoryv1 "github.com/open-edge-platform/infra-core/inventory/v2/pkg/api/inventory/v1"
 	osv1 "github.com/open-edge-platform/infra-core/inventory/v2/pkg/api/os/v1"
@@ -27,9 +29,10 @@ var (
 
 // InventoryClient is a tenant-aware grpc client for the inventory service
 type InventoryClient struct {
-	client client.TenantAwareInventoryClient
-	events chan *client.WatchEvents
-	term   chan bool
+	client    client.TenantAwareInventoryClient
+	events    chan *client.WatchEvents
+	term      chan bool
+	k8sclient *k8s.Client
 }
 
 // clientInstance is the singleton instance of the inventory client
@@ -151,7 +154,30 @@ func (c *InventoryClient) WatchHosts(callback func(*computev1.HostResource)) {
 					continue
 				}
 
-				callback(host)
+				slog.Info("host resource event", "name", host.Name, "serial", host.SerialNumber, "uuid", host.Uuid, "metadata", host.Metadata)
+
+				_, err := c.k8sclient.GetMachineByProviderID(event.Ctx, host.GetTenantId(), host.GetInstance().GetResourceId())
+				if err != nil {
+					slog.Warn("failed to get machine by provider id", "error", err, "tenantId", host.GetTenantId(), "providerId", host.GetInstance().GetResourceId())
+					continue
+				}
+				l, err := JsonStringToMap(host.Metadata)
+				if err != nil {
+					slog.Warn("failed to convert json string to map", "error", err, "metadata", host.Metadata)
+					continue
+				}
+				m, err := c.k8sclient.GetMachineByProviderID(event.Ctx, host.GetTenantId(), host.GetInstance().GetResourceId())
+				if err != nil {
+					slog.Warn("failed to get machine by provider id", "error", err, "tenantId", host.GetTenantId(), "providerId", host.GetInstance().GetResourceId())
+					continue
+				}
+				slog.Info("updating machine labels", "name", m.Name, "labels", l)
+				err = c.k8sclient.SetMachineLabels(event.Ctx, host.GetTenantId(), m.Name, l)
+				if err != nil {
+					slog.Warn("failed to set machine labels", "error", err, "tenantId", host.GetTenantId(), "machineName", m.Name, "labels", l)
+					continue
+				}
+				//callback(host)
 			case <-c.term:
 				slog.Debug("inventory client stopping, exiting watch loop")
 				return
@@ -161,7 +187,26 @@ func (c *InventoryClient) WatchHosts(callback func(*computev1.HostResource)) {
 }
 
 func hostUpdateEvent(host *computev1.HostResource) {
-	slog.Info("host resource event", "host", host)
+	slog.Info("host resource event", "name", host.Name, "serial", host.SerialNumber, "uuid", host.Uuid, "metadata", host.Metadata)
+
+}
+
+func JsonStringToMap(jsonString string) (map[string]string, error) {
+	out := make(map[string]string)
+	// Unmarshal the JSON string into a slice of structs
+	var result []struct {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	}
+	if err := json.Unmarshal([]byte(jsonString), &result); err != nil {
+		return nil, err
+	}
+	// Iterate over the result and populate the map
+	for _, item := range result {
+		out[item.Key] = item.Value
+	}
+
+	return out, nil
 }
 
 /*

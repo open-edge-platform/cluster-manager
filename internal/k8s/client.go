@@ -251,6 +251,16 @@ func (cli *Client) SetClusterLabels(ctx context.Context, namespace string, clust
 	})
 }
 
+// SetMachineLabels overrides the labels of the machine object in the given namespace
+func (cli *Client) SetMachineLabels(ctx context.Context, namespace string, machineName string, newUserLabels map[string]string) error {
+	if newUserLabels == nil {
+		return nil
+	}
+	return modifyLabels(ctx, cli, namespace, machineResourceSchema, machineName, func(machine *unstructured.Unstructured) {
+		machine.SetLabels(labels.Merge(labels.SystemLabels(machine.GetLabels()), newUserLabels))
+	})
+}
+
 // AddTemplateLabels appends new labels on the template object in the given namespace
 func (cli *Client) AddTemplateLabels(ctx context.Context, namespace string, templateName string, newLabels map[string]string) error {
 	if newLabels == nil {
@@ -373,6 +383,29 @@ func (cli *Client) GetCluster(ctx context.Context, namespace, name string) (*cap
 	}
 
 	return &cluster, nil
+}
+
+// GetMachineByProviderID returns the machine with the given provider ID in the given namespace for the given cluster
+func (cli *Client) GetMachineByProviderID(ctx context.Context, namespace, providerID string) (capi.Machine, error) {
+	opts := metav1.ListOptions{}
+	unstructuredMachinesList, err := cli.Dyn.Resource(machineResourceSchema).Namespace(namespace).List(ctx, opts)
+	if err != nil {
+		return capi.Machine{}, err
+	}
+
+	for _, item := range unstructuredMachinesList.Items {
+		var machine capi.Machine
+		err = convert.FromUnstructured(item, &machine)
+		if err != nil {
+			return machine, err
+		}
+
+		// Check if the machine's provider ID matches the given provider ID
+		if machine.Spec.ProviderID != nil && (*machine.Spec.ProviderID == providerID) {
+			return machine, nil
+		}
+	}
+	return capi.Machine{}, nil
 }
 
 // GetMachines returns the machine with the given name in the given namespace for the given cluster
