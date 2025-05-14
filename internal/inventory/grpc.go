@@ -62,7 +62,9 @@ func NewInventoryClientWithOptions(opt Options) (*InventoryClient, error) {
 
 	slog.Info("inventory client started")
 
-	return &InventoryClient{client: taic, events: eventsWatcher, term: make(chan bool)}, nil
+	cli, err := &InventoryClient{client: taic, events: eventsWatcher, term: make(chan bool)}, nil
+	cli.WatchHosts(hostUpdateEvent)
+	return cli, err
 }
 
 // GetHostTrustedCompute returns true if the host has secure boot and full disk encryption enabled
@@ -126,8 +128,6 @@ func (auth noopInventoryClient) GetHostTrustedCompute(ctx context.Context, tenan
 	return false, nil
 }
 
-/*
-// TODO: propegate host label updates to edge nodes
 // WatchHosts watches for host resource events and calls the callback function
 // with the host resource as an argument.
 func (c *InventoryClient) WatchHosts(callback func(*computev1.HostResource)) {
@@ -160,6 +160,11 @@ func (c *InventoryClient) WatchHosts(callback func(*computev1.HostResource)) {
 	}()
 }
 
+func hostUpdateEvent(host *computev1.HostResource) {
+	slog.Info("host resource event", "host", host)
+}
+
+/*
 // TODO: implement termination event handling in main.go
 // IMPORTANT: always close the Inventory client in case of errors
 // or signals like syscall.SIGTERM, syscall.SIGINT etc.
