@@ -53,7 +53,6 @@ func setupMockServer(t *testing.T, expectedCluster capi.Cluster, expectedActiveP
 	machineResource := k8s.NewMockResourceInterface(t)
 	machineResource.EXPECT().List(mock.Anything, mock.Anything).Return(&unstructured.UnstructuredList{Items: []unstructured.Unstructured{*machine}}, nil).Maybe()
 	nsMachineResource := k8s.NewMockNamespaceableResourceInterface(t)
-	nsMachineResource.EXPECT().Namespace(activeProjectID).Return(machineResource).Maybe()
 	nsMachineResource.EXPECT().Namespace(expectedActiveProjectID).Return(machineResource).Maybe()
 	mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(nsMachineResource).Maybe()
 
@@ -413,9 +412,8 @@ func TestGetV2ClusterNoNodesPopulatesDefault(t *testing.T) {
 	}, nil).Maybe()
 
 	mockedNamespaceableResource := k8s.NewMockNamespaceableResourceInterface(t)
-	mockedNamespaceableResource.EXPECT().Namespace(mock.MatchedBy(func(id string) bool {
-		return id == expectedActiveProjectID
-	})).Return(mockedClusterResource).Maybe()
+
+	mockedNamespaceableResource.EXPECT().Namespace(expectedActiveProjectID).Return(mockedClusterResource).Maybe()
 
 	mockedK8sClient.EXPECT().Resource(core.ClusterResourceSchema).Return(mockedNamespaceableResource).Maybe()
 
