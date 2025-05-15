@@ -3,6 +3,7 @@
 package events_test
 
 import (
+	"context"
 	"strconv"
 	"testing"
 
@@ -20,14 +21,13 @@ import (
 )
 
 func TestHostCreatedHandle(t *testing.T) {
-	sink := events.Sink()
+	// Setup
+	ctx := context.Background()
+	sink := events.NewSink(ctx)
 
+	// Test multiple host created events
 	for i := 0; i < 3; i++ {
-		event := events.HostCreated{
-			HostId:    "test-host-id-" + strconv.Itoa(i),
-			ProjectId: "test-project-id-" + strconv.Itoa(i),
-			Error:     nil,
-		}
+		event := createHostCreatedEvent(i)
 		sink <- event
 	}
 
@@ -35,40 +35,111 @@ func TestHostCreatedHandle(t *testing.T) {
 }
 
 func TestHostDeleteHandle(t *testing.T) {
-	sink := events.Sink()
+	// Setup
+	ctx := context.Background()
+	sink := events.NewSink(ctx)
 	out := make(chan error, 1)
 
+	// Test multiple host delete events
 	for i := 0; i < 3; i++ {
-		event := events.HostDeletedEvent{
-			HostId:    "test-host-id-" + strconv.Itoa(i),
-			ProjectId: "test-project-id-" + strconv.Itoa(i),
-			Error:     out,
-		}
+		event := createHostDeletedEvent(i, out)
 		sink <- event
 		require.NoError(t, <-out) // wait for the event to be handled
 	}
+
 	close(sink)
 }
 
 func TestHostUpdateHandle(t *testing.T) {
-	sink := events.Sink()
+	// Setup
+	ctx := context.Background()
+	sink := events.NewSink(ctx)
 
-	// create a new mocked k8s client
-	mockedk8sclient := k8s.NewMockInterface(t)
-
-	// mocked Machine object
+	// Test data
 	projectID := "64e797f6-db23-445e-b606-4228d4f1c2bd"
 	hostId := "host-12345"
+
+	// Setup mock k8s client and resources
+	cli, machine := setupMockK8sClient(t, projectID, hostId)
+
+	// Test multiple host update events
+	out := make(chan error, 1)
+	for i := 0; i < 3; i++ {
+		event := createHostUpdatedEvent(hostId, projectID, out, cli)
+		sink <- event
+		require.NoError(t, <-out) // wait for the event to be handled
+	}
+
+	// Verify the results
+	require.Equal(t, 1, len(machine.GetLabels()))
+	require.Equal(t, "value", machine.GetLabels()["key"])
+
+	close(sink)
+}
+
+// Helper functions to create test events and mocks
+
+func createHostCreatedEvent(index int) events.HostCreated {
+	return events.HostCreated{
+		HostEventBase: events.HostEventBase{
+			HostId:    "test-host-id-" + strconv.Itoa(index),
+			ProjectId: "test-project-id-" + strconv.Itoa(index),
+		},
+	}
+}
+
+func createHostDeletedEvent(index int, out chan<- error) events.HostDeleted {
+	return events.HostDeleted{
+		HostEventBase: events.HostEventBase{
+			EventBase: events.EventBase{Out: out},
+			HostId:    "test-host-id-" + strconv.Itoa(index),
+			ProjectId: "test-project-id-" + strconv.Itoa(index),
+		},
+	}
+}
+
+func createHostUpdatedEvent(hostId, projectID string, out chan<- error, cli *k8s.Client) events.HostUpdated {
+	return events.HostUpdated{
+		HostEventBase: events.HostEventBase{
+			EventBase: events.EventBase{Out: out},
+			HostId:    hostId,
+			ProjectId: projectID,
+		},
+		Labels: map[string]string{"key": "value"},
+		K8scli: cli,
+	}
+}
+
+func setupMockK8sClient(t *testing.T, projectID, hostId string) (*k8s.Client, *unstructured.Unstructured) {
+	// Create a new mocked k8s client
+	mockedk8sclient := k8s.NewMockInterface(t)
+
+	// Mocked Machine object
 	machine, err := convert.ToUnstructured(capi.Machine{
-		ObjectMeta: metav1.ObjectMeta{Name: "example-machine", Namespace: projectID, Labels: map[string]string{}},
-		TypeMeta:   metav1.TypeMeta{APIVersion: "cluster.x-k8s.io/v1beta1", Kind: "Machine"},
-		Spec:       capi.MachineSpec{InfrastructureRef: v1.ObjectReference{Name: "example-infrastructure", Kind: "IntelMachine", Namespace: projectID}, ProviderID: &hostId},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "example-machine",
+			Namespace: projectID,
+			Labels:    map[string]string{},
+		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "cluster.x-k8s.io/v1beta1",
+			Kind:       "Machine",
+		},
+		Spec: capi.MachineSpec{
+			InfrastructureRef: v1.ObjectReference{
+				Name:      "example-infrastructure",
+				Kind:      "IntelMachine",
+				Namespace: projectID,
+			},
+			ProviderID: &hostId,
+		},
 	})
 	require.Nil(t, err)
 
-	// create a new mocked machine resource
+	// Create a new mocked machine resource
 	machineResource := k8s.NewMockResourceInterface(t)
-	machineResource.EXPECT().List(mock.Anything, mock.Anything).Return(&unstructured.UnstructuredList{Items: []unstructured.Unstructured{*machine}}, nil)
+	machineResource.EXPECT().List(mock.Anything, mock.Anything).Return(
+		&unstructured.UnstructuredList{Items: []unstructured.Unstructured{*machine}}, nil)
 	machineResource.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(machine, nil)
 	machineResource.EXPECT().Update(mock.Anything, mock.Anything, mock.Anything).Return(machine, nil)
 
@@ -79,20 +150,5 @@ func TestHostUpdateHandle(t *testing.T) {
 	cli, err := k8s.New(k8s.WithDynamicClient(mockedk8sclient))
 	require.Nil(t, err)
 
-	out := make(chan error, 1)
-	for i := 0; i < 3; i++ {
-		event := events.HostUpdate{
-			HostId:    hostId,
-			ProjectId: projectID,
-			Labels:    map[string]string{"key": "value"},
-			K8scli:    cli,
-			Error:     out,
-		}
-		sink <- event
-		require.NoError(t, <-out) // wait for the event to be handled
-	}
-
-	require.Equal(t, 1, len(machine.GetLabels()))
-	require.Equal(t, "value", machine.GetLabels()["key"])
-	close(sink)
+	return cli, machine
 }

@@ -3,41 +3,82 @@
 package events
 
 import (
-	"fmt"
+	"context"
 	"log/slog"
 	"time"
 )
 
-// default event timeout
-const eventTimeout = 3 * time.Second
+// EventTimeout defines the default timeout for event handling responses
+const EventTimeout = 3 * time.Second
 
-// Event is an interface that defines a method to handle events
+// Event is an interface that defines methods to handle events
 type Event interface {
-	handle() error
-	output() chan<- error
+	// Handle processes the event and returns any error
+	Handle(ctx context.Context) error
+
+	// Output returns a channel for sending results back to the caller
+	Output() chan<- error
 }
 
-// Sink is a function that creates a channel to sink events and starts a goroutine to handle them
-func Sink() chan<- Event {
-	event := make(chan Event)
+// EventBase provides common functionality for events
+type EventBase struct {
+	Out chan<- error // channel to send error back to the caller
+}
 
-	go func() {
-		slog.Debug("event sink started", "type", fmt.Sprintf("%T", event))
-		for e := range event {
-			err := e.handle()
-			if err != nil {
-				slog.Error("failed to handle event", "event", e, "error", err)
+// Output returns the output channel for the event
+func (e EventBase) Output() chan<- error {
+	return e.Out
+}
+
+// NewSink creates a channel to receive events and starts a goroutine to process them
+func NewSink(ctx context.Context) chan<- Event {
+	events := make(chan Event)
+
+	go processEvents(ctx, events)
+
+	return events
+}
+
+// processEvents handles incoming events from the provided channel
+func processEvents(ctx context.Context, events <-chan Event) {
+	slog.Debug("event sink started")
+
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Debug("event sink shutting down due to context cancellation")
+			return
+		case e, ok := <-events:
+			if !ok {
+				slog.Debug("event sink closed")
+				return
 			}
-			if out := e.output(); out != nil {
-				select {
-				case out <- err:
-				case <-time.After(eventTimeout):
-					slog.Error("event output channel timed out", "event", e)
-				}
-			}
+
+			handleEvent(ctx, e)
 		}
-		slog.Debug("event sink closed", "type", fmt.Sprintf("%T", event))
-	}()
+	}
+}
 
-	return event
+// handleEvent processes a single event and sends the result to the output channel
+func handleEvent(ctx context.Context, e Event) {
+	err := e.Handle(ctx)
+	if err != nil {
+		slog.Error("failed to handle event", "event", e, "error", err)
+	}
+
+	out := e.Output()
+	if out == nil {
+		return
+	}
+
+	// Send result with timeout
+	sendCtx, cancel := context.WithTimeout(ctx, EventTimeout)
+	defer cancel()
+
+	select {
+	case out <- err:
+		// Successfully sent result
+	case <-sendCtx.Done():
+		slog.Error("event output channel timed out", "event", e, "timeout", EventTimeout)
+	}
 }
