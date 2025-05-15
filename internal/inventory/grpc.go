@@ -67,7 +67,7 @@ func NewInventoryClientWithOptions(opt Options) (*InventoryClient, error) {
 	slog.Info("inventory client started")
 
 	cli, err := &InventoryClient{client: taic, events: eventsWatcher, term: make(chan bool)}, nil
-	cli.WatchHosts(events.Sink())
+	cli.WatchHosts(events.NewSink(context.TODO()))
 	return cli, err
 }
 
@@ -153,14 +153,18 @@ func (c *InventoryClient) WatchHosts(hostEvents chan<- events.Event) {
 				case inventoryv1.SubscribeEventsResponse_EVENT_KIND_CREATED:
 					slog.Debug("host created event", "name", host.Name, "hostid", host.ResourceId)
 					hostEvents <- events.HostCreated{
-						HostId:    host.ResourceId,
-						ProjectId: host.TenantId,
+						HostEventBase: events.HostEventBase{
+							HostId:    host.ResourceId,
+							ProjectId: host.TenantId,
+						},
 					}
 				case inventoryv1.SubscribeEventsResponse_EVENT_KIND_DELETED:
 					slog.Debug("host deleted event", "name", host.Name, "hostid", host.ResourceId)
-					hostEvents <- events.HostDeletedEvent{
-						HostId:    host.ResourceId,
-						ProjectId: host.TenantId,
+					hostEvents <- events.HostDeleted{
+						HostEventBase: events.HostEventBase{
+							HostId:    host.ResourceId,
+							ProjectId: host.TenantId,
+						},
 					}
 
 				case inventoryv1.SubscribeEventsResponse_EVENT_KIND_UPDATED:
@@ -172,11 +176,13 @@ func (c *InventoryClient) WatchHosts(hostEvents chan<- events.Event) {
 						continue
 					}
 
-					hostEvents <- &events.HostUpdate{
-						HostId:    host.ResourceId,
-						ProjectId: host.ResourceId,
-						Labels:    l,
-						K8scli:    c.k8sclient,
+					hostEvents <- &events.HostUpdated{
+						HostEventBase: events.HostEventBase{
+							HostId:    host.ResourceId,
+							ProjectId: host.ResourceId,
+						},
+						Labels: l,
+						K8scli: c.k8sclient,
 					}
 				}
 
