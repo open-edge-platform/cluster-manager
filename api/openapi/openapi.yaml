@@ -941,6 +941,7 @@ components:
           enum:
             - kubeadm
             - rke2
+            - k3s
           default: rke2
         infraprovidertype:
           type: string
