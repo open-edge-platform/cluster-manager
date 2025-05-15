@@ -5,6 +5,7 @@ package events_test
 import (
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -16,7 +17,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/types"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
@@ -55,34 +55,41 @@ func TestHostUpdateHandle(t *testing.T) {
 	mockedk8sclient := k8s.NewMockInterface(t)
 
 	// mocked Machine object
-	activeProjectID := "64e797f6-db23-445e-b606-4228d4f1c2bd"
-	nodeId := "64e797f6-db22-445e-b606-4228d4f1c2bd"
+	projectID := "64e797f6-db23-445e-b606-4228d4f1c2bd"
+	hostId := "host-12345"
 	machine, err := convert.ToUnstructured(capi.Machine{
-		ObjectMeta: metav1.ObjectMeta{Name: "example-machine", Namespace: activeProjectID},
+		ObjectMeta: metav1.ObjectMeta{Name: "example-machine", Namespace: projectID, Labels: map[string]string{}},
 		TypeMeta:   metav1.TypeMeta{APIVersion: "cluster.x-k8s.io/v1beta1", Kind: "Machine"},
-		Spec:       capi.MachineSpec{InfrastructureRef: v1.ObjectReference{Name: "example-infrastructure", Kind: "IntelMachine", Namespace: activeProjectID}},
-		Status:     capi.MachineStatus{NodeRef: &v1.ObjectReference{UID: types.UID(nodeId)}}})
+		Spec:       capi.MachineSpec{InfrastructureRef: v1.ObjectReference{Name: "example-infrastructure", Kind: "IntelMachine", Namespace: projectID}, ProviderID: &hostId},
+	})
 	require.Nil(t, err)
 
 	// create a new mocked machine resource
 	machineResource := k8s.NewMockResourceInterface(t)
-	machineResource.EXPECT().List(mock.Anything, mock.Anything).Return(&unstructured.UnstructuredList{Items: []unstructured.Unstructured{*machine}}, nil).Maybe()
+	machineResource.EXPECT().List(mock.Anything, mock.Anything).Return(&unstructured.UnstructuredList{Items: []unstructured.Unstructured{*machine}}, nil)
+	machineResource.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(machine, nil)
+	machineResource.EXPECT().Update(mock.Anything, mock.Anything, mock.Anything).Return(machine, nil)
+
 	nsMachineResource := k8s.NewMockNamespaceableResourceInterface(t)
-	nsMachineResource.EXPECT().Namespace(activeProjectID).Return(machineResource).Maybe()
-	mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(nsMachineResource).Maybe()
+	nsMachineResource.EXPECT().Namespace(projectID).Return(machineResource)
+	mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(nsMachineResource)
 
 	cli, err := k8s.New(k8s.WithDynamicClient(mockedk8sclient))
 	require.Nil(t, err)
 
 	for i := 0; i < 1; i++ {
 		event := events.HostUpdate{
-			HostId:    "test-host-id-" + strconv.Itoa(i),
-			ProjectId: "test-project-id-" + strconv.Itoa(i),
+			HostId:    hostId,
+			ProjectId: projectID,
 			Labels:    map[string]string{"key": "value"},
 			K8scli:    cli,
 		}
 		sink <- event
 	}
 
+	time.Sleep(1 * time.Second)
+
+	require.Equal(t, 1, len(machine.GetLabels()))
+	require.Equal(t, "value", machine.GetLabels()["key"])
 	close(sink)
 }
