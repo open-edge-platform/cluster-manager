@@ -9,10 +9,26 @@ on:
   # muanual trigger from the Actions tab
   workflow_dispatch:
 
+  # trigger on PR comment
+  issue_comment:
+    types: [created]
+
 permissions: {}
 
 jobs:
-  dev-artifacts:
+  # Add a check job to verify if this is a PR comment with the trigger phrase
+  check-trigger:
+    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '/publish-artifacts') }}
+    runs-on: ubuntu-latest
+    outputs:
+      pr_number: ${{ github.event.issue.number }}
+    steps:
+      - name: Get PR details
+        run: echo "Triggered by PR #${{ github.event.issue.number }} by user ${{ github.event.comment.user.login }}"
+
+  # Build & push images & helm charts to the Release Service
+  publish-dev-artifacts:
+    needs: check-trigger
     permissions:
       contents: read
     uses: open-edge-platform/orch-ci/.github/workflows/pre-merge.yml@main
@@ -31,5 +47,5 @@ jobs:
       run_docker_push: true
       run_helm_build: true
       run_helm_push: true
-      version_suffix: "-pr-${{ github.event.number }}"
+      version_suffix: "-pr-${{ needs.check-trigger.outputs.pr_number }}"
     secrets: inherit
