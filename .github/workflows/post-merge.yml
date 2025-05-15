@@ -29,7 +29,7 @@ jobs:
       run_version_tag: true
       remove_cache_go: true
       run_docker_build: true
-      run_docker_push: true
+      run_docker_push: false
       run_helm_build: true
-      run_helm_push: true
+      run_helm_push: false
     secrets: inherit  # zizmor: ignore[secrets-inherit]
