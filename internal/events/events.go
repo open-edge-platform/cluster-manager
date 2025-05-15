@@ -11,6 +11,7 @@ import (
 
 // HostUpdateEvent is an event that is triggered when a host is updated in the Inventory
 type HostUpdate struct {
+	Error     chan<- error // channel to send error back to the caller
 	HostId    string
 	ProjectId string
 	Labels    map[string]string
@@ -46,6 +47,11 @@ func Sink() chan<- Event {
 		for e := range event {
 			if err := e.handle(); err != nil {
 				slog.Error("failed to handle event", "event", e, "error", err)
+				if e, ok := e.(HostUpdate); ok {
+					if e.Error != nil {
+						e.Error <- err
+					}
+				}
 			}
 		}
 		slog.Debug("event sink closed", "type", fmt.Sprintf("%T", event))
@@ -55,13 +61,13 @@ func Sink() chan<- Event {
 }
 
 // HostCreated event handler
-func (e HostCreated) handle() error {
+func (e HostCreated) handle() error { // nolint:unparam
 	slog.Info("HostCreatedEvent", "HostId", e.HostId, "ProjectId", e.ProjectId)
 	return nil
 }
 
 // HostDeletedEvent event handler
-func (e HostDeletedEvent) handle() error {
+func (e HostDeletedEvent) handle() error { // nolint:unparam
 	slog.Info("HostDeletedEvent", "HostId", e.HostId, "ProjectId", e.ProjectId)
 	return nil
 }
@@ -69,6 +75,20 @@ func (e HostDeletedEvent) handle() error {
 // HostUpdate event handler
 func (e HostUpdate) handle() error {
 	slog.Info("HostUpdateEvent", "HostId", e.HostId, "ProjectId", e.ProjectId, "Labels", e.Labels)
+
+	// validate the input
+	if e.HostId == "" {
+		return fmt.Errorf("host id is empty")
+	}
+	if e.ProjectId == "" {
+		return fmt.Errorf("project id is empty")
+	}
+	if e.K8scli == nil {
+		return fmt.Errorf("k8s client is nil")
+	}
+	if e.Labels == nil {
+		return fmt.Errorf("labels are nil")
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), eventTimeout)
 	defer cancel()
