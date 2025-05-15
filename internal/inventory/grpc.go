@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/open-edge-platform/cluster-manager/v2/internal/events"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	computev1 "github.com/open-edge-platform/infra-core/inventory/v2/pkg/api/compute/v1"
 	inventoryv1 "github.com/open-edge-platform/infra-core/inventory/v2/pkg/api/inventory/v1"
@@ -66,7 +67,7 @@ func NewInventoryClientWithOptions(opt Options) (*InventoryClient, error) {
 	slog.Info("inventory client started")
 
 	cli, err := &InventoryClient{client: taic, events: eventsWatcher, term: make(chan bool)}, nil
-	cli.WatchHosts(hostUpdateEvent)
+	cli.WatchHosts(events.Sink())
 	return cli, err
 }
 
@@ -131,9 +132,8 @@ func (auth noopInventoryClient) GetHostTrustedCompute(ctx context.Context, tenan
 	return false, nil
 }
 
-// WatchHosts watches for host resource events and calls the callback function
-// with the host resource as an argument.
-func (c *InventoryClient) WatchHosts(callback func(*computev1.HostResource)) {
+// WatchHosts watches for host resource events and sends them to the given channel
+func (c *InventoryClient) WatchHosts(hostEvents chan<- events.Event) {
 	go func() {
 		for {
 			select {
@@ -149,46 +149,43 @@ func (c *InventoryClient) WatchHosts(callback func(*computev1.HostResource)) {
 					continue
 				}
 
-				if event.Event.EventKind != inventoryv1.SubscribeEventsResponse_EVENT_KIND_UPDATED {
-					slog.Warn("unexpected event kind", "kind", event.Event.EventKind)
-					continue
+				switch event.Event.EventKind {
+				case inventoryv1.SubscribeEventsResponse_EVENT_KIND_CREATED:
+					slog.Debug("host created event", "name", host.Name, "hostid", host.ResourceId)
+					hostEvents <- events.HostCreated{
+						HostId:    host.ResourceId,
+						ProjectId: host.TenantId,
+					}
+				case inventoryv1.SubscribeEventsResponse_EVENT_KIND_DELETED:
+					slog.Debug("host deleted event", "name", host.Name, "hostid", host.ResourceId)
+					hostEvents <- events.HostDeletedEvent{
+						HostId:    host.ResourceId,
+						ProjectId: host.TenantId,
+					}
+
+				case inventoryv1.SubscribeEventsResponse_EVENT_KIND_UPDATED:
+					slog.Debug("host updated event", "name", host.Name, "hostid", host.ResourceId)
+
+					l, err := JsonStringToMap(host.Metadata)
+					if err != nil {
+						slog.Warn("failed to convert json string to map", "error", err, "metadata", host.Metadata)
+						continue
+					}
+
+					hostEvents <- &events.HostUpdate{
+						HostId:    host.ResourceId,
+						ProjectId: host.ResourceId,
+						Labels:    l,
+						K8scli:    c.k8sclient,
+					}
 				}
 
-				slog.Info("host resource event", "name", host.Name, "serial", host.SerialNumber, "uuid", host.Uuid, "metadata", host.Metadata)
-
-				_, err := c.k8sclient.GetMachineByProviderID(event.Ctx, host.GetTenantId(), host.GetInstance().GetResourceId())
-				if err != nil {
-					slog.Warn("failed to get machine by provider id", "error", err, "tenantId", host.GetTenantId(), "providerId", host.GetInstance().GetResourceId())
-					continue
-				}
-				l, err := JsonStringToMap(host.Metadata)
-				if err != nil {
-					slog.Warn("failed to convert json string to map", "error", err, "metadata", host.Metadata)
-					continue
-				}
-				m, err := c.k8sclient.GetMachineByProviderID(event.Ctx, host.GetTenantId(), host.GetInstance().GetResourceId())
-				if err != nil {
-					slog.Warn("failed to get machine by provider id", "error", err, "tenantId", host.GetTenantId(), "providerId", host.GetInstance().GetResourceId())
-					continue
-				}
-				slog.Info("updating machine labels", "name", m.Name, "labels", l)
-				err = c.k8sclient.SetMachineLabels(event.Ctx, host.GetTenantId(), m.Name, l)
-				if err != nil {
-					slog.Warn("failed to set machine labels", "error", err, "tenantId", host.GetTenantId(), "machineName", m.Name, "labels", l)
-					continue
-				}
-				//callback(host)
 			case <-c.term:
 				slog.Debug("inventory client stopping, exiting watch loop")
 				return
 			}
 		}
 	}()
-}
-
-func hostUpdateEvent(host *computev1.HostResource) {
-	slog.Info("host resource event", "name", host.Name, "serial", host.SerialNumber, "uuid", host.Uuid, "metadata", host.Metadata)
-
 }
 
 func JsonStringToMap(jsonString string) (map[string]string, error) {
