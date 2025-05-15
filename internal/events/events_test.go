@@ -5,7 +5,6 @@ package events_test
 import (
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -23,10 +22,11 @@ import (
 func TestHostCreatedHandle(t *testing.T) {
 	sink := events.Sink()
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 3; i++ {
 		event := events.HostCreated{
 			HostId:    "test-host-id-" + strconv.Itoa(i),
 			ProjectId: "test-project-id-" + strconv.Itoa(i),
+			Error:     nil,
 		}
 		sink <- event
 	}
@@ -36,15 +36,17 @@ func TestHostCreatedHandle(t *testing.T) {
 
 func TestHostDeleteHandle(t *testing.T) {
 	sink := events.Sink()
+	out := make(chan error, 1)
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 3; i++ {
 		event := events.HostDeletedEvent{
 			HostId:    "test-host-id-" + strconv.Itoa(i),
 			ProjectId: "test-project-id-" + strconv.Itoa(i),
+			Error:     out,
 		}
 		sink <- event
+		require.NoError(t, <-out) // wait for the event to be handled
 	}
-
 	close(sink)
 }
 
@@ -77,17 +79,18 @@ func TestHostUpdateHandle(t *testing.T) {
 	cli, err := k8s.New(k8s.WithDynamicClient(mockedk8sclient))
 	require.Nil(t, err)
 
-	for i := 0; i < 1; i++ {
+	out := make(chan error, 1)
+	for i := 0; i < 3; i++ {
 		event := events.HostUpdate{
 			HostId:    hostId,
 			ProjectId: projectID,
 			Labels:    map[string]string{"key": "value"},
 			K8scli:    cli,
+			Error:     out,
 		}
 		sink <- event
+		require.NoError(t, <-out) // wait for the event to be handled
 	}
-
-	time.Sleep(1 * time.Second)
 
 	require.Equal(t, 1, len(machine.GetLabels()))
 	require.Equal(t, "value", machine.GetLabels()["key"])
