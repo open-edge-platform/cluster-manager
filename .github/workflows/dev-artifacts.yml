@@ -8,6 +8,11 @@ name: Push development artifacts to the Release Service
 on:
   # muanual trigger from the Actions tab
   workflow_dispatch:
+    inputs:
+      version_suffix:
+        description: "Version suffix to append to the version"
+        required: false
+        default: "unstable"
 
 permissions: {}
 
@@ -31,5 +36,5 @@ jobs:
       run_docker_push: true
       run_helm_build: true
       run_helm_push: true
-      version_suffix: "-pr-${{ github.event.number }}"
+      version_suffix: ${{ github.event.inputs.version_suffix }}
     secrets: inherit
