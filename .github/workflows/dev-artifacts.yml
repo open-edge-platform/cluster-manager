@@ -26,8 +26,6 @@ jobs:
       cache_go: false
       remove_cache_go: false
       run_security_scans: false
-      run_scan_containers: false
-      run_reuse_check: false
       run_version_check: false
       run_dep_version_check: false
       run_build: false
