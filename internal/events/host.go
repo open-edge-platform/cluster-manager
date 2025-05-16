@@ -84,7 +84,7 @@ func (e HostUpdated) validateHostUpdated() error {
 
 // Handle the HostUpdate event
 func (e HostUpdated) Handle(ctx context.Context) error {
-	slog.Info("HostUpdate", "HostId", e.HostId, "ProjectId", e.ProjectId, "Labels", e.Labels)
+	slog.Debug("HostUpdate", "HostId", e.HostId, "ProjectId", e.ProjectId, "Labels", e.Labels)
 
 	// Validate all fields
 	if err := e.validateHostUpdated(); err != nil {
@@ -106,6 +106,6 @@ func (e HostUpdated) Handle(ctx context.Context) error {
 		return fmt.Errorf("failed to set machine labels: %w", err)
 	}
 
-	slog.Info("updated machine labels", "name", m.Name, "labels", e.Labels)
+	slog.Info("updated machine labels", "projectID", e.ProjectId, "hostID", e.HostId, "machine name", m.Name, "labels", e.Labels)
 	return nil
 }
