@@ -95,7 +95,7 @@ func (e HostUpdated) Handle(ctx context.Context) error {
 	timeoutCtx, cancel := context.WithTimeout(ctx, EventTimeout)
 	defer cancel()
 
-	m, err := e.K8scli.GetMachineByProviderID(timeoutCtx, e.ProjectId, e.HostId)
+	m, err := e.K8scli.GetMachineByHostID(timeoutCtx, e.ProjectId, e.HostId)
 	if err != nil {
 		return fmt.Errorf("failed to get machine by provider id: %w", err)
 	}
