@@ -162,8 +162,13 @@ func TestJsonStringToMap(t *testing.T) {
 			},
 		},
 		{
-			name:     "empty json string",
+			name:     "empty brackets string",
 			jsonStr:  `[]`,
+			expected: map[string]string{},
+		},
+		{
+			name:     "empty json string",
+			jsonStr:  "",
 			expected: map[string]string{},
 		},
 	}

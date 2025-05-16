@@ -197,6 +197,9 @@ func (c *InventoryClient) WatchHosts(hostEvents chan<- events.Event) {
 
 func JsonStringToMap(jsonString string) (map[string]string, error) {
 	out := make(map[string]string)
+	if jsonString == "" {
+		return out, nil
+	}
 	// Unmarshal the JSON string into a slice of structs
 	var result []struct {
 		Key   string `json:"key"`
