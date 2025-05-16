@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+---
+
+name: Push development artifacts to the Release Service
+
+on:
+  # muanual trigger from the Actions tab
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  dev-artifacts:
+    permissions:
+      contents: read
+    uses: open-edge-platform/orch-ci/.github/workflows/pre-merge.yml@main
+    with:
+      bootstrap_tools: "base,go"
+      cache_go: false
+      remove_cache_go: false
+      run_security_scans: false
+      run_version_check: false
+      run_dep_version_check: false
+      run_build: false
+      run_lint: false
+      run_test: false
+      run_validate_clean_folder: false
+      run_docker_build: true
+      run_docker_push: true
+      run_helm_build: true
+      run_helm_push: true
+      version_suffix: "unstable"
+    secrets: inherit
