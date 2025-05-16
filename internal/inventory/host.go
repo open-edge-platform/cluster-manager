@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-package events
+package inventory
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/open-edge-platform/cluster-manager/v2/internal/events"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 )
 
@@ -20,7 +21,7 @@ var (
 
 // HostEventBase contains common fields for all host events
 type HostEventBase struct {
-	EventBase
+	events.EventBase
 	HostId    string
 	ProjectId string
 }
@@ -92,7 +93,7 @@ func (e HostUpdated) Handle(ctx context.Context) error {
 	}
 
 	// Use the provided context instead of creating a new one
-	timeoutCtx, cancel := context.WithTimeout(ctx, EventTimeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, events.EventTimeout)
 	defer cancel()
 
 	m, err := e.K8scli.GetMachineByHostID(timeoutCtx, e.ProjectId, e.HostId)

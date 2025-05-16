@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-package events_test
+package inventory_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/events"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/inventory"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -80,18 +81,18 @@ func TestHostUpdateHandle(t *testing.T) {
 
 // Helper functions to create test events and mocks
 
-func createHostCreatedEvent(index int) events.HostCreated {
-	return events.HostCreated{
-		HostEventBase: events.HostEventBase{
+func createHostCreatedEvent(index int) inventory.HostCreated {
+	return inventory.HostCreated{
+		HostEventBase: inventory.HostEventBase{
 			HostId:    "test-host-id-" + strconv.Itoa(index),
 			ProjectId: "test-project-id-" + strconv.Itoa(index),
 		},
 	}
 }
 
-func createHostDeletedEvent(index int, out chan<- error) events.HostDeleted {
-	return events.HostDeleted{
-		HostEventBase: events.HostEventBase{
+func createHostDeletedEvent(index int, out chan<- error) inventory.HostDeleted {
+	return inventory.HostDeleted{
+		HostEventBase: inventory.HostEventBase{
 			EventBase: events.EventBase{Out: out},
 			HostId:    "test-host-id-" + strconv.Itoa(index),
 			ProjectId: "test-project-id-" + strconv.Itoa(index),
@@ -99,9 +100,9 @@ func createHostDeletedEvent(index int, out chan<- error) events.HostDeleted {
 	}
 }
 
-func createHostUpdatedEvent(hostId, projectID string, labels map[string]string, out chan<- error, cli *k8s.Client) events.HostUpdated {
-	return events.HostUpdated{
-		HostEventBase: events.HostEventBase{
+func createHostUpdatedEvent(hostId, projectID string, labels map[string]string, out chan<- error, cli *k8s.Client) inventory.HostUpdated {
+	return inventory.HostUpdated{
+		HostEventBase: inventory.HostEventBase{
 			EventBase: events.EventBase{Out: out},
 			HostId:    hostId,
 			ProjectId: projectID,

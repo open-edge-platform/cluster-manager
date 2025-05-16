@@ -36,22 +36,6 @@ func (e EventBase) Output() chan<- error {
 	return e.Out
 }
 
-// Deummy Event is a dummy implementation of the Event interface
-type DummyEvent struct {
-	EventBase
-	ID int // ID of the event
-}
-
-// Handle processes the dummy event
-func (e DummyEvent) Handle(ctx context.Context) error {
-	// Simulate some processing
-	slog.Debug("handling dummy event", "ID", e.ID)
-	time.Sleep(10 * time.Millisecond)
-
-	// Return nil to indicate success
-	return nil
-}
-
 // NewSink creates a channel to receive events and starts a goroutine to process them
 func NewSink(ctx context.Context) chan<- Event {
 	events := make(chan Event)

@@ -5,6 +5,7 @@ package events_test
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
@@ -15,6 +16,43 @@ import (
 )
 
 const paralellism = 10
+
+// DummyEvent is a dummy implementation of the Event interface
+type DummyEvent struct {
+	events.EventBase
+	ID int // ID of the event
+}
+
+// Handle processes the dummy event
+func (e DummyEvent) Handle(ctx context.Context) error {
+	// Simulate some processing
+	slog.Debug("handling dummy event", "ID", e.ID)
+	time.Sleep(10 * time.Millisecond)
+
+	// Return nil to indicate success
+	return nil
+}
+
+// SlowEvent is a test event that takes a specified time to process
+type SlowEvent struct {
+	events.EventBase
+	ProcessTime time.Duration
+}
+
+func (e SlowEvent) Handle(ctx context.Context) error {
+	time.Sleep(e.ProcessTime)
+	return nil
+}
+
+// ErrorEvent is a test event that always returns a specific error
+type ErrorEvent struct {
+	events.EventBase
+	ErrorToReturn error
+}
+
+func (e ErrorEvent) Handle(ctx context.Context) error {
+	return e.ErrorToReturn
+}
 
 func TestConcurrentEventHandling(t *testing.T) {
 	ctx := context.Background()
@@ -32,7 +70,7 @@ func TestConcurrentEventHandling(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			event := events.DummyEvent{EventBase: events.EventBase{Out: outputs[i]}, ID: i}
+			event := DummyEvent{EventBase: events.EventBase{Out: outputs[i]}, ID: i}
 			sink <- event
 		}()
 	}
@@ -58,7 +96,7 @@ func TestNilOutputChannel(t *testing.T) {
 	sink := events.NewSink(ctx)
 
 	// Send an event with a nil output channel
-	event := events.DummyEvent{
+	event := DummyEvent{
 		EventBase: events.EventBase{Out: nil},
 		ID:        42,
 	}
@@ -82,7 +120,7 @@ func TestContextCancellation(t *testing.T) {
 	outputs := make([]chan error, 2)
 	for i := range outputs {
 		outputs[i] = make(chan error, 1)
-		event := events.DummyEvent{
+		event := DummyEvent{
 			EventBase: events.EventBase{Out: outputs[i]},
 			ID:        i,
 		}
@@ -104,7 +142,7 @@ func TestContextCancellation(t *testing.T) {
 
 	// Try to send one more event after cancellation
 	outputAfterCancel := make(chan error, 1)
-	afterCancelEvent := events.DummyEvent{
+	afterCancelEvent := DummyEvent{
 		EventBase: events.EventBase{Out: outputAfterCancel},
 		ID:        999,
 	}
@@ -128,8 +166,8 @@ func TestMultipleSinks(t *testing.T) {
 	out1 := make(chan error, 1)
 	out2 := make(chan error, 1)
 
-	sink1 <- events.DummyEvent{EventBase: events.EventBase{Out: out1}, ID: 1}
-	sink2 <- events.DummyEvent{EventBase: events.EventBase{Out: out2}, ID: 2}
+	sink1 <- DummyEvent{EventBase: events.EventBase{Out: out1}, ID: 1}
+	sink2 <- DummyEvent{EventBase: events.EventBase{Out: out2}, ID: 2}
 
 	// Verify both processed their events
 	for i, out := range []chan error{out1, out2} {
@@ -171,16 +209,6 @@ func TestErrorPropagation(t *testing.T) {
 	close(sink)
 }
 
-// ErrorEvent is a test event that always returns a specific error
-type ErrorEvent struct {
-	events.EventBase
-	ErrorToReturn error
-}
-
-func (e ErrorEvent) Handle(ctx context.Context) error {
-	return e.ErrorToReturn
-}
-
 func TestGracefulShutdown(t *testing.T) {
 	ctx := context.Background()
 	sink := events.NewSink(ctx)
@@ -208,15 +236,4 @@ func TestGracefulShutdown(t *testing.T) {
 	case <-time.After(300 * time.Millisecond):
 		t.Fatal("Timeout waiting for event to complete after sink closed")
 	}
-}
-
-// SlowEvent is a test event that takes a specified time to process
-type SlowEvent struct {
-	events.EventBase
-	ProcessTime time.Duration
-}
-
-func (e SlowEvent) Handle(ctx context.Context) error {
-	time.Sleep(e.ProcessTime)
-	return nil
 }

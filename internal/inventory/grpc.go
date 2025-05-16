@@ -153,16 +153,16 @@ func (c *InventoryClient) WatchHosts(hostEvents chan<- events.Event) {
 				switch event.Event.EventKind {
 				case inventoryv1.SubscribeEventsResponse_EVENT_KIND_CREATED:
 					slog.Debug("host created event", "name", host.Name, "hostid", host.ResourceId)
-					hostEvents <- events.HostCreated{
-						HostEventBase: events.HostEventBase{
+					hostEvents <- HostCreated{
+						HostEventBase: HostEventBase{
 							HostId:    host.ResourceId,
 							ProjectId: host.TenantId,
 						},
 					}
 				case inventoryv1.SubscribeEventsResponse_EVENT_KIND_DELETED:
 					slog.Debug("host deleted event", "name", host.Name, "hostid", host.ResourceId)
-					hostEvents <- events.HostDeleted{
-						HostEventBase: events.HostEventBase{
+					hostEvents <- HostDeleted{
+						HostEventBase: HostEventBase{
 							HostId:    host.ResourceId,
 							ProjectId: host.TenantId,
 						},
@@ -177,8 +177,8 @@ func (c *InventoryClient) WatchHosts(hostEvents chan<- events.Event) {
 						continue
 					}
 
-					hostEvents <- &events.HostUpdated{
-						HostEventBase: events.HostEventBase{
+					hostEvents <- &HostUpdated{
+						HostEventBase: HostEventBase{
 							HostId:    host.ResourceId,
 							ProjectId: host.TenantId,
 						},
