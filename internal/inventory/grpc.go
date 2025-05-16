@@ -67,6 +67,7 @@ func NewInventoryClientWithOptions(opt Options) (*InventoryClient, error) {
 	slog.Info("inventory client started")
 
 	cli, err := &InventoryClient{client: taic, events: eventsWatcher, term: make(chan bool)}, nil
+	cli.k8sclient = opt.k8sClient
 	cli.WatchHosts(events.NewSink(context.TODO()))
 	return cli, err
 }
