@@ -180,7 +180,7 @@ func (c *InventoryClient) WatchHosts(hostEvents chan<- events.Event) {
 					hostEvents <- &events.HostUpdated{
 						HostEventBase: events.HostEventBase{
 							HostId:    host.ResourceId,
-							ProjectId: host.ResourceId,
+							ProjectId: host.TenantId,
 						},
 						Labels: l,
 						K8scli: c.k8sclient,
