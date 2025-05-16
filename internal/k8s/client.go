@@ -385,8 +385,8 @@ func (cli *Client) GetCluster(ctx context.Context, namespace, name string) (*cap
 	return &cluster, nil
 }
 
-// GetMachineByProviderID returns the machine with the given provider ID in the given namespace for the given cluster
-func (cli *Client) GetMachineByProviderID(ctx context.Context, namespace, providerID string) (capi.Machine, error) {
+// GetMachineByHostID returns the machine with the given host ID in the given namespace for the given cluster
+func (cli *Client) GetMachineByHostID(ctx context.Context, namespace, hostID string) (capi.Machine, error) {
 	opts := metav1.ListOptions{}
 	unstructuredMachinesList, err := cli.Dyn.Resource(machineResourceSchema).Namespace(namespace).List(ctx, opts)
 	if err != nil {
@@ -397,15 +397,18 @@ func (cli *Client) GetMachineByProviderID(ctx context.Context, namespace, provid
 		var machine capi.Machine
 		err = convert.FromUnstructured(item, &machine)
 		if err != nil {
-			return machine, err
+			continue
 		}
 
-		// Check if the machine's provider ID matches the given provider ID
-		if machine.Spec.ProviderID != nil && (*machine.Spec.ProviderID == providerID) {
+		if machine.Status.NodeRef == nil {
+			continue
+		}
+
+		if machine.Spec.ProviderID != nil && (machine.Status.NodeRef.Name == hostID) {
 			return machine, nil
 		}
 	}
-	return capi.Machine{}, nil
+	return capi.Machine{}, fmt.Errorf("machine with host ID %s not found", hostID)
 }
 
 // GetMachines returns the machine with the given name in the given namespace for the given cluster
