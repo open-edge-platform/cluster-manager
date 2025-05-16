@@ -400,11 +400,7 @@ func (cli *Client) GetMachineByHostID(ctx context.Context, namespace, hostID str
 			continue
 		}
 
-		if machine.Status.NodeRef == nil {
-			continue
-		}
-
-		if machine.Spec.ProviderID != nil && (machine.Status.NodeRef.Name == hostID) {
+		if machine.Status.NodeRef != nil && (machine.Status.NodeRef.Name == hostID) {
 			return machine, nil
 		}
 	}
