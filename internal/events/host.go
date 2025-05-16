@@ -97,7 +97,7 @@ func (e HostUpdated) Handle(ctx context.Context) error {
 
 	m, err := e.K8scli.GetMachineByHostID(timeoutCtx, e.ProjectId, e.HostId)
 	if err != nil {
-		return fmt.Errorf("failed to get machine by provider id: %w", err)
+		return fmt.Errorf("failed to get machine by host id: %w", err)
 	}
 	slog.Debug("found machine", "name", m.Name, "labels", m.Labels)
 

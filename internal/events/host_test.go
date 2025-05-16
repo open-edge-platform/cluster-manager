@@ -132,7 +132,11 @@ func setupMockK8sClient(t *testing.T, projectID, hostId string) (*k8s.Client, *u
 				Kind:      "IntelMachine",
 				Namespace: projectID,
 			},
-			ProviderID: &hostId,
+		},
+		Status: capi.MachineStatus{
+			NodeRef: &v1.ObjectReference{
+				Name: hostId,
+			},
 		},
 	})
 	require.Nil(t, err)
