@@ -118,6 +118,33 @@ func TestContextCancellation(t *testing.T) {
 	}
 }
 
+func TestMultipleSinks(t *testing.T) {
+	// Create multiple sinks
+	ctx := context.Background()
+	sink1 := events.NewSink(ctx)
+	sink2 := events.NewSink(ctx)
+
+	// Send events to both sinks
+	out1 := make(chan error, 1)
+	out2 := make(chan error, 1)
+
+	sink1 <- events.DummyEvent{EventBase: events.EventBase{Out: out1}, ID: 1}
+	sink2 <- events.DummyEvent{EventBase: events.EventBase{Out: out2}, ID: 2}
+
+	// Verify both processed their events
+	for i, out := range []chan error{out1, out2} {
+		select {
+		case err := <-out:
+			require.NoError(t, err, "Sink %d event failed", i+1)
+		case <-time.After(100 * time.Millisecond):
+			t.Errorf("Timeout waiting for sink %d event", i+1)
+		}
+	}
+
+	close(sink1)
+	close(sink2)
+}
+
 func TestErrorPropagation(t *testing.T) {
 	ctx := context.Background()
 	sink := events.NewSink(ctx)
@@ -152,4 +179,44 @@ type ErrorEvent struct {
 
 func (e ErrorEvent) Handle(ctx context.Context) error {
 	return e.ErrorToReturn
+}
+
+func TestGracefulShutdown(t *testing.T) {
+	ctx := context.Background()
+	sink := events.NewSink(ctx)
+
+	// Create an event that will take some time to process
+	output := make(chan error, 1)
+	event := SlowEvent{
+		EventBase:   events.EventBase{Out: output},
+		ProcessTime: 200 * time.Millisecond,
+	}
+
+	// Send the event
+	sink <- event
+
+	// Wait a bit for processing to start
+	time.Sleep(50 * time.Millisecond)
+
+	// Close the sink while event is processing
+	close(sink)
+
+	// Verify the event still completes
+	select {
+	case err := <-output:
+		require.NoError(t, err, "Event failed")
+	case <-time.After(300 * time.Millisecond):
+		t.Fatal("Timeout waiting for event to complete after sink closed")
+	}
+}
+
+// SlowEvent is a test event that takes a specified time to process
+type SlowEvent struct {
+	events.EventBase
+	ProcessTime time.Duration
+}
+
+func (e SlowEvent) Handle(ctx context.Context) error {
+	time.Sleep(e.ProcessTime)
+	return nil
 }
