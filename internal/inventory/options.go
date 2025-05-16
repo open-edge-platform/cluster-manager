@@ -3,13 +3,18 @@
 
 package inventory
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
+)
 
 type Options struct {
 	wg               *sync.WaitGroup
 	inventoryAddress string
 	enableTracing    bool
 	enableMetrics    bool
+	k8sClient        *k8s.Client
 }
 
 func (o *Options) WaitGroup() *sync.WaitGroup {
@@ -37,6 +42,7 @@ type OptionsBuilder interface {
 	WithInventoryAddress(address string) OptionsBuilder
 	WithTracing(enableTracing bool) OptionsBuilder
 	WithMetrics(enableMetrics bool) OptionsBuilder
+	WithK8sClient(client *k8s.Client) OptionsBuilder
 	Build() Options
 }
 
@@ -63,6 +69,11 @@ func (b *optionsBuilder) WithTracing(enableTracing bool) OptionsBuilder {
 
 func (b *optionsBuilder) WithMetrics(enableMetrics bool) OptionsBuilder {
 	b.options.enableMetrics = enableMetrics
+	return b
+}
+
+func (b *optionsBuilder) WithK8sClient(client *k8s.Client) OptionsBuilder {
+	b.options.k8sClient = client
 	return b
 }
 

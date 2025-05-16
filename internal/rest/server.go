@@ -19,6 +19,7 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/inventory"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/metrics"
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 )
@@ -195,7 +196,7 @@ func GetAuthenticator(cfg *config.Config) (Authenticator, error) {
 	return auth.NewOidcAuthenticator(provider, opa)
 }
 
-func GetInventory(cfg *config.Config) (Inventory, error) {
+func GetInventory(cfg *config.Config, k8sClient *k8s.Client) (Inventory, error) {
 	if cfg.DisableInventory {
 		slog.Warn("inventory integration is disabled")
 		return inventory.NewNoopInventoryClient(), nil
@@ -206,5 +207,6 @@ func GetInventory(cfg *config.Config) (Inventory, error) {
 		WithInventoryAddress(cfg.InventoryAddress).
 		WithTracing(false).
 		WithMetrics(false).
+		WithK8sClient(k8sClient).
 		Build())
 }

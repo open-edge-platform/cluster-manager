@@ -61,7 +61,7 @@ func main() {
 		os.Exit(4)
 	}
 
-	inv, err := rest.GetInventory(config)
+	inv, err := rest.GetInventory(config, k8sclient)
 	if err != nil {
 		slog.Error("failed to start inventory client", "error", err)
 		os.Exit(7)
