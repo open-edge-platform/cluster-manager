@@ -1,5 +1,11 @@
 // SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
+
+// Package events provides a framework for defining, handling, and processing asynchronous events.
+// It defines an Event interface for event handling, a base implementation for common functionality,
+// and utilities for event processing with context-aware cancellation and timeout support.
+// The package is designed to facilitate event-driven architectures by enabling decoupled event
+// processing and result reporting via channels.
 package events
 
 import (
@@ -25,6 +31,11 @@ type EventBase struct {
 	Out chan<- error // channel to send error back to the caller
 }
 
+// Output returns the output channel for the event
+func (e EventBase) Output() chan<- error {
+	return e.Out
+}
+
 // Deummy Event is a dummy implementation of the Event interface
 type DummyEvent struct {
 	EventBase
@@ -39,11 +50,6 @@ func (e DummyEvent) Handle(ctx context.Context) error {
 
 	// Return nil to indicate success
 	return nil
-}
-
-// Output returns the output channel for the event
-func (e EventBase) Output() chan<- error {
-	return e.Out
 }
 
 // NewSink creates a channel to receive events and starts a goroutine to process them
