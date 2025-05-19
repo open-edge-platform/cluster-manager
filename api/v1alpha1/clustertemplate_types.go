@@ -33,7 +33,7 @@ const (
 // ClusterTemplateSpec defines the desired state of ClusterTemplate.
 type ClusterTemplateSpec struct {
 	// +optional
-	// +kubebuilder:validation:Enum=kubeadm;rke2
+	// +kubebuilder:validation:Enum=kubeadm;rke2;k3s
 	// +kubebuilder:default=rke2
 	ControlPlaneProviderType string `json:"controlPlaneProviderType,omitempty" yaml:"controlPlaneProviderType"`
 
