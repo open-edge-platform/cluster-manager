@@ -39,6 +39,9 @@
             "make -p /var/lib/kubelet/static-pods",
             "sed -i '/kubelet-arg:/a\\- pod-manifest-path=/var/lib/kubelet/static-pods' /etc/rancher/k3s/config.yaml"
           ],
+          "postK3sCommands": [
+            "kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/calico.yaml"
+          ],
           "privateRegistriesConfig": {},
           "serverConfig": {
             "cni": "calico",
