@@ -138,3 +138,46 @@ func TestGetHostTrustedCompute(t *testing.T) {
 		})
 	}
 }
+
+func TestJsonStringToMap(t *testing.T) {
+	cases := []struct {
+		name     string
+		jsonStr  string
+		expected map[string]string
+	}{
+		{
+			name:    "real-world example",
+			jsonStr: `[{"key":"host-label","value":"true"},{"key":"test-label","value":"true"}]`,
+			expected: map[string]string{
+				"host-label": "true",
+				"test-label": "true",
+			},
+		},
+		{
+			name:    "real-world example 2",
+			jsonStr: `[{"key":"cluster-name","value":""},{"key":"app-id","value":""}]`,
+			expected: map[string]string{
+				"cluster-name": "",
+				"app-id":       "",
+			},
+		},
+		{
+			name:     "empty brackets string",
+			jsonStr:  `[]`,
+			expected: map[string]string{},
+		},
+		{
+			name:     "empty json string",
+			jsonStr:  "",
+			expected: map[string]string{},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := inventory.JsonStringToMap(tc.jsonStr)
+			require.NoError(t, err)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
