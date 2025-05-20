@@ -5,10 +5,13 @@ package inventory
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"time"
 
+	"github.com/open-edge-platform/cluster-manager/v2/internal/events"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	computev1 "github.com/open-edge-platform/infra-core/inventory/v2/pkg/api/compute/v1"
 	inventoryv1 "github.com/open-edge-platform/infra-core/inventory/v2/pkg/api/inventory/v1"
 	osv1 "github.com/open-edge-platform/infra-core/inventory/v2/pkg/api/os/v1"
@@ -27,9 +30,10 @@ var (
 
 // InventoryClient is a tenant-aware grpc client for the inventory service
 type InventoryClient struct {
-	client client.TenantAwareInventoryClient
-	events chan *client.WatchEvents
-	term   chan bool
+	client    client.TenantAwareInventoryClient
+	events    chan *client.WatchEvents
+	term      chan bool
+	k8sclient *k8s.Client
 }
 
 // clientInstance is the singleton instance of the inventory client
@@ -62,7 +66,10 @@ func NewInventoryClientWithOptions(opt Options) (*InventoryClient, error) {
 
 	slog.Info("inventory client started")
 
-	return &InventoryClient{client: taic, events: eventsWatcher, term: make(chan bool)}, nil
+	cli, err := &InventoryClient{client: taic, events: eventsWatcher, term: make(chan bool)}, nil
+	cli.k8sclient = opt.k8sClient
+	cli.WatchHosts(events.NewSink(context.TODO()))
+	return cli, err
 }
 
 // GetHostTrustedCompute returns true if the host has secure boot and full disk encryption enabled
@@ -126,11 +133,8 @@ func (auth noopInventoryClient) GetHostTrustedCompute(ctx context.Context, tenan
 	return false, nil
 }
 
-/*
-// TODO: propegate host label updates to edge nodes
-// WatchHosts watches for host resource events and calls the callback function
-// with the host resource as an argument.
-func (c *InventoryClient) WatchHosts(callback func(*computev1.HostResource)) {
+// WatchHosts watches for host resource events and sends them to the given channel
+func (c *InventoryClient) WatchHosts(hostEvents chan<- events.Event) {
 	go func() {
 		for {
 			select {
@@ -146,12 +150,43 @@ func (c *InventoryClient) WatchHosts(callback func(*computev1.HostResource)) {
 					continue
 				}
 
-				if event.Event.EventKind != inventoryv1.SubscribeEventsResponse_EVENT_KIND_UPDATED {
-					slog.Warn("unexpected event kind", "kind", event.Event.EventKind)
-					continue
+				switch event.Event.EventKind {
+				case inventoryv1.SubscribeEventsResponse_EVENT_KIND_CREATED:
+					slog.Debug("host created event", "name", host.Name, "hostid", host.ResourceId)
+					hostEvents <- HostCreated{
+						HostEventBase: HostEventBase{
+							HostId:    host.ResourceId,
+							ProjectId: host.TenantId,
+						},
+					}
+				case inventoryv1.SubscribeEventsResponse_EVENT_KIND_DELETED:
+					slog.Debug("host deleted event", "name", host.Name, "hostid", host.ResourceId)
+					hostEvents <- HostDeleted{
+						HostEventBase: HostEventBase{
+							HostId:    host.ResourceId,
+							ProjectId: host.TenantId,
+						},
+					}
+
+				case inventoryv1.SubscribeEventsResponse_EVENT_KIND_UPDATED:
+					slog.Debug("host updated event", "name", host.Name, "hostid", host.ResourceId)
+
+					l, err := JsonStringToMap(host.Metadata)
+					if err != nil {
+						slog.Warn("failed to convert json string to map", "error", err, "metadata", host.Metadata)
+						continue
+					}
+
+					hostEvents <- &HostUpdated{
+						HostEventBase: HostEventBase{
+							HostId:    host.ResourceId,
+							ProjectId: host.TenantId,
+						},
+						Labels: l,
+						K8scli: c.k8sclient,
+					}
 				}
 
-				callback(host)
 			case <-c.term:
 				slog.Debug("inventory client stopping, exiting watch loop")
 				return
@@ -160,6 +195,28 @@ func (c *InventoryClient) WatchHosts(callback func(*computev1.HostResource)) {
 	}()
 }
 
+func JsonStringToMap(jsonString string) (map[string]string, error) {
+	out := make(map[string]string)
+	if jsonString == "" {
+		return out, nil
+	}
+	// Unmarshal the JSON string into a slice of structs
+	var result []struct {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	}
+	if err := json.Unmarshal([]byte(jsonString), &result); err != nil {
+		return nil, err
+	}
+	// Iterate over the result and populate the map
+	for _, item := range result {
+		out[item.Key] = item.Value
+	}
+
+	return out, nil
+}
+
+/*
 // TODO: implement termination event handling in main.go
 // IMPORTANT: always close the Inventory client in case of errors
 // or signals like syscall.SIGTERM, syscall.SIGINT etc.
