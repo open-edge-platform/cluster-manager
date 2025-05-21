@@ -132,8 +132,8 @@ jobs:
       run_test: false
       run_validate_clean_folder: false
       run_docker_build: true
-      run_docker_push: true
+      run_docker_push: false
       run_helm_build: true
-      run_helm_push: true
+      run_helm_push: false
       version_suffix: "-pr-${{ github.event.number }}"
     secrets: inherit
