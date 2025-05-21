@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+---
+
+name: Push development artifacts to the Release Service
+
+on:
+  # manual trigger from the Actions tab
+  workflow_dispatch:
+
+env:
+  VERSION_SUFFIX: test
+
+permissions: {}
+
+jobs:
+  dev-artifacts-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Build Docker image
+        run: |
+          make docker-build
+
+      - name: Build Helm chart
+        run: |
+          make helm-build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722  # v4.0.1
+        with:
+          aws-access-key-id: ${{ secrets.NO_AUTH_ECR_PUSH_USERNAME }}
+          aws-secret-access-key: ${{ secrets.NO_AUTH_ECR_PUSH_PASSWD }}
+          aws-region: us-west-2
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076  # v2.0.1
+        with:
+          registries: "080137407410"
+
+      - name: Push Docker image
+        run: |
+          make docker-push
+
+      - name: Push Helm chart
+        run: |
+          make helm-push
