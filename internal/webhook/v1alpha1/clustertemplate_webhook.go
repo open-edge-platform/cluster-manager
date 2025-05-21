@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	kthreescpv1beta2 "github.com/k3s-io/cluster-api-k3s/controlplane/api/v1beta2"
 	"github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 	clusterv1alpha1 "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
@@ -64,6 +65,13 @@ func (v *ClusterTemplateCustomValidator) ValidateCreate(ctx context.Context, obj
 		err := json.Unmarshal([]byte(clustertemplate.Spec.ClusterConfiguration), &rke2ControlPlaneTemplate)
 		if err != nil {
 			slog.Error("invalid RKE2ControlPlaneTemplate", "error", err)
+			return nil, fmt.Errorf("failed to convert cluster configuration: %w", err)
+		}
+	case api.K3s:
+		kthreesControlPlaneTemplate := &kthreescpv1beta2.KThreesControlPlaneTemplate{}
+		err := json.Unmarshal([]byte(clustertemplate.Spec.ClusterConfiguration), &kthreesControlPlaneTemplate)
+		if err != nil {
+			slog.Error("invalid KThreesControlPlaneTemplate", "error", err)
 			return nil, fmt.Errorf("failed to convert cluster configuration: %w", err)
 		}
 	default:
