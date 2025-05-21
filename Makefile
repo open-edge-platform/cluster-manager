@@ -27,7 +27,7 @@ endif
 
 # Add VERSION_SUFFIX as suffix if specified and not empty
 ifneq ($(strip $(VERSION_SUFFIX)),)
-	VERSION := $(VERSION)-$(VERSION_SUFFIX)
+	VERSION := $(VERSION)$(VERSION_SUFFIX)
 endif
 
 HELM_VERSION ?= ${VERSION}
