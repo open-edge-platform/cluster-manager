@@ -4,7 +4,7 @@
 
 # license checking
 python-debian==0.1.44
-reuse~=1.0.0
+reuse~=5.0.0
 
 # lint yaml
 yamllint~=1.27.1
