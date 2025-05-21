@@ -8,12 +8,6 @@ name: Push development artifacts to the Release Service
 on:
   # manual trigger from the Actions tab
   workflow_dispatch:
-  # run on PR to main branch (just for testing)
-  pull_request:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/dev-artifacts-push.yml"
 
 env:
   VERSION_SUFFIX: -test
