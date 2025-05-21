@@ -135,4 +135,5 @@ jobs:
       run_docker_push: true
       run_helm_build: true
       run_helm_push: true
+      version_suffix: "-pr-${{ github.event.number }}"
     secrets: inherit
