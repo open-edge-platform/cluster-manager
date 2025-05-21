@@ -17,8 +17,8 @@ require (
 	github.com/lestrrat-go/jwx/v2 v2.1.3
 	github.com/oapi-codegen/nethttp-middleware v1.0.2
 	github.com/oapi-codegen/runtime v1.1.1
-	github.com/onsi/ginkgo/v2 v2.22.2
-	github.com/onsi/gomega v1.36.2
+	github.com/onsi/ginkgo/v2 v2.23.4
+	github.com/onsi/gomega v1.37.0
 	github.com/open-edge-platform/cluster-api-provider-intel v1.0.1
 	github.com/open-edge-platform/infra-core/inventory/v2 v2.23.0
 	github.com/open-edge-platform/orch-library/go v0.5.29
@@ -33,7 +33,7 @@ require (
 	k8s.io/client-go v0.32.3
 	k8s.io/kubectl v0.32.1
 	sigs.k8s.io/cluster-api v1.9.5
-	sigs.k8s.io/cluster-api/test v1.9.5
+	sigs.k8s.io/cluster-api/test v1.9.6
 	sigs.k8s.io/controller-runtime v0.20.4
 )
 
@@ -44,6 +44,7 @@ require (
 	github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 // indirect
 	github.com/speakeasy-api/openapi-overlay v0.9.0 // indirect
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
+	go.uber.org/automaxprocs v1.6.0 // indirect
 )
 
 require (
@@ -99,7 +100,7 @@ require (
 	github.com/google/cel-go v0.24.1 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/google/pprof v0.0.0-20241210010833-40e02aabc2ad // indirect
+	github.com/google/pprof v0.0.0-20250403155104-27863c87afa6 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.1 // indirect
@@ -187,9 +188,9 @@ require (
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394 // indirect
 	golang.org/x/mod v0.24.0 // indirect
 	golang.org/x/net v0.38.0 // indirect
-	golang.org/x/oauth2 v0.27.0 // indirect
+	golang.org/x/oauth2 v0.28.0 // indirect
 	golang.org/x/sync v0.12.0 // indirect
-	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/sys v0.32.0 // indirect
 	golang.org/x/term v0.30.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
