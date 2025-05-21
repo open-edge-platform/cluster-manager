@@ -16,7 +16,7 @@ on:
       - ".github/workflows/dev-artifacts-push.yml"
 
 env:
-  VERSION_SUFFIX: test
+  VERSION_SUFFIX: -test
 
 permissions: {}
 
