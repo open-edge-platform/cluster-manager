@@ -23,7 +23,7 @@ require (
 	github.com/open-edge-platform/infra-core/inventory/v2 v2.23.0
 	github.com/open-edge-platform/orch-library/go v0.5.29
 	github.com/open-edge-platform/orch-utils/tenancy-datamodel v0.0.0-20250401180309-9c2571c45857
-	github.com/rancher/cluster-api-provider-rke2 v0.12.0
+	github.com/rancher/cluster-api-provider-rke2 v0.14.0
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/mock v0.5.1
 	google.golang.org/protobuf v1.36.6
