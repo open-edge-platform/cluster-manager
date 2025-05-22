@@ -349,7 +349,7 @@ func TestGetV2Templates200(t *testing.T) {
 		require.Empty(t, response.DefaultTemplateInfo, "DefaultTemplateInfo should be empty")
 	})
 
-	t.Run("Four templates - filter k8s version and order by template version", func(t *testing.T) {
+	t.Run("Four templates - filter k8s version with template name and order by template version (default ascending)", func(t *testing.T) {
 		server := createMockServerTemplates(t, []v1alpha1.ClusterTemplate{template1, template2, template3, template4}, expectedActiveProjectID, nil)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
@@ -373,6 +373,33 @@ func TestGetV2Templates200(t *testing.T) {
 		require.Len(t, *response.TemplateInfoList, 2, "TemplateInfoList should have 2 items")
 		require.Equal(t, templateInfo3.Name, (*response.TemplateInfoList)[0].Name, "TemplateInfoList[1].Name = %v, want %v", (*response.TemplateInfoList)[0].Name, template3.Name)
 		require.Equal(t, templateInfo4.Name, (*response.TemplateInfoList)[1].Name, "TemplateInfoList[2].Name = %v, want %v", (*response.TemplateInfoList)[1].Name, template4.Name)
+		require.Empty(t, response.DefaultTemplateInfo, "DefaultTemplateInfo should be empty")
+	})
+
+	t.Run("Four templates - filter k8s version with template name and order by template version in descending order", func(t *testing.T) {
+		server := createMockServerTemplates(t, []v1alpha1.ClusterTemplate{template1, template2, template3, template4}, expectedActiveProjectID, nil)
+		require.NotNil(t, server, "NewServer() returned nil, want not nil")
+
+		// Create a new request & response recorder
+		req := httptest.NewRequest("GET", "/v2/templates?filter=kubernetesVersion=1.33.0%20AND%20name=test-other-template&orderBy=version%20desc", nil)
+		req.Header.Set("Activeprojectid", expectedActiveProjectID)
+		rr := httptest.NewRecorder()
+
+		// create a handler with middleware to serve the request
+		handler, err := server.ConfigureHandler()
+		require.Nil(t, err)
+		handler.ServeHTTP(rr, req)
+
+		// Parse the response body
+		var response api.GetV2Templates200JSONResponse
+		err = json.Unmarshal(rr.Body.Bytes(), &response)
+		require.NoError(t, err, "Failed to unmarshal response body")
+
+		// Check the response status
+		require.Equal(t, http.StatusOK, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, 200)
+		require.Len(t, *response.TemplateInfoList, 2, "TemplateInfoList should have 2 items")
+		require.Equal(t, templateInfo4.Name, (*response.TemplateInfoList)[0].Name, "TemplateInfoList[1].Name = %v, want %v", (*response.TemplateInfoList)[0].Name, template3.Name)
+		require.Equal(t, templateInfo3.Name, (*response.TemplateInfoList)[1].Name, "TemplateInfoList[2].Name = %v, want %v", (*response.TemplateInfoList)[1].Name, template4.Name)
 		require.Empty(t, response.DefaultTemplateInfo, "DefaultTemplateInfo should be empty")
 	})
 

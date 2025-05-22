@@ -24,7 +24,7 @@ import (
 const appName = "cluster-manager"
 
 var (
-	baselineRegex         = regexp.MustCompile(`^baseline-v\d+\.\d+\.\d+`)	
+	baselineRegex         = regexp.MustCompile(`^baseline-v\d+\.\d+\.\d+`)
 	nexusContextTimeout   = time.Second * 5
 	GetClusterConfigFunc  = rest.InClusterConfig
 	GetNexusClientSetFunc = nexus.NewForConfig
