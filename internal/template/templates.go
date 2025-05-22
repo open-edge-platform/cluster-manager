@@ -17,8 +17,6 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 )
 
-const DefaultTemplateName = "baseline"
-
 var namesemverRegex = regexp.MustCompile(`^(?P<name>.*)-v(?P<semver>\d+\.\d+\.\d+.*)$`)
 
 // fromTemplateInfoToClusterTemplate translates a TemplateInfo object to a ClusterTemplate object
