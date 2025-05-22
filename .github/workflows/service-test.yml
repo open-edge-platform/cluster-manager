@@ -33,3 +33,16 @@ jobs:
 
     - name: Run service test
       run: make run-service-test
+
+    - name: Gather logs from every pod
+      run: |
+        mkdir -p pod-logs
+        for pod in $(kubectl get pods -A -o jsonpath='{.items[*].metadata.name}'); do
+          kubectl logs "$pod" > "pod-logs/${pod}.log" || echo "Failed to get logs for $pod"
+        done
+
+    - name: Upload pod logs as evidence
+      uses: actions/upload-artifact@v3
+      with:
+        name: pod-logs
+        path: pod-logs
