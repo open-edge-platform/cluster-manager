@@ -38,8 +38,11 @@ jobs:
       if: always()
       run: |
         mkdir -p pod-logs
-        for pod in $(kubectl get pods -A -o jsonpath='{.items[*].metadata.name}'); do
-          kubectl logs "$pod" > "pod-logs/${pod}.log" || echo "Failed to get logs for $pod"
+        for pod_and_namespace in $(kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.name}{";"}{.metadata.namespace}{"\n"}{end}'); do
+          pod=$(echo "$pod_and_namespace" | awk -F';' '{print $1}')
+          namespace=$(echo "$pod_and_namespace" | awk -F';' '{print $2}')
+          echo "Gathering logs for pod $pod in namespace $namespace"
+          kubectl logs "$pod" -n "$namespace" > "./pod-logs/${pod}.log" || echo "Failed to get logs for $pod in namespace $namespace"
         done
 
     - name: Upload pod logs as evidence
