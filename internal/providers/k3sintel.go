@@ -16,14 +16,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	intelv1alpha1 "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
-	rke2cpv1beta1 "github.com/rancher/cluster-api-provider-rke2/controlplane/api/v1beta1"
+	kthreesbootstrapv1beta2 "github.com/k3s-io/cluster-api-k3s/bootstrap/api/v1beta2"
+	kthreescpv1beta2 "github.com/k3s-io/cluster-api-k3s/controlplane/api/v1beta2"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-type rke2intel struct {
+type k3sintel struct {
 }
 
-func (rke2intel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
-	cc.Spec.ControlPlane.LocalObjectTemplate.Ref.Kind = RKE2ControlPlaneTemplate
+func (k3sintel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
+	cc.Spec.ControlPlane.LocalObjectTemplate.Ref.APIVersion = "controlplane.cluster.x-k8s.io/v1beta2"	
+	cc.Spec.ControlPlane.LocalObjectTemplate.Ref.Kind = KThreesControlPlaneTemplate
 
 	cc.Spec.ControlPlane.MachineInfrastructure.Ref.APIVersion = "infrastructure.cluster.x-k8s.io/v1alpha1"
 	cc.Spec.ControlPlane.MachineInfrastructure.Ref.Kind = IntelMachineTemplate
@@ -62,8 +65,8 @@ func (rke2intel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
 			Definitions: []capiv1beta1.PatchDefinition{
 				{
 					Selector: capiv1beta1.PatchSelector{
-						APIVersion: "controlplane.cluster.x-k8s.io/v1beta1",
-						Kind:       RKE2ControlPlaneTemplate,
+						APIVersion: "controlplane.cluster.x-k8s.io/v1beta2",
+						Kind:       KThreesControlPlaneTemplate,
 						MatchResources: capiv1beta1.PatchSelectorMatch{
 							ControlPlane: true,
 						},
@@ -85,12 +88,12 @@ func (rke2intel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
 	}
 }
 
-func (rke2intel) CreatePrerequisites(ctx context.Context, c client.Client, name types.NamespacedName) error {
+func (k3sintel) CreatePrerequisites(ctx context.Context, c client.Client, name types.NamespacedName) error {
 	return nil
 }
 
-func (rke2intel) CreateControlPlaneTemplate(ctx context.Context, c client.Client, name types.NamespacedName, config string) error {
-	var cpt rke2cpv1beta1.RKE2ControlPlaneTemplate
+func (k3sintel) CreateControlPlaneTemplate(ctx context.Context, c client.Client, name types.NamespacedName, config string) error {
+	var cpt kthreescpv1beta2.KThreesControlPlaneTemplate
 	if err := json.Unmarshal([]byte(config), &cpt); err != nil {
 		return fmt.Errorf("failed to unmarshal control plane template: %w", err)
 	}
@@ -100,16 +103,34 @@ func (rke2intel) CreateControlPlaneTemplate(ctx context.Context, c client.Client
 		Namespace: name.Namespace,
 	}
 
-	cpt.Spec.Template.Spec.InfrastructureRef = corev1.ObjectReference{
-		APIVersion: "infrastructure.cluster.x-k8s.io/v1alpha1",
-		Kind:       IntelMachineTemplate,
-		Name:       fmt.Sprintf("%s-controlplane", name.Name),
+	cpt.Spec.Template.Spec.KThreesConfigSpec = kthreesbootstrapv1beta2.KThreesConfigSpec{
+		Version: "v1.30.2+k3s2", 									// TODO: make configurable from the template
+		ServerConfig: kthreesbootstrapv1beta2.KThreesServerConfig{ 	// TODO: make configurable from the template
+			TLSSan:                                 []string{"0.0.0.0"},
+			ClusterDomain:                          "cluster.edge",
+			DisableCloudController:                 func(b bool) *bool { return &b }(false),
+		},
 	}
 
-	return c.Create(ctx, &cpt)
+	cpt.Spec.Template.Spec.MachineTemplate = kthreescpv1beta2.KThreesControlPlaneMachineTemplate{
+		InfrastructureRef: corev1.ObjectReference{
+			APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+			Kind:       "IntelMachineTemplate",
+			Name:       fmt.Sprintf("%s-controlplane", name.Name),
+			Namespace:  name.Namespace,
+		},
+	}
+
+	if err := c.Create(ctx, &cpt); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to create KThreesControlPlaneTemplate: %w", err)
+	}
+	return nil
 }
 
-func (rke2intel) CreateControlPlaneMachineTemplate(ctx context.Context, c client.Client, name types.NamespacedName) error {
+func (k3sintel) CreateControlPlaneMachineTemplate(ctx context.Context, c client.Client, name types.NamespacedName) error {
 	cpmt := intelv1alpha1.IntelMachineTemplate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-controlplane", name.Name),
@@ -122,7 +143,7 @@ func (rke2intel) CreateControlPlaneMachineTemplate(ctx context.Context, c client
 	return c.Create(ctx, &cpmt)
 }
 
-func (rke2intel) CreateClusterTemplate(ctx context.Context, c client.Client, name types.NamespacedName) error {
+func (k3sintel) CreateClusterTemplate(ctx context.Context, c client.Client, name types.NamespacedName) error {
 	uct := unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": intelv1alpha1.GroupVersion.String(),
@@ -142,22 +163,22 @@ func (rke2intel) CreateClusterTemplate(ctx context.Context, c client.Client, nam
 	return c.Create(ctx, &uct)
 }
 
-func (rke2intel) DeletePrerequisites(ctx context.Context, c client.Client, name types.NamespacedName) error {
+func (k3sintel) DeletePrerequisites(ctx context.Context, c client.Client, name types.NamespacedName) error {
 	return nil
 }
 
-func (rke2intel) GetPrerequisites(ctx context.Context, c client.Client, name types.NamespacedName) error {
+func (k3sintel) GetPrerequisites(ctx context.Context, c client.Client, name types.NamespacedName) error {
 	return nil
 }
 
-func (rke2intel) GetControlPlaneTemplate(ctx context.Context, c client.Client, name types.NamespacedName) error {
-	return c.Get(ctx, name, &rke2cpv1beta1.RKE2ControlPlaneTemplate{})
+func (k3sintel) GetControlPlaneTemplate(ctx context.Context, c client.Client, name types.NamespacedName) error {
+	return c.Get(ctx, name, &kthreescpv1beta2.KThreesControlPlane{})
 }
 
-func (rke2intel) GetControlPlaneMachineTemplate(ctx context.Context, c client.Client, name types.NamespacedName) error {
+func (k3sintel) GetControlPlaneMachineTemplate(ctx context.Context, c client.Client, name types.NamespacedName) error {
 	return c.Get(ctx, types.NamespacedName{Name: name.Name + "-controlplane", Namespace: name.Namespace}, &intelv1alpha1.IntelMachineTemplate{})
 }
 
-func (rke2intel) GetClusterTemplate(ctx context.Context, c client.Client, name types.NamespacedName) error {
+func (k3sintel) GetClusterTemplate(ctx context.Context, c client.Client, name types.NamespacedName) error {
 	return c.Get(ctx, name, &intelv1alpha1.IntelClusterTemplate{})
 }

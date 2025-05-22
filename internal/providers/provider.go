@@ -20,6 +20,7 @@ const (
 
 	KubeadmControlPlaneTemplate = "KubeadmControlPlaneTemplate"
 	RKE2ControlPlaneTemplate    = "RKE2ControlPlaneTemplate"
+	KThreesControlPlaneTemplate = "KThreesControlPlaneTemplate"
 )
 
 type Provider interface {
@@ -38,6 +39,11 @@ type Provider interface {
 	GetClusterTemplate(ctx context.Context, c client.Client, name types.NamespacedName) error
 }
 
+var (
+	connectAgentManifest = "connectAgentManifest"
+	enabledIf            = "{{ if .connectAgentManifest.path }}true{{ end }}"
+)
+
 func GetCapiProvider(controlPlaneProvider string, infraProvider string) Provider {
 	switch {
 	case controlPlaneProvider == "kubeadm" && infraProvider == "docker":
@@ -46,6 +52,8 @@ func GetCapiProvider(controlPlaneProvider string, infraProvider string) Provider
 		return rke2docker{}
 	case controlPlaneProvider == "rke2" && infraProvider == "intel":
 		return rke2intel{}
+	case controlPlaneProvider == "k3s" && infraProvider == "intel":
+		return k3sintel{}
 	default:
 		return nil
 	}
