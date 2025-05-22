@@ -35,6 +35,7 @@ jobs:
       run: make run-service-test
 
     - name: Gather logs from every pod
+      if: always()
       run: |
         mkdir -p pod-logs
         for pod in $(kubectl get pods -A -o jsonpath='{.items[*].metadata.name}'); do
