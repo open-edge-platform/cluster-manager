@@ -104,7 +104,7 @@ func (k3sintel) CreateControlPlaneTemplate(ctx context.Context, c client.Client,
 	}
 
 	cpt.Spec.Template.Spec.KThreesConfigSpec = kthreesbootstrapv1beta2.KThreesConfigSpec{
-		Version: "v1.30.2+k3s2", 									// TODO: make configurable from the template
+		Version: "v1.32.4+k3s1", 									// TODO: make configurable from the template
 		ServerConfig: kthreesbootstrapv1beta2.KThreesServerConfig{ 	// TODO: make configurable from the template
 			TLSSan:                                 []string{"0.0.0.0"},
 			ClusterDomain:                          "cluster.edge",
