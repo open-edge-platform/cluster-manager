@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -158,7 +157,7 @@ func (tdm *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.Ru
 	// Label default template
 	var defaultTemplateName string
 	for _, t := range tdm.templates {
-		if strings.Contains(t.GetName(), template.DefaultTemplateName) {
+		if t.GetName() == template.DefaultTemplateName {
 			defaultTemplateName = t.GetName()
 			break
 		}
