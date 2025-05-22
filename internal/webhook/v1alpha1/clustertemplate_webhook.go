@@ -31,6 +31,12 @@ import (
 // set up logging
 var clustertemplatelog = logf.Log.WithName("clustertemplate-resource")
 
+var controlPlaneTemplateTypes = map[string]func() interface{}{
+	string(api.Kubeadm): func() interface{} { return &kubeadmcp.KubeadmControlPlaneTemplate{} },
+	string(api.Rke2):    func() interface{} { return &rke2cpv1beta1.RKE2ControlPlaneTemplate{} },
+	string(api.K3s):     func() interface{} { return &kthreescpv1beta2.KThreesControlPlaneTemplate{} },
+}
+
 // SetupClusterTemplateWebhookWithManager registers the webhook for ClusterTemplate in the manager.
 func (v *ClusterTemplateCustomValidator) SetupClusterTemplateWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).For(&clusterv1alpha1.ClusterTemplate{}).
@@ -52,31 +58,19 @@ func (v *ClusterTemplateCustomValidator) ValidateCreate(ctx context.Context, obj
 	}
 	clustertemplatelog.Info("validation for ClusterTemplate upon creation", "name", clustertemplate.GetName())
 
-	switch api.TemplateInfoControlplaneprovidertype(clustertemplate.Spec.ControlPlaneProviderType) {
-	case api.Kubeadm:
-		kubeadmControlPlaneTemplate := &kubeadmcp.KubeadmControlPlaneTemplate{}
-		err := json.Unmarshal([]byte(clustertemplate.Spec.ClusterConfiguration), &kubeadmControlPlaneTemplate)
-		if err != nil {
-			slog.Error("invalid KubeadmControlPlaneTemplate", "error", err)
-			return nil, fmt.Errorf("failed to convert cluster configuration: %w", err)
-		}
-	case api.Rke2:
-		rke2ControlPlaneTemplate := &rke2cpv1beta1.RKE2ControlPlaneTemplate{}
-		err := json.Unmarshal([]byte(clustertemplate.Spec.ClusterConfiguration), &rke2ControlPlaneTemplate)
-		if err != nil {
-			slog.Error("invalid RKE2ControlPlaneTemplate", "error", err)
-			return nil, fmt.Errorf("failed to convert cluster configuration: %w", err)
-		}
-	case api.K3s:
-		kthreesControlPlaneTemplate := &kthreescpv1beta2.KThreesControlPlaneTemplate{}
-		err := json.Unmarshal([]byte(clustertemplate.Spec.ClusterConfiguration), &kthreesControlPlaneTemplate)
-		if err != nil {
-			slog.Error("invalid KThreesControlPlaneTemplate", "error", err)
-			return nil, fmt.Errorf("failed to convert cluster configuration: %w", err)
-		}
-	default:
-		return nil, fmt.Errorf("invalid control plane provider type: %s", clustertemplate.Spec.ControlPlaneProviderType)
+	providerType := clustertemplate.Spec.ControlPlaneProviderType
+	constructor, ok := controlPlaneTemplateTypes[providerType]
+	if !ok {
+		return nil, fmt.Errorf("invalid control plane provider type: %s", providerType)
 	}
+
+	templateObj := constructor()
+	err := json.Unmarshal([]byte(clustertemplate.Spec.ClusterConfiguration), templateObj)
+	if err != nil {
+		slog.Error("invalid control plane template", "providerType", providerType, "error", err)
+		return nil, fmt.Errorf("failed to convert cluster configuration: %w", err)
+	}
+
 	return nil, nil
 }
 

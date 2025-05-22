@@ -43,18 +43,14 @@ var (
 	connectAgentManifest = "connectAgentManifest"
 	enabledIf            = "{{ if .connectAgentManifest.path }}true{{ end }}"
 )
+var providerRegistry = map[string]Provider{
+    "kubeadm:docker": kubeadmdocker{},
+    "rke2:docker":    rke2docker{},
+    "rke2:intel":     rke2intel{},
+    "k3s:intel":      k3sintel{},
+}
 
-func GetCapiProvider(controlPlaneProvider string, infraProvider string) Provider {
-	switch {
-	case controlPlaneProvider == "kubeadm" && infraProvider == "docker":
-		return kubeadmdocker{}
-	case controlPlaneProvider == "rke2" && infraProvider == "docker":
-		return rke2docker{}
-	case controlPlaneProvider == "rke2" && infraProvider == "intel":
-		return rke2intel{}
-	case controlPlaneProvider == "k3s" && infraProvider == "intel":
-		return k3sintel{}
-	default:
-		return nil
-	}
+func GetCapiProvider(controlPlaneProvider, infraProvider string) Provider {
+    key := controlPlaneProvider + ":" + infraProvider
+    return providerRegistry[key]
 }
