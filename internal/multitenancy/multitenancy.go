@@ -24,8 +24,8 @@ import (
 const appName = "cluster-manager"
 
 var (
-	nexusContextTimeout = time.Second * 5
-
+	baselineRegex         = regexp.MustCompile(`^baseline-v\d+\.\d+\.\d+`)	
+	nexusContextTimeout   = time.Second * 5
 	GetClusterConfigFunc  = rest.InClusterConfig
 	GetNexusClientSetFunc = nexus.NewForConfig
 	GetK8sClientFunc      = k8s.NewClient
@@ -157,7 +157,6 @@ func (tdm *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.Ru
 
 	// Label default template
 	var defaultTemplateName string
-	baselineRegex := regexp.MustCompile(`^baseline-v\d+\.\d+\.\d+`)
 	for _, t := range tdm.templates {
 		if baselineRegex.MatchString(t.GetName()) {
 			defaultTemplateName = t.GetName()
