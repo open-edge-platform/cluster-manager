@@ -317,8 +317,8 @@ func TestGetV2Templates200(t *testing.T) {
 		// Check the response status
 		require.Equal(t, http.StatusOK, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, 200)
 		require.Len(t, *response.TemplateInfoList, 2, "TemplateInfoList should have 2 items")
-		require.Equal(t, templateInfo2.Name, (*response.TemplateInfoList)[0].Name, "TemplateInfoList[0].Name = %v, want %v", (*response.TemplateInfoList)[0].Name, template2.Name)
-		require.Equal(t, templateInfo3.Name, (*response.TemplateInfoList)[1].Name, "TemplateInfoList[1].Name = %v, want %v", (*response.TemplateInfoList)[1].Name, template3.Name)
+		require.Equal(t, templateInfo2.Name, (*response.TemplateInfoList)[0].Name, "TemplateInfoList[0].Name = %v, want %v", (*response.TemplateInfoList)[0].Name, templateInfo2.Name)
+		require.Equal(t, templateInfo3.Name, (*response.TemplateInfoList)[1].Name, "TemplateInfoList[1].Name = %v, want %v", (*response.TemplateInfoList)[1].Name, templateInfo3.Name)
 		require.Empty(t, response.DefaultTemplateInfo, "DefaultTemplateInfo should be empty")
 	})
 
@@ -344,8 +344,8 @@ func TestGetV2Templates200(t *testing.T) {
 		// Check the response status
 		require.Equal(t, http.StatusOK, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, 200)
 		require.Len(t, *response.TemplateInfoList, 2, "TemplateInfoList should have 2 items")
-		require.Equal(t, templateInfo2.Name, (*response.TemplateInfoList)[0].Name, "TemplateInfoList[0].Name = %v, want %v", (*response.TemplateInfoList)[0].Name, template2.Name)
-		require.Equal(t, templateInfo3.Name, (*response.TemplateInfoList)[1].Name, "TemplateInfoList[1].Name = %v, want %v", (*response.TemplateInfoList)[1].Name, template3.Name)
+		require.Equal(t, templateInfo2.Name, (*response.TemplateInfoList)[0].Name, "TemplateInfoList[0].Name = %v, want %v", (*response.TemplateInfoList)[0].Name, templateInfo2.Name)
+		require.Equal(t, templateInfo3.Name, (*response.TemplateInfoList)[1].Name, "TemplateInfoList[1].Name = %v, want %v", (*response.TemplateInfoList)[1].Name, templateInfo3.Name)
 		require.Empty(t, response.DefaultTemplateInfo, "DefaultTemplateInfo should be empty")
 	})
 
@@ -371,8 +371,10 @@ func TestGetV2Templates200(t *testing.T) {
 		// Check the response status
 		require.Equal(t, http.StatusOK, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, 200)
 		require.Len(t, *response.TemplateInfoList, 2, "TemplateInfoList should have 2 items")
-		require.Equal(t, templateInfo3.Name, (*response.TemplateInfoList)[0].Name, "TemplateInfoList[1].Name = %v, want %v", (*response.TemplateInfoList)[0].Name, template3.Name)
-		require.Equal(t, templateInfo4.Name, (*response.TemplateInfoList)[1].Name, "TemplateInfoList[2].Name = %v, want %v", (*response.TemplateInfoList)[1].Name, template4.Name)
+		require.Equal(t, templateInfo3.Name, (*response.TemplateInfoList)[0].Name, "TemplateInfoList[0].Name = %v, want %v", (*response.TemplateInfoList)[0].Name, templateInfo3.Name)
+		require.Equal(t, templateInfo4.Name, (*response.TemplateInfoList)[1].Name, "TemplateInfoList[1].Name = %v, want %v", (*response.TemplateInfoList)[1].Name, templateInfo4.Name)
+		require.Equal(t, templateInfo3.Version, (*response.TemplateInfoList)[0].Version, "TemplateInfoList[0].Version = %v, want %v", (*response.TemplateInfoList)[0].Version, templateInfo3.Version)
+		require.Equal(t, templateInfo4.Version, (*response.TemplateInfoList)[1].Version, "TemplateInfoList[1].Version = %v, want %v", (*response.TemplateInfoList)[1].Version, templateInfo4.Version)
 		require.Empty(t, response.DefaultTemplateInfo, "DefaultTemplateInfo should be empty")
 	})
 
@@ -398,8 +400,10 @@ func TestGetV2Templates200(t *testing.T) {
 		// Check the response status
 		require.Equal(t, http.StatusOK, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, 200)
 		require.Len(t, *response.TemplateInfoList, 2, "TemplateInfoList should have 2 items")
-		require.Equal(t, templateInfo4.Name, (*response.TemplateInfoList)[0].Name, "TemplateInfoList[1].Name = %v, want %v", (*response.TemplateInfoList)[0].Name, template3.Name)
-		require.Equal(t, templateInfo3.Name, (*response.TemplateInfoList)[1].Name, "TemplateInfoList[2].Name = %v, want %v", (*response.TemplateInfoList)[1].Name, template4.Name)
+		require.Equal(t, templateInfo4.Name, (*response.TemplateInfoList)[0].Name, "TemplateInfoList[0].Name = %v, want %v", (*response.TemplateInfoList)[0].Name, templateInfo4.Name)
+		require.Equal(t, templateInfo3.Name, (*response.TemplateInfoList)[1].Name, "TemplateInfoList[1].Name = %v, want %v", (*response.TemplateInfoList)[1].Name, templateInfo3.Name)
+		require.Equal(t, templateInfo4.Version, (*response.TemplateInfoList)[0].Version, "TemplateInfoList[0].Version = %v, want %v", (*response.TemplateInfoList)[0].Version, templateInfo4.Version)
+		require.Equal(t, templateInfo3.Version, (*response.TemplateInfoList)[1].Version, "TemplateInfoList[1].Version = %v, want %v", (*response.TemplateInfoList)[1].Version, templateInfo3.Version)
 		require.Empty(t, response.DefaultTemplateInfo, "DefaultTemplateInfo should be empty")
 	})
 
