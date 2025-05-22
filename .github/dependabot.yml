@@ -3,7 +3,6 @@
 
 ---
 version: 2
-registries:
 updates:
   - package-ecosystem: "gomod"
     directory: "/"
