@@ -3,11 +3,9 @@
 #  - grep (https://www.gnu.org/software/grep/)
 #  - jo   (https://github.com/jpmens/jo)
 #  - jq   (https://jqlang.org/)
-#  - sed  (https://www.gnu.org/software/sed/)
 # The string in the template can be created from this file using the following command:
-#   jo content="$(grep -v '^#' config.toml.tmpl)"|sed 's/\\"/\\\\\\\"/g'|jq .content
+#   jo content="$(grep -v '^#' config.toml.tmpl)"|jq .content
 # The result can then be pasted into the template files as the "content".
-# The "sed" command performs triple backslashing of quotes, which seems to be required.
 version = 2
 
 [plugins."io.containerd.internal.v1.opt"]
