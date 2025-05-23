@@ -15,9 +15,9 @@ import (
 	capiv1beta1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	intelv1alpha1 "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
 	kthreesbootstrapv1beta2 "github.com/k3s-io/cluster-api-k3s/bootstrap/api/v1beta2"
 	kthreescpv1beta2 "github.com/k3s-io/cluster-api-k3s/controlplane/api/v1beta2"
+	intelv1alpha1 "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
@@ -104,11 +104,12 @@ func (k3sintel) CreateControlPlaneTemplate(ctx context.Context, c client.Client,
 	}
 
 	cpt.Spec.Template.Spec.KThreesConfigSpec = kthreesbootstrapv1beta2.KThreesConfigSpec{
-		Version: "v1.32.4+k3s1", 									// TODO: make configurable from the template
-		ServerConfig: kthreesbootstrapv1beta2.KThreesServerConfig{ 	// TODO: make configurable from the template
-			TLSSan:                                 []string{"0.0.0.0"},
-			ClusterDomain:                          "cluster.edge",
-			DisableCloudController:                 func(b bool) *bool { return &b }(false),
+		Files:   []kthreesbootstrapv1beta2.File{},
+		Version: "v1.32.4+k3s1", // TODO: make configurable from the template
+		ServerConfig: kthreesbootstrapv1beta2.KThreesServerConfig{ // TODO: make configurable from the template
+			TLSSan:                 []string{"0.0.0.0"},
+			ClusterDomain:          "cluster.edge",
+			DisableCloudController: func(b bool) *bool { return &b }(false),
 		},
 	}
 
