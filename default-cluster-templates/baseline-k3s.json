@@ -7,7 +7,7 @@
   "infraprovidertype": "intel",
   "clusterconfiguration": {
     "kind": "KThreesControlPlaneTemplate",
-    "apiVersion": "controlplane.cluster.x-k8s.io/v1beta1",
+    "apiVersion": "controlplane.cluster.x-k8s.io/v1beta2",
     "metadata": {
       "labels": {
         "cpumanager": "true"
@@ -36,7 +36,7 @@
           "preK3sCommands": [
             "mkdir -p /etc/systemd/system/k3s-server.service.d",
             "echo '[Service]\nEnvironmentFile=/etc/environment' > /etc/systemd/system/k3s-server.service.d/override.conf",
-            "make -p /var/lib/kubelet/static-pods",
+            "mkdir -p /var/lib/kubelet/static-pods",
             "sed -i '/kubelet-arg:/a\\- pod-manifest-path=/var/lib/kubelet/static-pods' /etc/rancher/k3s/config.yaml"
           ],
           "postK3sCommands": [

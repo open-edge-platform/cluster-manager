@@ -34,7 +34,7 @@ rules:
   resources: ["machines"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["controlplane.cluster.x-k8s.io"]
-  resources: ["kubeadmcontrolplanetemplates", "rke2controlplanetemplates"]
+  resources: ["kubeadmcontrolplanetemplates", "rke2controlplanetemplates","kthreescontrolplanetemplates","kthreescontrolplanes"]
   verbs: ["create", "delete", "get", "list", "watch"]
 - apiGroups: ["infrastructure.cluster.x-k8s.io"]
   resources: ["dockerclustertemplates", "dockermachinetemplates", "dockermachines", "intelclustertemplates", "intelmachinebindings", "intelmachinetemplates", "intelmachines"]
