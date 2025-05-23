@@ -33,3 +33,21 @@ jobs:
 
     - name: Run service test
       run: make run-service-test
+
+    - name: Gather logs from every pod
+      if: always()
+      run: |
+        mkdir -p service-test-logs
+        for pod_and_namespace in $(kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.name}{";"}{.metadata.namespace}{"\n"}{end}'); do
+          pod=$(echo "$pod_and_namespace" | awk -F';' '{print $1}')
+          namespace=$(echo "$pod_and_namespace" | awk -F';' '{print $2}')
+          echo "Gathering logs for pod $pod in namespace $namespace"
+          kubectl logs "$pod" -n "$namespace" > "./service-test-logs/${pod}.log" || echo "Failed to get logs for $pod in namespace $namespace"
+        done
+
+    - name: Upload pod logs as evidence
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+      with:
+        name: service-test-logs
+        path: service-test-logs
