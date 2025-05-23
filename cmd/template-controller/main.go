@@ -31,14 +31,14 @@ import (
 	// +kubebuilder:scaffold:imports
 
 	// Imports for CAPI resources
+	kthreesbootstrapv1beta2 "github.com/k3s-io/cluster-api-k3s/bootstrap/api/v1beta2"
+	kthreescpv1beta2 "github.com/k3s-io/cluster-api-k3s/controlplane/api/v1beta2"
 	intelv1alpha1 "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
 	rke2bootstrapv1beta1 "github.com/rancher/cluster-api-provider-rke2/bootstrap/api/v1beta1"
 	rke2cpv1beta1 "github.com/rancher/cluster-api-provider-rke2/controlplane/api/v1beta1"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	kubeadmbootstrapv1beta1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	kubeadmcp "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
-	kthreesbootstrapv1beta2 "github.com/k3s-io/cluster-api-k3s/bootstrap/api/v1beta2"
-	kthreescpv1beta2 "github.com/k3s-io/cluster-api-k3s/controlplane/api/v1beta2"
 	dockerv1beta1 "sigs.k8s.io/cluster-api/test/infrastructure/docker/api/v1beta1"
 )
 
@@ -53,37 +53,30 @@ func init() {
 	utilruntime.Must(clusterv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 
-	// ---- DOCKER INFRASTRUCTURE PROVIDER  ----
-	// Add scheme for Docker infrastructure provider
-	utilruntime.Must(dockerv1beta1.AddToScheme(scheme))
+	capiSchemeAdders := []func(*runtime.Scheme) error{
+		// Docker infrastructure provider
+		dockerv1beta1.AddToScheme,
+		// Intel infrastructure provider
+		intelv1alpha1.AddToScheme,
+		// Kubeadm bootstrap provider
+		kubeadmbootstrapv1beta1.AddToScheme,
+		// Kubeadm control plane provider
+		kubeadmcp.AddToScheme,
+		// RKE2 bootstrap provider
+		rke2bootstrapv1beta1.AddToScheme,
+		// RKE2 control plane provider
+		rke2cpv1beta1.AddToScheme,
+		// K3s bootstrap provider
+		kthreesbootstrapv1beta2.AddToScheme,
+		// K3s control plane provider
+		kthreescpv1beta2.AddToScheme,
+		// Cluster API core resources
+		capi.AddToScheme,
+	}
 
-	// ---- INTEL INFRASTRUCTURE PROVIDER  ----
-	// Add scheme for Intel infrastructure provider
-	utilruntime.Must(intelv1alpha1.AddToScheme(scheme))
-
-	// ---- KUBEADM CONTROL PLANE PROVIDER ----
-	// Add scheme for Kubeadm bootstrap provider
-	utilruntime.Must(kubeadmbootstrapv1beta1.AddToScheme(scheme))
-
-	// Add scheme for Kubeadm control plane provider
-	utilruntime.Must(kubeadmcp.AddToScheme(scheme))
-
-	// ---- RKE2 CONTROL PLANE PROVIDER ----
-	// Add scheme for RKE2 bootstrap provider
-	utilruntime.Must(rke2bootstrapv1beta1.AddToScheme(scheme))
-
-	// Add scheme for RKE2 control plane provider
-	utilruntime.Must(rke2cpv1beta1.AddToScheme(scheme))
-
-	// ---- K3s CONTROL PLANE PROVIDER ----
-	// Add scheme for K3s bootstrap provider
-	utilruntime.Must(kthreesbootstrapv1beta2.AddToScheme(scheme))
-
-	// Add scheme for K3s control plane provider
-	utilruntime.Must(kthreescpv1beta2.AddToScheme(scheme))
-	// ----  CAPI ----
-	// Add scheme for Cluster API core resources
-	utilruntime.Must(capi.AddToScheme(scheme))
+	for _, adder := range capiSchemeAdders {
+		utilruntime.Must(adder(scheme))
+	}
 }
 
 // version injected at build time
