@@ -76,7 +76,7 @@ func (k3sintel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
 							// This patch assumes something is already at .Files array.
 							// If not (like in vanilla baseline template), we'll need a different patch
 							Op:   "add",
-							Path: "/spec/template/spec/files/-",
+							Path: "/spec/template/spec/kthreesConfigSpec/files/-",
 							ValueFrom: &capiv1beta1.JSONPatchValue{
 								Variable: &connectAgentManifest,
 							},
