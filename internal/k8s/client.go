@@ -429,6 +429,22 @@ func (cli *Client) GetMachines(ctx context.Context, namespace, clusterName strin
 	return machines, nil
 }
 
+func (cli *Client) GetClusterTemplate(ctx context.Context, namespace, templateName string) (*ct.ClusterTemplate, error) {
+	var template ct.ClusterTemplate
+
+	unstructuredClusterTemplate, err := cli.Dyn.Resource(templateResourceSchema).Namespace(namespace).Get(ctx, templateName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	err = convert.FromUnstructured(*unstructuredClusterTemplate, &template)
+	if err != nil {
+		return nil, err
+	}
+
+	return &template, nil
+}
+
 // CreateMachineBinding creates a new machine binding object in the given namespace
 func (cli *Client) CreateMachineBinding(ctx context.Context, namespace string, binding intelProvider.IntelMachineBinding) error {
 	unstructuredBinding, err := convert.ToUnstructured(binding)

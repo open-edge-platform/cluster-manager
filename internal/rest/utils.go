@@ -101,7 +101,7 @@ func getComponentReady(cluster *capi.Cluster, conditionType capi.ConditionType, 
 		*status.Message = unknownMessage
 	}
 	if componentCondition.Status == corev1.ConditionFalse {
-		if componentCondition.Reason == "WaitingForRKE2Server"  || componentCondition.Reason == "WaitingForKThreesServer"{
+		if componentCondition.Reason == "WaitingForRKE2Server" || componentCondition.Reason == "WaitingForKThreesServer" {
 			*status.Message = fmt.Sprintf("%s;%s", *status.Message, "waiting for control plane provider to indicate the control plane has been initialized")
 		} else {
 			*status.Message = fmt.Sprintf("%s;%s", *status.Message, componentCondition.Reason)

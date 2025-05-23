@@ -42,15 +42,17 @@ type Provider interface {
 var (
 	connectAgentManifest = "connectAgentManifest"
 	enabledIf            = "{{ if .connectAgentManifest.path }}true{{ end }}"
+
+	AirGapped = "airGapped"
 )
 var providerRegistry = map[string]Provider{
-    "kubeadm:docker": kubeadmdocker{},
-    "rke2:docker":    rke2docker{},
-    "rke2:intel":     rke2intel{},
-    "k3s:intel":      k3sintel{},
+	"kubeadm:docker": kubeadmdocker{},
+	"rke2:docker":    rke2docker{},
+	"rke2:intel":     rke2intel{},
+	"k3s:intel":      k3sintel{},
 }
 
 func GetCapiProvider(controlPlaneProvider, infraProvider string) Provider {
-    key := controlPlaneProvider + ":" + infraProvider
-    return providerRegistry[key]
+	key := controlPlaneProvider + ":" + infraProvider
+	return providerRegistry[key]
 }
