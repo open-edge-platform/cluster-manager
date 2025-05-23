@@ -5,6 +5,8 @@ package rest
 import (
 	"context"
 	"fmt"
+	controlplaneprovider "github.com/open-edge-platform/cluster-manager/v2/internal/providers"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"log/slog"
 	"strconv"
 	"time"
@@ -93,7 +95,7 @@ func (s *Server) PostV2Clusters(ctx context.Context, request api.PostV2ClustersR
 
 	// create cluster
 	slog.Debug("creating cluster", "namespace", namespace)
-	createdClusterName, err := createCluster(ctx, cli, namespace, clusterName, template, nodes, clusterLabels)
+	createdClusterName, err := s.createCluster(ctx, cli, namespace, clusterName, template, nodes, clusterLabels)
 	if err != nil {
 		slog.Error("failed to create cluster", "namespace", namespace, "name", clusterName, "error", err)
 		return api.PostV2Clusters500JSONResponse{
@@ -138,8 +140,13 @@ func fetchTemplate(ctx context.Context, cli *k8s.Client, namespace string, templ
 	return template, nil
 }
 
-func createCluster(ctx context.Context, cli *k8s.Client, namespace, clusterName string, template ct.ClusterTemplate, nodes []api.NodeSpec, labels map[string]string) (string, error) {
+func (s *Server) createCluster(ctx context.Context, cli *k8s.Client, namespace, clusterName string, template ct.ClusterTemplate, nodes []api.NodeSpec, labels map[string]string) (string, error) {
 	slog.Debug("creating cluster", "namespace", namespace, "name", clusterName, "nodes", nodes, "labels", labels)
+
+	enableAirGap, err := s.enableAirGapInstall(ctx, cli, namespace, clusterName, template)
+	if err != nil {
+		return "", err
+	}
 
 	// create cluster
 	replicas := int32(len(nodes))
@@ -163,6 +170,14 @@ func createCluster(ctx context.Context, cli *k8s.Client, namespace, clusterName 
 				Version: template.Spec.KubernetesVersion,
 				ControlPlane: capi.ControlPlaneTopology{
 					Replicas: &replicas,
+				},
+				Variables: []capi.ClusterVariable{
+					{
+						Name: controlplaneprovider.AirGapped,
+						Value: apiextensionsv1.JSON{
+							Raw: []byte(strconv.FormatBool(enableAirGap)),
+						},
+					},
 				},
 			},
 		},
@@ -199,6 +214,31 @@ func createBindings(ctx context.Context, cli *k8s.Client, namespace, clusterName
 		}
 	}
 	return nil
+}
+
+func (s *Server) enableAirGapInstall(ctx context.Context, cli *k8s.Client, namespace, clusterName string, template ct.ClusterTemplate) (bool, error) {
+	var enableAirGap bool
+	var clusterTemplate *ct.ClusterTemplate
+	var err error
+
+	if clusterTemplate, err = cli.GetClusterTemplate(ctx, namespace, template.Name); err != nil {
+		return enableAirGap, err
+	}
+
+	if clusterTemplate == nil {
+		return enableAirGap, fmt.Errorf("cluster template %s not found", template.Name)
+	}
+
+	if clusterTemplate.Spec.ControlPlaneProviderType == "" {
+		return enableAirGap, fmt.Errorf("control plane provider type is empty")
+	}
+
+	// Enable air-gap when k3s is being installed on a host with EMT OS (immutable OS).
+	// We expect k3s to be packaged as part of EMT OS.
+	if clusterTemplate.Spec.ControlPlaneProviderType == "k3s" {
+		enableAirGap, err = s.inventory.EnableAirGapInstall(ctx, namespace, clusterName)
+	}
+	return enableAirGap, err
 }
 
 func convertClusterNetwork(network *ct.ClusterNetwork) *capi.ClusterNetwork {
