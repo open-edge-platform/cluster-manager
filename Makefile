@@ -14,6 +14,7 @@ VERSION_DEV_SUFFIX := ${GIT_HASH_SHORT}
 CLUSTERCTL_VERSION ?= v1.9.5
 KUBEADM_VERSION    ?= v1.9.0
 RKE2_VERSION       ?= v0.12.0
+K3s_VERSION        ?= v0.2.1
 DOCKER_INFRA_VERSION   ?= v1.8.5
 CLUSTERCTL := $(shell command -v clusterctl 2> /dev/null)
 
@@ -483,7 +484,8 @@ kind-create: ## Create a development kind cluster with CAPI enabled
 	fi
 	echo "Creating a Kind cluster with CAPI enabled..."
 	kind create cluster --name $(KIND_CLUSTER) --config $(KIND_CONFIG)
-	CLUSTER_TOPOLOGY=true clusterctl init --core cluster-api:${CLUSTERCTL_VERSION} --bootstrap kubeadm:${KUBEADM_VERSION},rke2:${RKE2_VERSION} --control-plane kubeadm:${KUBEADM_VERSION},rke2:${RKE2_VERSION} --infrastructure docker:${DOCKER_INFRA_VERSION}
+	@make setup-clusterctl-config	
+	CLUSTER_TOPOLOGY=true clusterctl init --core cluster-api:${CLUSTERCTL_VERSION} --bootstrap kubeadm:${KUBEADM_VERSION},rke2:${RKE2_VERSION},k3s:${K3s_VERSION} --control-plane kubeadm:${KUBEADM_VERSION},rke2:${RKE2_VERSION},k3s:${K3s_VERSION} --infrastructure docker:${DOCKER_INFRA_VERSION}
 
 .PHONY: kind-expose-cm
 kind-expose-cm: ## Expose the cluster manager service to the host
@@ -561,6 +563,19 @@ install-cert-manager:  ## Install cert-manager using Helm.
 uninstall-cert-manager: ## Uninstall cert-manager using Helm.
 	helm uninstall cert-manager --namespace cert-manager
 	kubectl delete namespace cert-manager
+
+# Define variables for k3s provider URLs
+BOOTSTRAP_URL := https://github.com/k3s-io/cluster-api-k3s/releases/$(K3s_VERSION)/bootstrap-components.yaml
+CONTROL_PLANE_URL := https://github.com/k3s-io/cluster-api-k3s/releases/$(K3s_VERSION)/control-plane-components.yaml
+
+.PHONY: setup-clusterctl-config 
+setup-clusterctl-config: ## Create clusterctl.yaml config for k3s providers
+	@if [ -d "$$HOME/.config/cluster-api" ] && [ ! -w "$$HOME/.config/cluster-api" ]; then \
+		echo "Error: Directory $$HOME/.config/cluster-api exists but is not writable."; \
+		exit 1; \
+	fi
+	@mkdir -p "$$HOME/.config/cluster-api" || { echo "Error: Failed to create directory $$HOME/.config/cluster-api."; exit 1; }
+	@printf "providers:\n  - name: \"k3s\"\n    url: \"$(BOOTSTRAP_URL)\"\n    type: \"BootstrapProvider\"\n  - name: \"k3s\"\n    url: \"$(CONTROL_PLANE_URL)\"\n    type: \"ControlPlaneProvider\"" > "$$HOME/.config/cluster-api/clusterctl.yaml"
 
 .PHONY: clusterctl
 clusterctl: ## Download clusterctl binary

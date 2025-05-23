@@ -25,7 +25,7 @@ type k3sintel struct {
 }
 
 func (k3sintel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
-	cc.Spec.ControlPlane.LocalObjectTemplate.Ref.APIVersion = "controlplane.cluster.x-k8s.io/v1beta2"	
+	cc.Spec.ControlPlane.LocalObjectTemplate.Ref.APIVersion = "controlplane.cluster.x-k8s.io/v1beta2"
 	cc.Spec.ControlPlane.LocalObjectTemplate.Ref.Kind = KThreesControlPlaneTemplate
 
 	cc.Spec.ControlPlane.MachineInfrastructure.Ref.APIVersion = "infrastructure.cluster.x-k8s.io/v1alpha1"
