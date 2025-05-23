@@ -37,6 +37,8 @@ import (
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	kubeadmbootstrapv1beta1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	kubeadmcp "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
+	kthreesbootstrapv1beta2 "github.com/k3s-io/cluster-api-k3s/bootstrap/api/v1beta2"
+	kthreescpv1beta2 "github.com/k3s-io/cluster-api-k3s/controlplane/api/v1beta2"
 	dockerv1beta1 "sigs.k8s.io/cluster-api/test/infrastructure/docker/api/v1beta1"
 )
 
@@ -73,6 +75,12 @@ func init() {
 	// Add scheme for RKE2 control plane provider
 	utilruntime.Must(rke2cpv1beta1.AddToScheme(scheme))
 
+	// ---- K3s CONTROL PLANE PROVIDER ----
+	// Add scheme for K3s bootstrap provider
+	utilruntime.Must(kthreesbootstrapv1beta2.AddToScheme(scheme))
+
+	// Add scheme for K3s control plane provider
+	utilruntime.Must(kthreescpv1beta2.AddToScheme(scheme))
 	// ----  CAPI ----
 	// Add scheme for Cluster API core resources
 	utilruntime.Must(capi.AddToScheme(scheme))
