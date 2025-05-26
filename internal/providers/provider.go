@@ -42,6 +42,8 @@ func GetCapiProvider(controlPlaneProvider string, infraProvider string) Provider
 	switch {
 	case controlPlaneProvider == "kubeadm" && infraProvider == "docker":
 		return kubeadmdocker{}
+	case controlPlaneProvider == "kubeadm" && infraProvider == "intel":
+		return kubeadmintel{}
 	case controlPlaneProvider == "rke2" && infraProvider == "docker":
 		return rke2docker{}
 	case controlPlaneProvider == "rke2" && infraProvider == "intel":
