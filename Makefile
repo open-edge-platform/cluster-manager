@@ -205,7 +205,7 @@ dependency-check: ## Empty for now
 ##@ Build
 
 .PHONY: build
-build: build-template-controller build-cluster-manager ## Build template controller and cluster manager
+build: build-template-controller build-cluster-manager embed-manifest-baseline ## Build template controller and cluster manager
 
 .PHONY: build-template-controller
 build-template-controller: ## Build template controller
@@ -613,3 +613,55 @@ update-api-version: ## Update API version
 	@read -p "Enter new version: " new_version; \
 	sed -i "s/^  version:.*/  version: $${new_version}/" api/openapi/openapi.yaml
 	make generate-api
+
+
+LPP_MANIFEST_PATH := $(shell pwd)/default-cluster-templates/lpp-manifest.yaml
+BASELINE_TEMPLATE := $(shell pwd)/default-cluster-templates/baseline.json
+LPP_PLACEHOLDER := __MANIFEST_PLACEHOLDER__
+# LPP_MANIFEST=$(shell jq -Rs '.' < default-cluster-templates/lpp-manifest.yaml)
+# ESCAPED_REPLACEMENT=$(shell printf '%s' '$(LPP_MANIFEST)' | sed 's/[&/]/\\&/g')
+# sed -i.bak "s@$(LPP_PLACEHOLDER)@\"$$ESCAPED\"@" $(BASELINE_TEMPLATE)
+
+# @echo "Remove quotes around placeholder in baseline template..."
+# @sed -i.bak 's/"$(LPP_PLACEHOLDER)"/$(LPP_PLACEHOLDER)/' $(BASELINE_TEMPLATE)
+
+# @echo "Escaping manifest for JSON string embedding..."
+# @ESCAPED=$$(sed  ':a;N;$!ba; s/\\/\\\\/g; s/"/\\"/g; s/\n/\\n/g' ./default-cluster-templates/lpp-manifest.yaml | tr -d '\n'); \
+# sed -i.bak 's@"$(LPP_PLACEHOLDER)"@"'"$$ESCAPED"'"@' $(BASELINE_TEMPLATE)
+
+
+.PHONY: embed-manifest-baseline
+embed-manifest-baseline:
+	@if [ ! -f "$(LPP_MANIFEST_PATH)" ]; then \
+		echo "Error: Manifest file '$(LPP_MANIFEST_PATH)' not found."; \
+		exit 1; \
+	fi
+	@if [ ! -f "$(BASELINE_TEMPLATE)" ]; then \
+		echo "Error: Template file '$(BASELINE_TEMPLATE)' not found."; \
+		exit 1; \
+	fi
+	@if ! command -v jq >/dev/null 2>&1; then \
+		echo "Error: jq is not installed."; \
+		exit 1; \
+	fi
+	@if ! command -v sed >/dev/null 2>&1; then \
+		echo "Error: sed is not installed."; \
+		exit 1; \
+	fi
+
+	# test_var=$(jq -Rs '.' < ./default-cluster-templates/lpp-manifest.yaml)
+	# # echo "test var: $(test_var)"
+	# sed -i.bak 's@__MANIFEST_PLACEHOLDER__@'"$(printf '%s\n' "$(test_var)")"'@' $(BASELINE_TEMPLATE)
+	# echo "test var end"
+	
+	# # @echo "Escaping manifest content for JSON...\n"
+	# # @ESCAPED=$$(jq -Rs '.' < ./default-cluster-templates/lpp-manifest.yaml); \
+	# # echo "Escaped content: $$ESCAPED"; \
+	# # echo "\nEscaped content 2 : $$(printf '%s\n' "$$ESCAPED")"; \
+	# # echo "Embedding into $(BASELINE_TEMPLATE)..." && \
+	# # sed -i.bak 's@__MANIFEST_PLACEHOLDER__@'"$$(printf '%s\n' "$$ESCAPED")"'@' $(BASELINE_TEMPLATE)
+
+	# # @rm -f .lpp-manifest.yaml $(BASELINE_TEMPLATE).bak
+	# @echo "Manifest embedded successfully."
+
+	./default-cluster-templates/publish_manifest.sh
