@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
+	//corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	intelv1alpha1 "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
-	kthreesbootstrapv1beta2 "github.com/k3s-io/cluster-api-k3s/bootstrap/api/v1beta2"
+//	kthreesbootstrapv1beta2 "github.com/k3s-io/cluster-api-k3s/bootstrap/api/v1beta2"
 	kthreescpv1beta2 "github.com/k3s-io/cluster-api-k3s/controlplane/api/v1beta2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
@@ -103,23 +103,23 @@ func (k3sintel) CreateControlPlaneTemplate(ctx context.Context, c client.Client,
 		Namespace: name.Namespace,
 	}
 
-	cpt.Spec.Template.Spec.KThreesConfigSpec = kthreesbootstrapv1beta2.KThreesConfigSpec{
-		Version: "v1.32.4+k3s1", 									// TODO: make configurable from the template
-		ServerConfig: kthreesbootstrapv1beta2.KThreesServerConfig{ 	// TODO: make configurable from the template
-			TLSSan:                                 []string{"0.0.0.0"},
-			ClusterDomain:                          "cluster.edge",
-			DisableCloudController:                 func(b bool) *bool { return &b }(false),
-		},
-	}
+	// cpt.Spec.Template.Spec.KThreesConfigSpec = kthreesbootstrapv1beta2.KThreesConfigSpec{
+	// 	Version: "v1.32.4+k3s1", 									// TODO: make configurable from the template
+	// 	ServerConfig: kthreesbootstrapv1beta2.KThreesServerConfig{ 	// TODO: make configurable from the template
+	// 		TLSSan:                                 []string{"0.0.0.0"},
+	// 		ClusterDomain:                          "cluster.edge",
+	// 		DisableCloudController:                 func(b bool) *bool { return &b }(false),
+	// 	},
+	// }
 
-	cpt.Spec.Template.Spec.MachineTemplate = kthreescpv1beta2.KThreesControlPlaneMachineTemplate{
-		InfrastructureRef: corev1.ObjectReference{
-			APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-			Kind:       "IntelMachineTemplate",
-			Name:       fmt.Sprintf("%s-controlplane", name.Name),
-			Namespace:  name.Namespace,
-		},
-	}
+	// cpt.Spec.Template.Spec.MachineTemplate = kthreescpv1beta2.KThreesControlPlaneMachineTemplate{
+	// 	InfrastructureRef: corev1.ObjectReference{
+	// 		APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
+	// 		Kind:       "IntelMachineTemplate",
+	// 		Name:       fmt.Sprintf("%s-controlplane", name.Name),
+	// 		Namespace:  name.Namespace,
+	// 	},
+	// }
 
 	if err := c.Create(ctx, &cpt); err != nil {
 		if apierrors.IsAlreadyExists(err) {
