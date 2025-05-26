@@ -63,21 +63,3 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
-
-{{/*
-Metrics service labels
-*/}}
-{{- define "templateController.metricsServiceLabels" -}}
-{{- with .Values.templateController.metrics.service.labels }}
-{{ toYaml . }}
-{{- end }}
-{{- end }}
-
-{{/*
-Service monitor labels
-*/}}
-{{- define "templateController.serviceMonitorLabels" -}}
-{{- with .Values.templateController.metrics.serviceMonitor.labels }}
-{{- toYaml . }}
-{{- end }}
-{{- end }}

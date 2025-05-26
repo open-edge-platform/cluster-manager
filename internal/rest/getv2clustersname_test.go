@@ -53,7 +53,7 @@ func setupMockServer(t *testing.T, expectedCluster capi.Cluster, expectedActiveP
 	machineResource := k8s.NewMockResourceInterface(t)
 	machineResource.EXPECT().List(mock.Anything, mock.Anything).Return(&unstructured.UnstructuredList{Items: []unstructured.Unstructured{*machine}}, nil).Maybe()
 	nsMachineResource := k8s.NewMockNamespaceableResourceInterface(t)
-	nsMachineResource.EXPECT().Namespace(activeProjectID).Return(machineResource).Maybe()
+	nsMachineResource.EXPECT().Namespace(expectedActiveProjectID).Return(machineResource).Maybe()
 	mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(nsMachineResource).Maybe()
 
 	// create a new mocked intelmachine resource
@@ -350,7 +350,6 @@ func TestGetV2ClustersName400(t *testing.T) {
 		require.Equal(t, "invalid cluster name format", *resp.N400BadRequestJSONResponse.Message, "GetV2ClustersName() message = %v, want %v", *resp.N400BadRequestJSONResponse.Message, "invalid cluster name format")
 	})
 }
-
 func TestGetV2ClustersName404(t *testing.T) {
 	// Define the expected cluster and project ID
 	expectedCluster := capi.Cluster{
@@ -379,8 +378,69 @@ func TestGetV2ClustersName404(t *testing.T) {
 		// check the response type and message
 		resp, ok := response.(api.GetV2ClustersName404JSONResponse)
 		require.True(t, ok, "GetV2ClustersName() response type = %T, want api.GetV2ClustersName404JSONResponse", response)
-		require.Equal(t, "cluster not found", *resp.N404NotFoundJSONResponse.Message, "GetV2ClustersName() message = %v, want %v", *resp.N404NotFoundJSONResponse.Message, "cluster not found")
+		require.Equal(t, "failed to get cluster, err: cluster not found", *resp.N404NotFoundJSONResponse.Message, "GetV2ClustersName() message = %v, want %v", *resp.N404NotFoundJSONResponse.Message, "cluster not found")
 	})
+}
+func TestGetV2ClusterNoNodesPopulatesDefault(t *testing.T) {
+	// Prepare test data
+	expectedActiveProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
+	expectedClusterName := "example-cluster"
+	expectedDefaultNode := api.NodeInfo{
+		Id:   nil,
+		Role: ptr("all"),
+		Status: &api.StatusInfo{
+			Condition: ptr(api.StatusInfoCondition("STATUS_CONDITION_PROVISIONING")),
+			Reason:    ptr("nodes provisioning - not in ready state"),
+		},
+	}
+
+	// Mock the Kubernetes client
+	mockedK8sClient := k8s.NewMockInterface(t)
+	mockedClusterResource := k8s.NewMockResourceInterface(t)
+	mockedClusterResource.EXPECT().Get(mock.Anything, expectedClusterName, metav1.GetOptions{}).Return(&unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name": expectedClusterName,
+			},
+			"spec": map[string]interface{}{
+				"topology": map[string]interface{}{
+					"version": "v1.21.1",
+					"class":   "baseline",
+				},
+			},
+		},
+	}, nil).Maybe()
+
+	mockedNamespaceableResource := k8s.NewMockNamespaceableResourceInterface(t)
+
+	mockedNamespaceableResource.EXPECT().Namespace(expectedActiveProjectID).Return(mockedClusterResource).Maybe()
+
+	mockedK8sClient.EXPECT().Resource(core.ClusterResourceSchema).Return(mockedNamespaceableResource).Maybe()
+
+	// Mock the Nodes logic to simulate an empty list
+	mockedMachineResource := k8s.NewMockResourceInterface(t)
+	mockedMachineResource.EXPECT().List(mock.Anything, mock.Anything).Return(&unstructured.UnstructuredList{
+		Items: []unstructured.Unstructured{},
+	}, nil).Maybe()
+
+	mockedNamespaceableMachineResource := k8s.NewMockNamespaceableResourceInterface(t)
+	mockedNamespaceableMachineResource.EXPECT().Namespace(mock.Anything).Return(mockedMachineResource).Maybe()
+
+	mockedK8sClient.EXPECT().Resource(core.MachineResourceSchema).Return(mockedNamespaceableMachineResource).Maybe()
+
+	// Create the server with the mocked client
+	server := &Server{
+		k8sclient: mockedK8sClient,
+	}
+
+	clusterDetailInfo, err := server.getCluster(context.Background(), expectedActiveProjectID, expectedClusterName)
+
+	require.NoError(t, err, "getCluster() error = %v, want nil", err)
+
+	// Assert the default node is added
+	require.NotNil(t, clusterDetailInfo.Nodes, "getCluster() nodes = nil, want not nil")
+	require.Len(t, *clusterDetailInfo.Nodes, 1, "getCluster() nodes length = %v, want %v", len(*clusterDetailInfo.Nodes), 1)
+	require.Equal(t, expectedDefaultNode, (*clusterDetailInfo.Nodes)[0], "getCluster() default node mismatch")
 }
 
 func createGetV2ClustersNameStubServer(t *testing.T) *Server {
@@ -397,7 +457,6 @@ func createGetV2ClustersNameStubServer(t *testing.T) *Server {
 		k8sclient: mockedk8sclient,
 	}
 }
-
 func FuzzGetV2NameClusters(f *testing.F) {
 	f.Add("abc", byte(0), byte(1), byte(2), byte(3), byte(4), byte(5), byte(6), byte(7),
 		byte(8), byte(9), byte(10), byte(11), byte(12), byte(13), byte(14), byte(15))

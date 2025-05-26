@@ -61,6 +61,16 @@ var clusterStatusInProgressControlPlane = capi.ClusterStatus{
 	},
 }
 
+var clusterStatusFailed = capi.ClusterStatus{
+	Phase: string(capi.ClusterPhaseProvisioning),
+	Conditions: []capi.Condition{
+		{
+			Type:   capi.ConditionType(capi.ClusterPhaseFailed),
+			Status: corev1.ConditionTrue,
+		},
+	},
+}
+
 func createMockServer(t *testing.T, clusters []capi.Cluster, projectID string, options ...bool) *Server {
 	unstructuredClusters := make([]unstructured.Unstructured, len(clusters))
 	machinesList := make([]unstructured.Unstructured, len(clusters))
@@ -462,7 +472,7 @@ func TestGetV2Clusters200(t *testing.T) {
 		}
 		require.Equal(t, expectedResponse, actualResponse, "GetV2Clusters() response = %v, want %v", actualResponse, expectedResponse)
 	})
-	t.Run("filtered clusters by prepend name OR kubernetes version", func(t *testing.T) {
+	t.Run("filtered clusters by name OR kubernetes version", func(t *testing.T) {
 		clusters := []capi.Cluster{
 			generateCluster(ptr("example-cluster-1"), ptr("v1.30.6+rke2r1")),
 			generateCluster(ptr("example-cluster-2"), ptr("v1.20.4+rke2r1")),
@@ -471,7 +481,7 @@ func TestGetV2Clusters200(t *testing.T) {
 		server := createMockServer(t, clusters, expectedActiveProjectID)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 		// Create a new request & response recorder with filter by name prefix or kubernetes version
-		req := httptest.NewRequest("GET", "/v2/clusters?filter=name=cluster-*%20OR%20kubernetesVersion=v1.2*", nil)
+		req := httptest.NewRequest("GET", "/v2/clusters?filter=name=ster-exam%20OR%20kubernetesVersion=1.2", nil)
 		req.Header.Set("Activeprojectid", expectedActiveProjectID)
 		rr := httptest.NewRecorder()
 		handler, err := server.ConfigureHandler()
@@ -490,7 +500,7 @@ func TestGetV2Clusters200(t *testing.T) {
 		}
 		require.Equal(t, expectedResponse, actualResponse, "GetV2Clusters() response = %v, want %v", actualResponse, expectedResponse)
 	})
-	t.Run("filtered clusters by name prefix AND specific kubernetes version", func(t *testing.T) {
+	t.Run("filtered clusters by name AND specific kubernetes version", func(t *testing.T) {
 		clusters := []capi.Cluster{
 			generateCluster(ptr("example-cluster-1"), ptr("v1.30.6+rke2r1")),
 			generateCluster(ptr("example-cluster-2"), ptr("v1.20.4+rke2r1")),
@@ -501,7 +511,7 @@ func TestGetV2Clusters200(t *testing.T) {
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 		// Create a new request & response recorder with filter by name prefix and kubernetes version
 		// note: the space in the query string is %20 and + is %2B
-		req := httptest.NewRequest("GET", "/v2/clusters?filter=name=example-cluster-*%20AND%20kubernetesVersion=v1.20.4%2Brke2r1", nil)
+		req := httptest.NewRequest("GET", "/v2/clusters?filter=name=example-cluster%20AND%20kubernetesVersion=v1.20.4%2Brke2r1", nil)
 		req.Header.Set("Activeprojectid", expectedActiveProjectID)
 		rr := httptest.NewRecorder()
 		handler, err := server.ConfigureHandler()
@@ -532,7 +542,7 @@ func TestGetV2Clusters200(t *testing.T) {
 				name: "filtered clusters by providerStatus",
 				clusters: []capi.Cluster{
 					generateClusterWithStatus(ptr("example-cluster-1"), ptr("v1.30.6+rke2r1"), clusterStatusReady),
-					generateClusterWithStatus(ptr("example-cluster-2"), ptr("v1.20.4+rke2r1"), clusterStatusInProgressControlPlane),
+					generateClusterWithStatus(ptr("example-cluster-2"), ptr("v1.20.4+rke2r1"), clusterStatusFailed),
 				},
 				filter: "providerStatus=ready",
 				expectedResult: api.GetV2Clusters200JSONResponse{

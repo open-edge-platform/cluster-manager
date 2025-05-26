@@ -240,28 +240,42 @@ func (cli *Client) DeleteNamespace(ctx context.Context, namespace string) error 
 	return cli.Dyn.Resource(namespaceRes).Delete(ctx, namespace, deleteOptions)
 }
 
-// CreateClusterLabels creates new labels on the cluster object in the given namespace
-func (cli *Client) CreateClusterLabels(ctx context.Context, namespace string, clusterName string, newLabels map[string]string) error {
+// SetClusterLabels overrides the labels of the cluster object in the given namespace
+func (cli *Client) SetClusterLabels(ctx context.Context, namespace string, clusterName string, newUserLabels map[string]string) error {
+	if newUserLabels == nil {
+		return nil
+	}
+
+	return modifyLabels(ctx, cli, namespace, clusterResourceSchema, clusterName, func(cluster *unstructured.Unstructured) {
+		cluster.SetLabels(labels.Merge(labels.SystemLabels(cluster.GetLabels()), newUserLabels))
+	})
+}
+
+// SetMachineLabels overrides the labels of the machine object in the given namespace
+func (cli *Client) SetMachineLabels(ctx context.Context, namespace string, machineName string, newUserLabels map[string]string) error {
+	if newUserLabels == nil {
+		return nil
+	}
+	return modifyLabels(ctx, cli, namespace, machineResourceSchema, machineName, func(machine *unstructured.Unstructured) {
+		machine.SetLabels(labels.Merge(labels.SystemLabels(machine.GetLabels()), newUserLabels))
+	})
+}
+
+// AddTemplateLabels appends new labels on the template object in the given namespace
+func (cli *Client) AddTemplateLabels(ctx context.Context, namespace string, templateName string, newLabels map[string]string) error {
 	if newLabels == nil {
 		return nil
 	}
 
-	return createLabels(ctx, cli, namespace, clusterResourceSchema, clusterName, newLabels)
+	return modifyLabels(ctx, cli, namespace, templateResourceSchema, templateName, func(template *unstructured.Unstructured) {
+		template.SetLabels(labels.Merge(template.GetLabels(), newLabels))
+	})
 }
 
-// CreateTemplateLabels creates new labels on the template object in the given namespace
-func (cli *Client) CreateTemplateLabels(ctx context.Context, namespace string, templateName string, newLabels map[string]string) error {
-	if newLabels == nil {
-		return nil
-	}
-
-	return createLabels(ctx, cli, namespace, templateResourceSchema, templateName, newLabels)
-}
-
-// createLabels creates new labels on the resource object in the given namespace
+// modifyLabels modifies the labels of the given resource in the given namespace
 // It retries on transient "the object has been modified" error, which is expected when the cluster object was updated by another process after we fetched it
 // It returns an error if the operation fails after all retries
-func createLabels(ctx context.Context, cli *Client, namespace string, resourceSchema schema.GroupVersionResource, resourceName string, newLabels map[string]string) error {
+func modifyLabels(ctx context.Context, cli *Client, namespace string, resourceSchema schema.GroupVersionResource, resourceName string, op func(*unstructured.Unstructured)) error {
 	transientError := func(err error) bool {
 		tryAgainErrPattern := "the object has been modified; please apply your changes to the latest version and try again"
 		return strings.Contains(err.Error(), tryAgainErrPattern)
@@ -272,7 +286,7 @@ func createLabels(ctx context.Context, cli *Client, namespace string, resourceSc
 		if err != nil {
 			return backoff.Permanent(err)
 		}
-		resource.SetLabels(labels.Merge(resource.GetLabels(), newLabels))
+		op(resource)
 		if _, err = cli.Dyn.Resource(resourceSchema).Namespace(namespace).Update(ctx, resource, metav1.UpdateOptions{}); err != nil {
 			if transientError(err) {
 				return err // retry on transient error
@@ -351,8 +365,8 @@ func (cli *Client) Template(ctx context.Context, namespace, name string) (ct.Clu
 	return template, nil
 }
 
-// Cluster returns the cluster with the given name in the given namespace
-func (cli *Client) Cluster(ctx context.Context, namespace, name string) (*capi.Cluster, error) {
+// GetCluster returns the cluster with the given name in the given namespace
+func (cli *Client) GetCluster(ctx context.Context, namespace, name string) (*capi.Cluster, error) {
 	var cluster capi.Cluster
 
 	unstructuredCluster, err := cli.Dyn.Resource(clusterResourceSchema).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
@@ -371,8 +385,30 @@ func (cli *Client) Cluster(ctx context.Context, namespace, name string) (*capi.C
 	return &cluster, nil
 }
 
-// Machines returns the machine with the given name in the given namespace for the given cluster
-func (cli *Client) Machines(ctx context.Context, namespace, clusterName string) ([]capi.Machine, error) {
+// GetMachineByHostID returns the machine with the given host ID in the given namespace for the given cluster
+func (cli *Client) GetMachineByHostID(ctx context.Context, namespace, hostID string) (capi.Machine, error) {
+	opts := metav1.ListOptions{}
+	unstructuredMachinesList, err := cli.Dyn.Resource(machineResourceSchema).Namespace(namespace).List(ctx, opts)
+	if err != nil {
+		return capi.Machine{}, err
+	}
+
+	for _, item := range unstructuredMachinesList.Items {
+		var machine capi.Machine
+		err = convert.FromUnstructured(item, &machine)
+		if err != nil {
+			continue
+		}
+
+		if machine.Status.NodeRef != nil && (machine.Status.NodeRef.Name == hostID) {
+			return machine, nil
+		}
+	}
+	return capi.Machine{}, fmt.Errorf("machine with host ID %s not found", hostID)
+}
+
+// GetMachines returns the machine with the given name in the given namespace for the given cluster
+func (cli *Client) GetMachines(ctx context.Context, namespace, clusterName string) ([]capi.Machine, error) {
 	var machines []capi.Machine
 
 	opts := metav1.ListOptions{LabelSelector: fmt.Sprintf("cluster.x-k8s.io/cluster-name=%v", clusterName)}

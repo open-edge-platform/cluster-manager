@@ -151,9 +151,11 @@ func handleV2TemplateDefaultResponse(err error, defaultTemplate *api.DefaultTemp
 func filterTemplates(template api.TemplateInfo, filter *Filter) bool {
 	switch filter.Name {
 	case "name":
-		return MatchWildcard(&template.Name, filter.Value)
+		return MatchSubstring(&template.Name, filter.Value)
 	case "version":
-		return MatchWildcard(&template.Version, filter.Value)
+		return MatchSubstring(&template.Version, filter.Value)
+	case "kubernetesVersion":
+		return MatchSubstring(&template.KubernetesVersion, filter.Value)
 	default:
 		return false
 	}
@@ -171,6 +173,11 @@ func orderByTemplates(template1, template2 api.TemplateInfo, orderBy *OrderBy) b
 			return template1.Version > template2.Version
 		}
 		return template1.Version < template2.Version
+	case "kubernetesVersion":
+		if orderBy.IsDesc {
+			return template1.KubernetesVersion > template2.KubernetesVersion
+		}
+		return template1.KubernetesVersion < template2.KubernetesVersion
 	default:
 		return false
 	}

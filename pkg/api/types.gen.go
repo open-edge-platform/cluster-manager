@@ -37,6 +37,7 @@ const (
 
 // Defines values for TemplateInfoControlplaneprovidertype.
 const (
+	K3s     TemplateInfoControlplaneprovidertype = "k3s"
 	Kubeadm TemplateInfoControlplaneprovidertype = "kubeadm"
 	Rke2    TemplateInfoControlplaneprovidertype = "rke2"
 )
@@ -276,9 +277,21 @@ type GetV2ClustersParams struct {
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 
 	// OrderBy The ordering of the entries. "asc" and "desc" are valid values. If none is specified, "asc" is used.
+	//
+	// Supported fields:
+	// - name
+	// - kubernetesVersion
+	// - providerStatus
+	// - lifecyclePhase
 	OrderBy *string `form:"orderBy,omitempty" json:"orderBy,omitempty"`
 
 	// Filter Filters the entries based on the filter provided.
+	//
+	// Supported fields:
+	// - name
+	// - kubernetesVersion
+	// - providerStatus
+	// - lifecyclePhase
 	Filter          *string               `form:"filter,omitempty" json:"filter,omitempty"`
 	Activeprojectid ActiveProjectIdHeader `json:"Activeprojectid"`
 }

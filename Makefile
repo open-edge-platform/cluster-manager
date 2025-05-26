@@ -8,7 +8,7 @@ SHELL := bash -eu -o pipefail
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION            ?= $(shell cat VERSION)
+VERSION            ?= $(shell cat VERSION | tr -d '[:space:]')
 GIT_HASH_SHORT     ?= $(shell git rev-parse --short=8 HEAD)
 VERSION_DEV_SUFFIX := ${GIT_HASH_SHORT}
 CLUSTERCTL_VERSION ?= v1.9.5
@@ -23,6 +23,11 @@ FUZZTIME ?= 60s
 # Release build versions are verified as unique by the CI build process.
 ifeq ($(findstring -dev,$(VERSION)), -dev)
         VERSION := $(VERSION)-$(VERSION_DEV_SUFFIX)
+endif
+
+# Add VERSION_SUFFIX as suffix if specified and not empty
+ifneq ($(strip $(VERSION_SUFFIX)),)
+	VERSION := $(VERSION)$(VERSION_SUFFIX)
 endif
 
 HELM_VERSION ?= ${VERSION}
@@ -290,8 +295,8 @@ helm-clean: ## Clean helm chart build annotations.
 
 .PHONY: helm-test
 helm-test: ## Template the charts.
-	for d in $(HELM_DIRS); do \
-		helm template intel $$d; \
+	@for d in $(HELM_DIRS); do \
+		helm --debug template --namespace orch-cluster intel $$d; \
 	done
 
 .PHONY: helm-build
@@ -504,9 +509,9 @@ redeploy: docker-build docker-load ## Redeploy the pod with the latest codes.
 generate-api: check-oapi-codegen-version ## Generate Go client, server, client and types from OpenAPI spec with oapi-codegen
 	@echo "Generating..."
 	oapi-codegen -generate spec -o pkg/api/spec.gen.go -package api api/openapi/openapi.yaml
-	oapi-codegen -generate client -o pkg/api/client.gen.go -package api api/openapi/openapi.yaml
-	oapi-codegen -generate types -o pkg/api/types.gen.go -package api api/openapi/openapi.yaml
-	oapi-codegen -generate std-http,strict-server -o pkg/api/server.gen.go -package api api/openapi/openapi.yaml
+	oapi-codegen -generate client -o pkg/api/client.gen.go -exclude-tags metrics -package api api/openapi/openapi.yaml
+	oapi-codegen -generate types -o pkg/api/types.gen.go -exclude-tags metrics -package api api/openapi/openapi.yaml
+	oapi-codegen -generate std-http,strict-server -exclude-tags metrics -o pkg/api/server.gen.go -package api api/openapi/openapi.yaml
 
 .PHONY: check-oapi-codegen-version
 check-oapi-codegen-version: ## Check oapi-codegen version
@@ -538,8 +543,8 @@ dev-image: ## Build dev image and push to sandbox
 		-f deployment/images/Dockerfile.cluster-manager
 	${DOCKER_ENV} docker push ${DOCKER_DEV_IMG}
 
-.PHONY: dev-helm # Build dev helm chart and push to sandbox
-dev-helm: ## Build dev helm chart and push to sandbox
+.PHONY: dev-chart # Build dev helm chart and push to sandbox
+dev-chart: ## Build dev helm chart and push to sandbox
 	@if test -z $(DEV_TAG); \
 		then echo "Please specify dev tag, make dev DEV_TAG=<dev-tag> " && exit 1; \
 	fi

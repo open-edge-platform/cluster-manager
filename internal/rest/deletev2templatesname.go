@@ -32,6 +32,10 @@ func (s *Server) DeleteV2TemplatesNameVersion(ctx context.Context, request api.D
 		message := fmt.Sprintf("Template '%s' not found: %v", templateName, err)
 		slog.Error(message)
 		return api.DeleteV2TemplatesNameVersion404JSONResponse{N404NotFoundJSONResponse: api.N404NotFoundJSONResponse{Message: &message}}, nil
+	case errors.IsConflict(err):
+		message := fmt.Sprintf("Template '%s' is in use: %v", templateName, err)
+		slog.Error(message)
+		return api.DeleteV2TemplatesNameVersion409JSONResponse{N409ConflictJSONResponse: api.N409ConflictJSONResponse{Message: &message}}, nil
 	case err != nil:
 		message := fmt.Sprintf("Failed to delete template '%s': %v", templateName, err)
 		slog.Error(message)

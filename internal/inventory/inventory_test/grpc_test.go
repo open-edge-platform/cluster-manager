@@ -102,6 +102,14 @@ func TestGetHostTrustedCompute(t *testing.T) {
 			expectedVal: false,
 		},
 		{
+			name: "host instance nil",
+			mock: func() {
+				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(&computev1.HostResource{}, nil).Once()
+			},
+			expectedErr: errors.New("host instance is nil"),
+			expectedVal: false,
+		},
+		{
 			name: "host resource nil",
 			mock: func() {
 				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Once()
@@ -127,6 +135,49 @@ func TestGetHostTrustedCompute(t *testing.T) {
 			trustedCompute, err := invClient.GetHostTrustedCompute(context.Background(), "test_tenant_id", "test_host_uuid")
 			assert.Equal(t, tc.expectedVal, trustedCompute)
 			assert.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
+func TestJsonStringToMap(t *testing.T) {
+	cases := []struct {
+		name     string
+		jsonStr  string
+		expected map[string]string
+	}{
+		{
+			name:    "real-world example",
+			jsonStr: `[{"key":"host-label","value":"true"},{"key":"test-label","value":"true"}]`,
+			expected: map[string]string{
+				"host-label": "true",
+				"test-label": "true",
+			},
+		},
+		{
+			name:    "real-world example 2",
+			jsonStr: `[{"key":"cluster-name","value":""},{"key":"app-id","value":""}]`,
+			expected: map[string]string{
+				"cluster-name": "",
+				"app-id":       "",
+			},
+		},
+		{
+			name:     "empty brackets string",
+			jsonStr:  `[]`,
+			expected: map[string]string{},
+		},
+		{
+			name:     "empty json string",
+			jsonStr:  "",
+			expected: map[string]string{},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := inventory.JsonStringToMap(tc.jsonStr)
+			require.NoError(t, err)
+			assert.Equal(t, tc.expected, result)
 		})
 	}
 }

@@ -3,19 +3,29 @@
 
 ---
 version: 2
-registries:
-  github:
-    type: git
-    url: https://github.com
-    username: x-access-token
-    password: ${{ secrets.SYS_ORCH_GITHUB }}
 updates:
   - package-ecosystem: "gomod"
-    directory: "/"
-    registries:
-      - github
+    directories:
+      - "/"
     schedule:
       interval: daily
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 3
     commit-message:
       prefix: "[gomod] "
+    groups:
+      dependencies:
+        patterns:
+          - "*"
+        exclude-patterns:  # Internal dependencies are update into separate PRs.
+          - "*open-edge-platform*"
+      internal-dependencies:
+        patterns:
+          - "*open-edge-platform*"
+  - package-ecosystem: "github-actions"
+    directories:
+      - "/"  # this enables searching only in /.github/workflows directory
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "[gha] "

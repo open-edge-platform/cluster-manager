@@ -6,7 +6,7 @@ openapi: 3.0.3
 info:
   title: Cluster Manager 2.0
   description: This document defines the schema for the Cluster Manager 2.0 REST API.
-  version: 2.0.0
+  version: 2.1.1-dev
 
 security:
   - HTTP: []
@@ -37,7 +37,14 @@ paths:
           example: /v2/clusters?pageSize=20&offset=10
         - name: orderBy
           in: query
-          description: The ordering of the entries. "asc" and "desc" are valid values. If none is specified, "asc" is used.
+          description: |
+            The ordering of the entries. "asc" and "desc" are valid values. If none is specified, "asc" is used.
+
+            Supported fields:
+            - name
+            - kubernetesVersion
+            - providerStatus
+            - lifecyclePhase
           schema:
             type: string
           examples:
@@ -52,7 +59,14 @@ paths:
               description: Sorts the entries by name in ascending order as default when no order is specified.
         - name: filter
           in: query
-          description: Filters the entries based on the filter provided.
+          description: |
+            Filters the entries based on the filter provided.
+
+            Supported fields:
+            - name
+            - kubernetesVersion
+            - providerStatus
+            - lifecyclePhase
           schema:
             type: string
           examples:
@@ -129,7 +143,6 @@ paths:
         "500":
           $ref: '#/components/responses/500-InternalServerError'
 
-
   /v2/clusters/{name}:
     parameters:
       - $ref: '#/components/parameters/ActiveProjectIdHeader'
@@ -172,6 +185,7 @@ paths:
           $ref: '#/components/responses/404-NotFound'
         "500":
           $ref: '#/components/responses/500-InternalServerError'
+
   /v2/clusters/{nodeId}/clusterdetail:
     parameters:
       - $ref: '#/components/parameters/ActiveProjectIdHeader'
@@ -197,6 +211,7 @@ paths:
           $ref: '#/components/responses/400-BadRequest'
         "404":
           $ref: '#/components/responses/404-NotFound'
+
   /v2/clusters/{name}/nodes:
     parameters:
       - $ref: '#/components/parameters/ActiveProjectIdHeader'
@@ -373,21 +388,6 @@ paths:
           $ref: '#/components/responses/404-NotFound'
         "500":
           $ref: '#/components/responses/500-InternalServerError'
-  /v2/healthz:
-    get:
-      description: Gets the Cluster Manager REST API healthz status.
-      security: [] # skips authentication
-      tags:
-        - Health Check
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: string
-        "500":
-          $ref: '#/components/responses/500-InternalServerError'
 
   /v2/templates:
     parameters:
@@ -464,7 +464,6 @@ paths:
           $ref: '#/components/responses/404-NotFound'
         "500":
           $ref: '#/components/responses/500-InternalServerError'
-
     post:
       description: Import templates
       tags:
@@ -537,8 +536,11 @@ paths:
           $ref: '#/components/responses/400-BadRequest'
         "404":
           $ref: '#/components/responses/404-NotFound'
+        "409":
+          $ref: '#/components/responses/409-Conflict'
         "500":
           $ref: '#/components/responses/500-InternalServerError'
+
   /v2/templates/{name}/versions:
     parameters:
       - $ref: '#/components/parameters/ActiveProjectIdHeader'
@@ -569,6 +571,7 @@ paths:
           $ref: '#/components/responses/404-NotFound'
         "500":
           $ref: '#/components/responses/500-InternalServerError'
+
   /v2/templates/{name}/default:
      parameters:
       - $ref: '#/components/parameters/ActiveProjectIdHeader'
@@ -598,6 +601,38 @@ paths:
           $ref: '#/components/responses/400-BadRequest'
         "404":
           $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+  /v2/healthz:
+    get:
+      description: Gets the Cluster Manager REST API healthz status.
+      security: [] # skips authentication
+      tags:
+        - Health Check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+  /metrics:
+    get:
+      description: Gets the Cluster Manager REST API prometheus metrics.
+      security: [] # skips authentication
+      tags:
+        - metrics
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
         "500":
           $ref: '#/components/responses/500-InternalServerError'
 
@@ -906,6 +941,7 @@ components:
           enum:
             - kubeadm
             - rke2
+            - k3s
           default: rke2
         infraprovidertype:
           type: string

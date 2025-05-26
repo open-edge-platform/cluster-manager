@@ -11,13 +11,16 @@ on:
       - main
       - release-*
   workflow_dispatch: 
-
+permissions: {}
 jobs:
   post-merge:
-    uses: open-edge-platform/orch-ci/.github/workflows/post-merge.yml@main
+    permissions:
+      contents: read
+      security-events: write
+      id-token: write
+    uses: open-edge-platform/orch-ci/.github/workflows/post-merge.yml@13722579bc8edfb712203cb8e88fcc404d2218bc  # 0.1.9
     with:
       run_build: true
-      run_security_scans: true
       run_version_check: true
       run_dep_version_check: true
       cache_go: true
@@ -29,4 +32,4 @@ jobs:
       run_docker_push: true
       run_helm_build: true
       run_helm_push: true
-    secrets: inherit
+    secrets: inherit  # zizmor: ignore[secrets-inherit]

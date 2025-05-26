@@ -30,7 +30,7 @@ func (s *Server) GetV2ClustersNodeIdClusterdetail(ctx context.Context, request a
 			},
 		}, nil
 	}
-	labels := labels.Filter(convert.MapAnyToString(*clusterDetails.Labels))
+	labels := labels.UserLabels(convert.MapAnyToString(*clusterDetails.Labels))
 	unstructuredLabels := convert.MapStringToAny(labels)
 	clusterDetails.Labels = &unstructuredLabels
 	return api.GetV2ClustersNodeIdClusterdetail200JSONResponse(clusterDetails), nil

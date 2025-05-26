@@ -74,6 +74,7 @@ clusterManager:
     disable-auth: false
     disable-mt: false
     disable-inventory: false
+    disable-metrics: true
 
   extraEnv: []
 
@@ -132,8 +133,7 @@ templateController:
 
   # Additional command line flags to pass.
   extraArgs:
-    - "--webhook-enabled=false"
-
+    - "--webhook-enabled=true"
 
   extraEnv: []
 
@@ -141,22 +141,19 @@ templateController:
     loglevel: "-loglevel=0"
     logformat: "-logformat=human"
 
-  metrics:
-    service:
-      # Whether to create a service for scraping metrics
-      enabled: false
-      port: 8080
-      # Labels to add to the service
-      labels:
+metrics:
+  enabled: false
+  service:
+    port: 8080
+    labels:
+      templateController:
         app: "template-controller-metrics-svc"
-    serviceMonitor:
-      # Whether to create a service monitor for scraping metrics
-      enabled: false
-      # Labels to add to the service monitor
-      labels: {}
+  serviceMonitor:
+    labels: {}
+  dashboardAdminFolder: orchestrator
 
 webhookService:
-  enabled: false
+  enabled: true
   type: ClusterIP
   ports:
     - name: webhook-server
