@@ -122,24 +122,6 @@ func (k3sintel) CreateControlPlaneTemplate(ctx context.Context, c client.Client,
 		Namespace: name.Namespace,
 	}
 
-	cpt.Spec.Template.Spec.KThreesConfigSpec = kthreesbootstrapv1beta2.KThreesConfigSpec{
-		Version: "v1.32.4+k3s1", // TODO: make configurable from the template
-		ServerConfig: kthreesbootstrapv1beta2.KThreesServerConfig{ // TODO: make configurable from the template
-			TLSSan:                 []string{"0.0.0.0"},
-			ClusterDomain:          "cluster.edge",
-			DisableCloudController: func(b bool) *bool { return &b }(false),
-		},
-	}
-
-	cpt.Spec.Template.Spec.MachineTemplate = kthreescpv1beta2.KThreesControlPlaneMachineTemplate{
-		InfrastructureRef: corev1.ObjectReference{
-			APIVersion: "infrastructure.cluster.x-k8s.io/v1beta1",
-			Kind:       "IntelMachineTemplate",
-			Name:       fmt.Sprintf("%s-controlplane", name.Name),
-			Namespace:  name.Namespace,
-		},
-	}
-
 	if err := c.Create(ctx, &cpt); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			return nil
