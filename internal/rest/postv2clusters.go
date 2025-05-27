@@ -218,28 +218,34 @@ func createBindings(ctx context.Context, cli *k8s.Client, namespace, clusterName
 }
 
 func (s *Server) enableAirGapInstall(ctx context.Context, cli *k8s.Client, namespace, clusterName string, template ct.ClusterTemplate) (bool, error) {
-	var enableAirGap bool
-	var clusterTemplate *ct.ClusterTemplate
-	var err error
-
-	if clusterTemplate, err = cli.GetClusterTemplate(ctx, namespace, template.Name); err != nil {
-		return enableAirGap, err
+	// Fetch the cluster template
+	clusterTemplate, err := cli.GetClusterTemplate(ctx, namespace, template.Name)
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch cluster template %s: %w", template.Name, err)
 	}
 
 	if clusterTemplate == nil {
-		return enableAirGap, fmt.Errorf("cluster template %s not found", template.Name)
+		return false, fmt.Errorf("cluster template %s not found", template.Name)
 	}
 
+	// Validate the control plane provider type
 	if clusterTemplate.Spec.ControlPlaneProviderType == "" {
-		return enableAirGap, fmt.Errorf("control plane provider type is empty")
+		return false, fmt.Errorf("control plane provider type is empty for template %s", template.Name)
 	}
 
-	// Enable air-gap when k3s is being installed on a host with EMT OS (immutable OS).
-	// We expect k3s to be packaged as part of EMT OS.
+	// Check if air-gap installation is required
 	if clusterTemplate.Spec.ControlPlaneProviderType == "k3s" {
-		enableAirGap, err = s.inventory.EnableAirGapInstall(ctx, namespace, clusterName)
+		enableAirGap, err := s.inventory.EnableAirGapInstall(ctx, namespace, clusterName)
+		if err != nil {
+			return false, fmt.Errorf("failed to determine air-gap installation for cluster %s: %w", clusterName, err)
+		}
+		slog.Debug("enable air gap install", "namespace", namespace, "name", clusterName, "airgap", enableAirGap, "controlPlaneProviderType", clusterTemplate.Spec.ControlPlaneProviderType)
+		return enableAirGap, nil
 	}
-	return enableAirGap, err
+
+	// Default case: air-gap installation not required
+	slog.Debug("air gap install not required", "namespace", namespace, "name", clusterName, "controlPlaneProviderType", clusterTemplate.Spec.ControlPlaneProviderType)
+	return false, nil
 }
 
 func convertClusterNetwork(network *ct.ClusterNetwork) *capi.ClusterNetwork {
