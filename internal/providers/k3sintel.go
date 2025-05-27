@@ -59,7 +59,7 @@ func (k3sintel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
 				OpenAPIV3Schema: capiv1beta1.JSONSchemaProps{
 					Type: "boolean",
 					Default: &apiextensionsv1.JSON{
-						Raw: []byte("false"),
+						Raw: []byte("true"),
 					},
 				},
 			},
