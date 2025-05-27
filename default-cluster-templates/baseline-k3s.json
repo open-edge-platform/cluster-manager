@@ -21,15 +21,13 @@
               {}
             ],
             "agentConfig": {
-              "kubelet": {
-                "extraArgs": [
-                  "--topology-manager-policy=best-effort",
-                  "--cpu-manager-policy=static",
-                  "--reserved-cpus=1",
-                  "--max-pods=250",
-                  "--tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"
-                ]
-              }
+              "kubeletArgs": [
+                "--topology-manager-policy=best-effort",
+                "--cpu-manager-policy=static",
+                "--reserved-cpus=1",
+                "--max-pods=250",
+                "--tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"
+              ]
             },
             "preK3sCommands": [
               "mkdir -p /etc/systemd/system/k3s-server.service.d",
@@ -42,46 +40,17 @@
               "kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.29.3/manifests/calico.yaml",
               "sudo mount --make-shared /sys && sudo mount --make-shared / && sudo mount --make-shared /run"
             ],
-            "privateRegistriesConfig": {},
             "serverConfig": {
-              "cni": "calico",
-              "cniMultusEnable": true,
-              "disableComponents": [],
-              "kubeApiServer": {
-                "extraArgs": [
-                  "--feature-gates=PortForwardWebsockets=true",
-                  "--tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"
-                ]
-              },
-              "kubeControllerManager": {
-                "extraArgs": null
-              },
-              "kubeScheduler": {
-                "extraArgs": null
-              },
-              "etcd": {
-                "exposeMetrics": false,
-                "backupConfig": {
-                  "retention": "5",
-                  "scheduleCron": "0 */5 * * *"
-                },
-                "customConfig": {
-                  "extraArgs": [
-                    "cipher-suites=[TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384]"
-                  ]
-                }
-              },
-              "disableCloudController": false,
-              "clusterDomain": "cluster.edge"
+              "kubeApiServerArg": [
+                "--feature-gates=PortForwardWebsockets=true",
+                "--tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"
+              ],
+              "kubeControllerManagerArgs": [],
+              "kubeSchedulerArgs": [],
+              "clusterDomain": "cluster.edge",
+              "disableCloudController": false
             },
             "version": "v1.32.4+k3s1"
-          },
-          "nodeDrainTimeout": "2m",
-          "rolloutStrategy": {
-            "type": "RollingUpdate",
-            "rollingUpdate": {
-              "maxSurge": 1
-            }
           }
         }
       }
