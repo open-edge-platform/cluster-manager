@@ -141,7 +141,8 @@ func (c *InventoryClient) validateHostResource(host *computev1.HostResource) err
 }
 
 // noopInventoryClient is a no-op implementation of the InventoryClient interface
-type noopInventoryClient struct{}
+type noopInventoryClient struct {
+}
 
 // NewNoopInventoryClient returns a new no-op InventoryClient
 func NewNoopInventoryClient() *noopInventoryClient {
