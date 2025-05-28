@@ -7,11 +7,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	controlplaneprovider "github.com/open-edge-platform/cluster-manager/v2/internal/providers"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"testing"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -73,14 +70,7 @@ func TestPostV2Clusters201(t *testing.T) {
 					ControlPlane: capi.ControlPlaneTopology{
 						Replicas: ptr(int32(1)),
 					},
-					Variables: []capi.ClusterVariable{
-						{
-							Name: controlplaneprovider.AirGapped,
-							Value: apiextensionsv1.JSON{
-								Raw: []byte(strconv.FormatBool(false)),
-							},
-						},
-					},
+					Variables: []capi.ClusterVariable{},
 				},
 			},
 		}
@@ -220,14 +210,7 @@ func TestPostV2Clusters201(t *testing.T) {
 					ControlPlane: capi.ControlPlaneTopology{
 						Replicas: ptr(int32(1)),
 					},
-					Variables: []capi.ClusterVariable{
-						{
-							Name: controlplaneprovider.AirGapped,
-							Value: apiextensionsv1.JSON{
-								Raw: []byte(strconv.FormatBool(false)),
-							},
-						},
-					},
+					Variables: []capi.ClusterVariable{},
 				},
 			},
 		}
@@ -391,14 +374,7 @@ func TestPostV2Clusters201K3sAirGap(t *testing.T) {
 					ControlPlane: capi.ControlPlaneTopology{
 						Replicas: ptr(int32(1)),
 					},
-					Variables: []capi.ClusterVariable{
-						{
-							Name: controlplaneprovider.AirGapped,
-							Value: apiextensionsv1.JSON{
-								Raw: []byte(strconv.FormatBool(false)),
-							},
-						},
-					},
+					Variables: []capi.ClusterVariable{},
 				},
 			},
 		}
@@ -530,14 +506,7 @@ func TestPostV2Clusters201NoNameNoTemplate(t *testing.T) {
 				ControlPlane: capi.ControlPlaneTopology{
 					Replicas: ptr(int32(1)),
 				},
-				Variables: []capi.ClusterVariable{
-					{
-						Name: controlplaneprovider.AirGapped,
-						Value: apiextensionsv1.JSON{
-							Raw: []byte(strconv.FormatBool(false)),
-						},
-					},
-				},
+				Variables: []capi.ClusterVariable{},
 			},
 		},
 	}
@@ -896,14 +865,7 @@ func TestPostV2Clusters500(t *testing.T) {
 					ControlPlane: capi.ControlPlaneTopology{
 						Replicas: ptr(int32(1)),
 					},
-					Variables: []capi.ClusterVariable{
-						{
-							Name: controlplaneprovider.AirGapped,
-							Value: apiextensionsv1.JSON{
-								Raw: []byte(strconv.FormatBool(false)),
-							},
-						},
-					},
+					Variables: []capi.ClusterVariable{},
 				},
 			},
 		}
