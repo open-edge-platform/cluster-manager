@@ -29,7 +29,10 @@ var (
 	GetClusterConfigFunc  = rest.InClusterConfig
 	GetNexusClientSetFunc = nexus.NewForConfig
 	GetK8sClientFunc      = k8s.NewClient
-	GetTemplatesFunc      = template.ReadDefaultTemplates
+	disableK3sTemplates   bool
+	GetTemplatesFunc      = func() ([]*ct.ClusterTemplate, error) {
+		return template.ReadDefaultTemplates(disableK3sTemplates)
+	}
 )
 
 type TenancyDatamodel struct {
@@ -100,6 +103,11 @@ func (tdm *TenancyDatamodel) Stop() {
 	if err := tdm.deleteProjectWatcher(); err != nil {
 		slog.Warn("error deleting project watcher", "error", err)
 	}
+}
+
+// SetDisableK3sTemplates allows disabling the k3s templates
+func SetDisableK3sTemplates(disable bool) {
+	disableK3sTemplates = disable
 }
 
 // processRuntimeProjectsAdd is a callback function invoked when a project is added

@@ -36,6 +36,8 @@ func main() {
 		labels.OverrideSystemPrefixes(config.SystemLabelsPrefixes)
 	}
 
+	multitenancy.SetDisableK3sTemplates(config.DisableK3sTemplates)
+
 	if !config.DisableMultitenancy {
 		// TODO? may need to be initialized after server as all resource handling is done in the server
 		tdm, err := multitenancy.NewDatamodelClient()

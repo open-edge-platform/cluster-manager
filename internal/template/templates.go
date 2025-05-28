@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"regexp"
+	"strings"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -162,7 +163,7 @@ func fromJoinedNameToNameVersion(joinedName string) (name, version string) {
 	return matches[nameIndex], "v" + matches[semverIndex]
 }
 
-func ReadDefaultTemplates() ([]*v1alpha1.ClusterTemplate, error) {
+func ReadDefaultTemplates(disableK3sTemplates bool) ([]*v1alpha1.ClusterTemplate, error) {
 	templatesPath := os.Getenv("DEFAULT_TEMPLATES_DIR")
 	if templatesPath == "" {
 		templatesPath = "/default-templates"
@@ -179,6 +180,11 @@ func ReadDefaultTemplates() ([]*v1alpha1.ClusterTemplate, error) {
 			slog.Debug("couldn't read default cluster template", "template-file", entry.Name())
 			continue
 		}
+		if disableK3sTemplates && template != nil && strings.Contains(template.Name, "k3s") {
+			slog.Debug("skipping k3s template", "template-name", template.Name)
+			continue
+		}
+		slog.Debug("read default cluster template", "template-name", template.Name)
 		templates = append(templates, template)
 	}
 
