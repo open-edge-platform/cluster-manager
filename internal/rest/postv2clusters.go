@@ -149,6 +149,16 @@ func (s *Server) createCluster(ctx context.Context, cli *k8s.Client, namespace, 
 		return "", err
 	}
 
+	var variables []capi.ClusterVariable
+	if enableAirGap {
+		variables = append(variables, capi.ClusterVariable{
+			Name: controlplaneprovider.AirGapped,
+			Value: apiextensionsv1.JSON{
+				Raw: []byte(strconv.FormatBool(enableAirGap)),
+			},
+		})
+	}
+
 	// create cluster
 	replicas := int32(len(nodes))
 	cluster := capi.Cluster{
@@ -172,14 +182,7 @@ func (s *Server) createCluster(ctx context.Context, cli *k8s.Client, namespace, 
 				ControlPlane: capi.ControlPlaneTopology{
 					Replicas: &replicas,
 				},
-				Variables: []capi.ClusterVariable{
-					{
-						Name: controlplaneprovider.AirGapped,
-						Value: apiextensionsv1.JSON{
-							Raw: []byte(strconv.FormatBool(enableAirGap)),
-						},
-					},
-				},
+				Variables: variables,
 			},
 		},
 	}
