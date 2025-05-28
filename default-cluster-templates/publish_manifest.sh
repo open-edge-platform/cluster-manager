@@ -25,7 +25,8 @@ test_var=$(jq -Rs '.' < $LPP_MANIFEST_PATH)
 # second iteration
 CONTENT_STRIPPED=${test_var:1:-1}
 ESCAPED_FOR_JSON=$(echo "$CONTENT_STRIPPED" | sed -e 's/\\/\\\\\\\\/g' -e 's/"/\\\\\\"/g')
-awk -v placeholder="$LPP_PLACEHOLDER" -v replacement="$ESCAPED_FOR_JSON" '{
+ESCAPED_DOLLAR=$(echo "$ESCAPED_FOR_JSON" | sed  -e 's/\$VOL_DIR/\\\\\\\\\$VOL_DIR/g')
+awk -v placeholder="$LPP_PLACEHOLDER" -v replacement="$ESCAPED_DOLLAR" '{
     gsub(placeholder, replacement);
     print
 }' "$BASELINE_TEMPLATE" > "$BASELINE_TEMPLATE.tmp" && mv "$BASELINE_TEMPLATE.tmp" "$BASELINE_TEMPLATE"
