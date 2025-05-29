@@ -632,22 +632,22 @@ LPP_PLACEHOLDER := __MANIFEST_PLACEHOLDER__
 
 .PHONY: embed-manifest-baseline
 embed-manifest-baseline:
-	@if [ ! -f "$(LPP_MANIFEST_PATH)" ]; then \
-		echo "Error: Manifest file '$(LPP_MANIFEST_PATH)' not found."; \
-		exit 1; \
-	fi
-	@if [ ! -f "$(BASELINE_TEMPLATE)" ]; then \
-		echo "Error: Template file '$(BASELINE_TEMPLATE)' not found."; \
-		exit 1; \
-	fi
-	@if ! command -v jq >/dev/null 2>&1; then \
-		echo "Error: jq is not installed."; \
-		exit 1; \
-	fi
-	@if ! command -v sed >/dev/null 2>&1; then \
-		echo "Error: sed is not installed."; \
-		exit 1; \
-	fi
+	# @if [ ! -f "$(LPP_MANIFEST_PATH)" ]; then \
+	# 	echo "Error: Manifest file '$(LPP_MANIFEST_PATH)' not found."; \
+	# 	exit 1; \
+	# fi
+	# @if [ ! -f "$(BASELINE_TEMPLATE)" ]; then \
+	# 	echo "Error: Template file '$(BASELINE_TEMPLATE)' not found."; \
+	# 	exit 1; \
+	# fi
+	# @if ! command -v jq >/dev/null 2>&1; then \
+	# 	echo "Error: jq is not installed."; \
+	# 	exit 1; \
+	# fi
+	# @if ! command -v sed >/dev/null 2>&1; then \
+	# 	echo "Error: sed is not installed."; \
+	# 	exit 1; \
+	# fi
 
 	# test_var=$(jq -Rs '.' < ./default-cluster-templates/lpp-manifest.yaml)
 	# # echo "test var: $(test_var)"
@@ -664,4 +664,5 @@ embed-manifest-baseline:
 	# # @rm -f .lpp-manifest.yaml $(BASELINE_TEMPLATE).bak
 	# @echo "Manifest embedded successfully."
 
-	./default-cluster-templates/publish_manifest.sh
+	@TEMPLATES=('baseline'); \
+	./default-cluster-templates/publish_manifest.sh $$TEMPLATES
