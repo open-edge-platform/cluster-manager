@@ -3,7 +3,10 @@
 package template
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -254,4 +257,78 @@ func TestFromClusterTemplateToDefaultTemplateInfo(t *testing.T) {
 		require.Equal(t, "test-template", *defaultTemplateInfo.Name)
 		require.Equal(t, "v1.0.0-dev", defaultTemplateInfo.Version)
 	})
+}
+
+func TestReadDefaultTemplates(t *testing.T) {
+    tmpDir := t.TempDir()
+    t.Cleanup(func() { os.RemoveAll(tmpDir) })
+    // helper to write a template file
+    writeTemplateFile := func(name string, tmpl v1alpha1.ClusterTemplate) {
+        info := map[string]interface{}{
+            "Name":              tmpl.Name,
+            "Version":           "v1.0.0",
+            "KubernetesVersion": tmpl.Spec.KubernetesVersion,
+        }
+        data, err := json.Marshal(info)
+        require.NoError(t, err)
+        require.NoError(t, os.WriteFile(filepath.Join(tmpDir, name), data, 0644))
+    }
+    writeTemplateFile("template1.json", v1alpha1.ClusterTemplate{
+        ObjectMeta: v1.ObjectMeta{Name: "test-template"},
+        Spec:       v1alpha1.ClusterTemplateSpec{KubernetesVersion: "1.25"},
+    })
+    writeTemplateFile("k3s-template.json", v1alpha1.ClusterTemplate{
+        ObjectMeta: v1.ObjectMeta{Name: "k3s-template"},
+        Spec:       v1alpha1.ClusterTemplateSpec{KubernetesVersion: "1.26"},
+    })
+    require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "invalid.json"), []byte("{invalid json"), 0644))
+    oldEnv := os.Getenv("DEFAULT_TEMPLATES_DIR")
+    require.NoError(t, os.Setenv("DEFAULT_TEMPLATES_DIR", tmpDir))
+    t.Cleanup(func() { os.Setenv("DEFAULT_TEMPLATES_DIR", oldEnv) })
+    tests := []struct {
+        name                string
+        disableK3sTemplates bool
+        setupEnv            func()
+        wantNames           []string
+        wantErr             bool
+    }{
+        {
+            name:                "reads all valid templates",
+            disableK3sTemplates: false,
+            setupEnv:            func() { require.NoError(t, os.Setenv("DEFAULT_TEMPLATES_DIR", tmpDir)) },
+            wantNames:           []string{"test-template-v1.0.0", "k3s-template-v1.0.0"},
+            wantErr:             false,
+        },
+        {
+            name:                "skips k3s templates if disabled",
+            disableK3sTemplates: true,
+            setupEnv:            func() { require.NoError(t, os.Setenv("DEFAULT_TEMPLATES_DIR", tmpDir)) },
+            wantNames:           []string{"test-template-v1.0.0"},
+            wantErr:             false,
+        },
+        {
+            name:                "returns error if directory does not exist",
+            disableK3sTemplates: false,
+            setupEnv:            func() { require.NoError(t, os.Setenv("DEFAULT_TEMPLATES_DIR", "/non-existent-dir")) },
+            wantNames:           nil,
+            wantErr:             true,
+        },
+    }
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            tt.setupEnv()
+            templates, err := ReadDefaultTemplates(tt.disableK3sTemplates)
+            if tt.wantErr {
+                require.Error(t, err)
+                require.Nil(t, templates)
+                return
+            }
+            require.NoError(t, err)
+            var names []string
+            for _, tmpl := range templates {
+                names = append(names, tmpl.Name)
+            }
+            require.ElementsMatch(t, tt.wantNames, names)
+        })
+    }
 }
