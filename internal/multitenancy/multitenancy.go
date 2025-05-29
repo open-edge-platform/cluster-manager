@@ -19,6 +19,7 @@ import (
 	ct "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
+	provider "github.com/open-edge-platform/cluster-manager/v2/internal/providers"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/template"
 )
 
@@ -189,14 +190,14 @@ func (tdm *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.Ru
 
 func selectDefaultTemplateName(templates []*ct.ClusterTemplate, disableK3sTemplates bool) string {
 	var defaultTemplateName string
-	Loop:
+Loop:
 	for _, t := range templates {
 		name := t.GetName()
 		if !baselineRegex.MatchString(name) {
 			continue
 		}
 		switch {
-		case !disableK3sTemplates && strings.Contains(name, "k3s"):
+		case !disableK3sTemplates && strings.Contains(name, provider.DefaultProvider):
 			defaultTemplateName = name
 			break Loop
 		case defaultTemplateName == "":

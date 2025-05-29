@@ -15,6 +15,7 @@ import (
 
 	"github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
+	provider "github.com/open-edge-platform/cluster-manager/v2/internal/providers"
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 )
 
@@ -180,7 +181,7 @@ func ReadDefaultTemplates(disableK3sTemplates bool) ([]*v1alpha1.ClusterTemplate
 			slog.Debug("couldn't read default cluster template", "template-file", entry.Name())
 			continue
 		}
-		if disableK3sTemplates && template != nil && strings.Contains(template.Name, "k3s") {
+		if disableK3sTemplates && template != nil && strings.Contains(template.Name, provider.DefaultProvider) {
 			slog.Debug("skipping k3s template", "template-name", template.Name)
 			continue
 		}

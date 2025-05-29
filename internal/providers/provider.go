@@ -21,6 +21,8 @@ const (
 	KubeadmControlPlaneTemplate = "KubeadmControlPlaneTemplate"
 	RKE2ControlPlaneTemplate    = "RKE2ControlPlaneTemplate"
 	KThreesControlPlaneTemplate = "KThreesControlPlaneTemplate"
+
+	DefaultProvider = "k3s"
 )
 
 type Provider interface {
