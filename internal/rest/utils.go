@@ -402,22 +402,38 @@ func fetchMachine(ctx context.Context, s *Server, namespace string, clusterName 
 	unstructuredMachines, err := s.k8sclient.Resource(core.MachineResourceSchema).Namespace(namespace).List(ctx, v1.ListOptions{
 		LabelSelector: ClusterNameSelectorKey + "=" + clusterName,
 	})
+	fmt.Printf("fetchMachine: namespace=%s, clusterName=%s, nodeID=%s, labelSelector=%s\n",
+		namespace, clusterName, nodeID, ClusterNameSelectorKey+"="+clusterName)
+
+	if err != nil {
+		fmt.Printf("fetchMachine: error listing machines: %v\n", err)
+		return nil, err
+	}
 	if unstructuredMachines == nil || len(unstructuredMachines.Items) == 0 {
+		fmt.Printf("fetchMachine: no machines found for clusterName=%s\n", clusterName)
 		return nil, fmt.Errorf("machine not found for node ID %s", nodeID)
 	}
-	if err != nil {
-		return nil, err
-	}
+
+	fmt.Printf("fetchMachine: found %d machines\n", len(unstructuredMachines.Items))
+
 	machines, err := convertUnsructuredtoMachine(unstructuredMachines)
 	if err != nil {
+		fmt.Printf("fetchMachine: error converting unstructured to machine: %v\n", err)
 		return nil, err
 	}
-	for _, machine := range machines {
+	for i, machine := range machines {
 		nodeRef := machine.Status.NodeRef
-		if nodeRef != nil && string(nodeRef.UID) == nodeID {
-			return machine, nil
+		if nodeRef != nil {
+			fmt.Printf("fetchMachine: checking machine[%d] name=%s, nodeRef.UID=%s\n", i, machine.Name, string(nodeRef.UID))
+			if string(nodeRef.UID) == nodeID {
+				fmt.Printf("fetchMachine: found matching machine name=%s for nodeID=%s\n", machine.Name, nodeID)
+				return machine, nil
+			}
+		} else {
+			fmt.Printf("fetchMachine: machine[%d] name=%s has nil nodeRef\n", i, machine.Name)
 		}
 	}
+	fmt.Printf("fetchMachine: machine not found for node ID %s\n", nodeID)
 	return nil, fmt.Errorf("machine not found for node ID %s", nodeID)
 }
 
