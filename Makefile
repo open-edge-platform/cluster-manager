@@ -205,7 +205,7 @@ dependency-check: ## Empty for now
 ##@ Build
 
 .PHONY: build
-build: build-template-controller build-cluster-manager embed-manifest-baseline ## Build template controller and cluster manager
+build: build-template-controller build-cluster-manager ## Build template controller and cluster manager
 
 .PHONY: build-template-controller
 build-template-controller: ## Build template controller
@@ -613,22 +613,6 @@ update-api-version: ## Update API version
 	@read -p "Enter new version: " new_version; \
 	sed -i "s/^  version:.*/  version: $${new_version}/" api/openapi/openapi.yaml
 	make generate-api
-
-
-LPP_MANIFEST_PATH := $(shell pwd)/default-cluster-templates/lpp-manifest.yaml
-BASELINE_TEMPLATE := $(shell pwd)/default-cluster-templates/baseline.json
-LPP_PLACEHOLDER := __MANIFEST_PLACEHOLDER__
-# LPP_MANIFEST=$(shell jq -Rs '.' < default-cluster-templates/lpp-manifest.yaml)
-# ESCAPED_REPLACEMENT=$(shell printf '%s' '$(LPP_MANIFEST)' | sed 's/[&/]/\\&/g')
-# sed -i.bak "s@$(LPP_PLACEHOLDER)@\"$$ESCAPED\"@" $(BASELINE_TEMPLATE)
-
-# @echo "Remove quotes around placeholder in baseline template..."
-# @sed -i.bak 's/"$(LPP_PLACEHOLDER)"/$(LPP_PLACEHOLDER)/' $(BASELINE_TEMPLATE)
-
-# @echo "Escaping manifest for JSON string embedding..."
-# @ESCAPED=$$(sed  ':a;N;$!ba; s/\\/\\\\/g; s/"/\\"/g; s/\n/\\n/g' ./default-cluster-templates/lpp-manifest.yaml | tr -d '\n'); \
-# sed -i.bak 's@"$(LPP_PLACEHOLDER)"@"'"$$ESCAPED"'"@' $(BASELINE_TEMPLATE)
-
 
 .PHONY: embed-manifests
 embed-manifests:
