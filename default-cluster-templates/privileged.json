@@ -1,6 +1,6 @@
 {
   "name": "privileged",
-  "version": "v2.0.2",
+  "version": "v2.0.3",
   "kubernetesVersion": "v1.30.10+rke2r1",
   "description": "Privileged Cluster Template",
   "controlplaneprovidertype": "rke2",
