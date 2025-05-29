@@ -25,13 +25,18 @@ import (
 const appName = "cluster-manager"
 
 var (
+	// The default baseline regex matches template names like baseline-<provider>-vX.Y.Z. for exmple:
+	// baseline-v1.2.3, baseline-k3s-v1.2.3, baseline-rke2-v1.2.3, baseline-kubeadm-v1.2.3..
 	baselineRegex         = regexp.MustCompile(`^baseline(?:-[a-zA-Z0-9]+)?-v\d+\.\d+\.\d+$`)
 	nexusContextTimeout   = time.Second * 5
 	GetClusterConfigFunc  = rest.InClusterConfig
 	GetNexusClientSetFunc = nexus.NewForConfig
 	GetK8sClientFunc      = k8s.NewClient
-	disableK3sTemplates   bool
-	GetTemplatesFunc      = func() ([]*ct.ClusterTemplate, error) {
+	// If disableK3sTemplates is true (defaultProvider == "rke2"), templates like baseline-k3s-vX.Y.Z are excluded.
+	// and baseline-vX.Y.Z becomes the default. Later with renaming of templates, this will be removed.
+	// If disableK3sTemplates is false, all templates are available and baseline-k3s-vX.Y.Z becomes the default.
+	disableK3sTemplates bool
+	GetTemplatesFunc    = func() ([]*ct.ClusterTemplate, error) {
 		return template.ReadDefaultTemplates(disableK3sTemplates)
 	}
 )
@@ -164,7 +169,7 @@ func (tdm *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.Ru
 	}
 	slog.Debug("added default cluster templates to project", "namespace", projectId, "project", project.DisplayName())
 
-	defaultTemplateName := SelectDefaultTemplateName(tdm.templates, disableK3sTemplates)
+	defaultTemplateName := selectDefaultTemplateName(tdm.templates, disableK3sTemplates)
 
 	if defaultTemplateName == "" {
 		slog.Warn("default template not found", "namespace", projectId, "project", project.DisplayName())
@@ -182,8 +187,9 @@ func (tdm *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.Ru
 	return nil
 }
 
-func SelectDefaultTemplateName(templates []*ct.ClusterTemplate, disableK3sTemplates bool) string {
+func selectDefaultTemplateName(templates []*ct.ClusterTemplate, disableK3sTemplates bool) string {
 	var defaultTemplateName string
+	Loop:
 	for _, t := range templates {
 		name := t.GetName()
 		if !baselineRegex.MatchString(name) {
@@ -192,7 +198,7 @@ func SelectDefaultTemplateName(templates []*ct.ClusterTemplate, disableK3sTempla
 		switch {
 		case !disableK3sTemplates && strings.Contains(name, "k3s"):
 			defaultTemplateName = name
-			break
+			break Loop
 		case defaultTemplateName == "":
 			defaultTemplateName = name
 		}
