@@ -31,9 +31,9 @@ for template_name in "${templates[@]}"; do
   ')
   echo "Escaped manifest: $ESCAPED_MANIFEST"
   # Replace only the correct 'content' key where the placeholder exists
-  jq --arg manifest "$ESCAPED_MANIFEST" '
+  jq --arg manifest "$ESCAPED_MANIFEST" --arg manifest_path "$lpp_cluster_config_manifest_path" '
     .clusterconfiguration.spec.template.spec.files |= map(
-      if .path == "/var/lib/rancher/rke2/server/manifests/local-path-provisioner.yaml"
+      if .path == $manifest_path
       then .content = ($manifest | fromjson)
       else .
       end
