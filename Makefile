@@ -630,39 +630,6 @@ LPP_PLACEHOLDER := __MANIFEST_PLACEHOLDER__
 # sed -i.bak 's@"$(LPP_PLACEHOLDER)"@"'"$$ESCAPED"'"@' $(BASELINE_TEMPLATE)
 
 
-.PHONY: embed-manifest-baseline
-embed-manifest-baseline:
-	# @if [ ! -f "$(LPP_MANIFEST_PATH)" ]; then \
-	# 	echo "Error: Manifest file '$(LPP_MANIFEST_PATH)' not found."; \
-	# 	exit 1; \
-	# fi
-	# @if [ ! -f "$(BASELINE_TEMPLATE)" ]; then \
-	# 	echo "Error: Template file '$(BASELINE_TEMPLATE)' not found."; \
-	# 	exit 1; \
-	# fi
-	# @if ! command -v jq >/dev/null 2>&1; then \
-	# 	echo "Error: jq is not installed."; \
-	# 	exit 1; \
-	# fi
-	# @if ! command -v sed >/dev/null 2>&1; then \
-	# 	echo "Error: sed is not installed."; \
-	# 	exit 1; \
-	# fi
-
-	# test_var=$(jq -Rs '.' < ./default-cluster-templates/lpp-manifest.yaml)
-	# # echo "test var: $(test_var)"
-	# sed -i.bak 's@__MANIFEST_PLACEHOLDER__@'"$(printf '%s\n' "$(test_var)")"'@' $(BASELINE_TEMPLATE)
-	# echo "test var end"
-	
-	# # @echo "Escaping manifest content for JSON...\n"
-	# # @ESCAPED=$$(jq -Rs '.' < ./default-cluster-templates/lpp-manifest.yaml); \
-	# # echo "Escaped content: $$ESCAPED"; \
-	# # echo "\nEscaped content 2 : $$(printf '%s\n' "$$ESCAPED")"; \
-	# # echo "Embedding into $(BASELINE_TEMPLATE)..." && \
-	# # sed -i.bak 's@__MANIFEST_PLACEHOLDER__@'"$$(printf '%s\n' "$$ESCAPED")"'@' $(BASELINE_TEMPLATE)
-
-	# # @rm -f .lpp-manifest.yaml $(BASELINE_TEMPLATE).bak
-	# @echo "Manifest embedded successfully."
-
-	@TEMPLATES=('baseline'); \
-	./default-cluster-templates/publish_manifest.sh $$TEMPLATES
+.PHONY: embed-manifests
+embed-manifests:
+	@./default-cluster-templates/manifests/embed_lpp_manifest.sh baseline privileged restricted
