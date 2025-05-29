@@ -202,7 +202,7 @@ func (cli *Client) CreateCluster(ctx context.Context, namespace string, cluster 
 		return "", err
 	}
 
-	slog.Info("creating cluster", "namespace", namespace, "cluster", unstructuredCluster)
+	slog.Debug("creating cluster", "namespace", namespace, "cluster", unstructuredCluster)
 
 	clusterCreationResponse, err := cli.Dyn.Resource(clusterResourceSchema).Namespace(namespace).Create(ctx, unstructuredCluster, metav1.CreateOptions{})
 	if err != nil {
