@@ -610,3 +610,7 @@ update-api-version: ## Update API version
 	@read -p "Enter new version: " new_version; \
 	sed -i "s/^  version:.*/  version: $${new_version}/" api/openapi/openapi.yaml
 	make generate-api
+
+.PHONY: embed-manifests
+embed-manifests:
+	@./default-cluster-templates/manifests/embed_lpp_manifest.sh baseline privileged restricted
