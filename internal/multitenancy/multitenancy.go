@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"regexp"
+	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,7 +25,7 @@ import (
 const appName = "cluster-manager"
 
 var (
-	baselineRegex         = regexp.MustCompile(`^baseline-v\d+\.\d+\.\d+`)
+	baselineRegex         = regexp.MustCompile(`^baseline(?:-[a-zA-Z0-9]+)?-v\d+\.\d+\.\d+$`)
 	nexusContextTimeout   = time.Second * 5
 	GetClusterConfigFunc  = rest.InClusterConfig
 	GetNexusClientSetFunc = nexus.NewForConfig
@@ -163,20 +164,14 @@ func (tdm *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.Ru
 	}
 	slog.Debug("added default cluster templates to project", "namespace", projectId, "project", project.DisplayName())
 
-	// Label default template
-	var defaultTemplateName string
-	for _, t := range tdm.templates {
-		if baselineRegex.MatchString(t.GetName()) {
-			defaultTemplateName = t.GetName()
-			break
-		}
-	}
+	defaultTemplateName := SelectDefaultTemplateName(tdm.templates, disableK3sTemplates)
 
 	if defaultTemplateName == "" {
 		slog.Warn("default template not found", "namespace", projectId, "project", project.DisplayName())
 		return nil
 	}
 
+	// Label default template
 	labels := map[string]string{labels.DefaultLabelKey: labels.DefaultLabelVal}
 	if err = tdm.k8s.AddTemplateLabels(ctx, projectId, defaultTemplateName, labels); err != nil {
 		return fmt.Errorf("failed to label default template: %w", err)
@@ -185,6 +180,24 @@ func (tdm *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.Ru
 	slog.Debug("labeled default template", "namespace", projectId, "project", project.DisplayName())
 
 	return nil
+}
+
+func SelectDefaultTemplateName(templates []*ct.ClusterTemplate, disableK3sTemplates bool) string {
+	var defaultTemplateName string
+	for _, t := range templates {
+		name := t.GetName()
+		if !baselineRegex.MatchString(name) {
+			continue
+		}
+		switch {
+		case !disableK3sTemplates && strings.Contains(name, "k3s"):
+			defaultTemplateName = name
+			break
+		case defaultTemplateName == "":
+			defaultTemplateName = name
+		}
+	}
+	return defaultTemplateName
 }
 
 // processRuntimeProjectsUpdate is a callback function invoked when a project is deleted
