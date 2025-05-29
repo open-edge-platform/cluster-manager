@@ -46,7 +46,10 @@ func (s *Server) DeleteV2ClustersNameNodesNodeId(ctx context.Context, request ap
 		slog.Error(errMsg)
 		return api.DeleteV2ClustersNameNodesNodeId400JSONResponse{N400BadRequestJSONResponse: api.N400BadRequestJSONResponse{Message: &errMsg}}, nil
 	}
+	slog.Debug("deleting node from cluster", "name", clusterName, "nodeID", nodeID, "force", force)
+
 	if force {
+		slog.Debug("force delete requested, attempting to remove finalizers from intel machines", "clusterName", clusterName, "activeProjectID", activeProjectID)
 		// track down the machine binding and remove the finalizer
 		// a cluster object may not exist for it anymore so we want to do this first before erroring out
 		cli, err := k8s.New(k8s.WithDynamicClient(s.k8sclient))
@@ -56,6 +59,7 @@ func (s *Server) DeleteV2ClustersNameNodesNodeId(ctx context.Context, request ap
 			return api.DeleteV2ClustersNameNodesNodeId500JSONResponse{N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{Message: &errMsg}}, nil
 		}
 		intelMachines, err := cli.IntelMachines(ctx, activeProjectID, clusterName)
+		slog.Debug("retrieved intel machines", "count", len(intelMachines), "clusterName", clusterName)
 		if err != nil {
 			errMsg := "failed to retrieve intel machines"
 			slog.Error(errMsg, "error", err)
@@ -64,28 +68,32 @@ func (s *Server) DeleteV2ClustersNameNodesNodeId(ctx context.Context, request ap
 		// once host-id is used instead of uuid we should check the machine's host-id and only remove the finalizer if it matches
 		// for now this works fine for single node clusters
 		for _, intelMachine := range intelMachines {
+			slog.Debug("processing intel machine for finalizer removal", "intelMachineName", intelMachine.Name)
 			origIntelMachine := intelMachine.DeepCopy()
 			if !cutil.RemoveFinalizer(&intelMachine, intelProvider.HostCleanupFinalizer) {
 				// we don't error out just in case the finalizer was already removed but deletion still needs to be triggered
 				errMsg := "failed to remove finalizers"
-				slog.Error(errMsg)
+				slog.Error(errMsg, "intelMachineName", intelMachine.Name)
 				continue
 			}
+			slog.Debug("finalizer removed from intel machine", "intelMachineName", intelMachine.Name)
 			intelMachineBytes, err := getPatchData(origIntelMachine, intelMachine)
 			if err != nil {
 				errMsg := "failed to get patch data"
-				slog.Error(errMsg, "error", err)
+				slog.Error(errMsg, "error", err, "intelMachineName", intelMachine.Name)
 				continue
 			}
 			_, err = s.k8sclient.Resource(core.IntelMachineResourceSchema).Namespace(activeProjectID).Patch(ctx, intelMachine.Name, types.MergePatchType, intelMachineBytes, v1.PatchOptions{})
 			if err != nil {
 				errMsg := "failed to remove finalizers"
-				slog.Error(errMsg, "error", err)
+				slog.Error(errMsg, "error", err, "intelMachineName", intelMachine.Name)
 				continue
 			}
+			slog.Debug("successfully patched intel machine to remove finalizer", "intelMachineName", intelMachine.Name)
 		}
 	}
 	// retrieve the cluster
+	slog.Debug("retrieving cluster", "activeProjectID", activeProjectID, "clusterName", clusterName)
 	cluster, err := s.getCluster(ctx, activeProjectID, clusterName)
 	if err != nil {
 		errMsg := "failed to retrieve cluster"
@@ -93,8 +101,10 @@ func (s *Server) DeleteV2ClustersNameNodesNodeId(ctx context.Context, request ap
 		return api.DeleteV2ClustersNameNodesNodeId500JSONResponse{N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{Message: &errMsg}}, nil
 	}
 	// check for single node
+	slog.Debug("checking if cluster is single node", "clusterName", clusterName, "nodeCount", len(*cluster.Nodes))
 	if len(*cluster.Nodes) == 1 {
 		// ensure the node exists
+		slog.Debug("ensuring node exists in single node cluster", "clusterName", clusterName, "nodeID", nodeID)
 		// Once host ID is used instead of uid we can just pull that from the cluster object instead of doing this
 		_, err := fetchMachine(ctx, s, activeProjectID, clusterName, nodeID)
 		if err != nil {
@@ -103,6 +113,7 @@ func (s *Server) DeleteV2ClustersNameNodesNodeId(ctx context.Context, request ap
 			return api.DeleteV2ClustersNameNodesNodeId500JSONResponse{N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{Message: &errMsg}}, nil
 		}
 		// if we're dealing with a single node cluster, we can delete the capi cluster
+		slog.Debug("deleting single node cluster", "clusterName", clusterName)
 		err = deleteCluster(ctx, s, activeProjectID, clusterName, deleteOptions)
 		if err != nil {
 			errMsg := "failed to delete cluster"

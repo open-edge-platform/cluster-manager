@@ -412,8 +412,11 @@ func (cli *Client) GetMachines(ctx context.Context, namespace, clusterName strin
 	var machines []capi.Machine
 
 	opts := metav1.ListOptions{LabelSelector: fmt.Sprintf("cluster.x-k8s.io/cluster-name=%v", clusterName)}
+	slog.Debug("Listing machines", "namespace", namespace, "clusterName", clusterName, "labelSelector", opts.LabelSelector)
+
 	unstructuredMachinesList, err := cli.Dyn.Resource(machineResourceSchema).Namespace(namespace).List(ctx, opts)
 	if err != nil {
+		slog.Error("Failed to list machines", "error", err, "namespace", namespace, "clusterName", clusterName)
 		return machines, err
 	}
 
@@ -421,11 +424,14 @@ func (cli *Client) GetMachines(ctx context.Context, namespace, clusterName strin
 		var machine capi.Machine
 		err = convert.FromUnstructured(item, &machine)
 		if err != nil {
+			slog.Error("Failed to convert unstructured machine", "error", err, "item", item.GetName())
 			return machines, err
 		}
+		slog.Debug("Found machine", "name", machine.Name)
 		machines = append(machines, machine)
 	}
 
+	slog.Debug("Total machines found", "count", len(machines), "namespace", namespace, "clusterName", clusterName)
 	return machines, nil
 }
 
@@ -442,6 +448,7 @@ func (cli *Client) CreateMachineBinding(ctx context.Context, namespace string, b
 
 // IntelMachines returns all IntelMachine objects in the given namespace for the given cluster
 func (cli *Client) IntelMachines(ctx context.Context, namespace, clusterName string) ([]intelProvider.IntelMachine, error) {
+	slog.Debug("Listing IntelMachines", "namespace", namespace, "clusterName", clusterName)
 	return providerMachines[intelProvider.IntelMachine](ctx, cli, namespace, clusterName, IntelMachineResourceSchema)
 }
 
@@ -455,8 +462,10 @@ func providerMachines[T any](ctx context.Context, cli *Client, namespace, cluste
 	var machines []T
 
 	opts := metav1.ListOptions{LabelSelector: fmt.Sprintf("cluster.x-k8s.io/cluster-name=%v", clusterName)}
+	slog.Debug("Listing provider machines", "namespace", namespace, "clusterName", clusterName, "labelSelector", opts.LabelSelector)
 	unstructuredMachinesList, err := cli.Dyn.Resource(providerSchema).Namespace(namespace).List(ctx, opts)
 	if err != nil {
+		slog.Error("Failed to list provider machines", "error", err, "namespace", namespace, "clusterName", clusterName)
 		return machines, err
 	}
 
@@ -464,16 +473,20 @@ func providerMachines[T any](ctx context.Context, cli *Client, namespace, cluste
 		var machine T
 		err = convert.FromUnstructured(item, &machine)
 		if err != nil {
+			slog.Error("Failed to convert unstructured provider machine", "error", err, "item", item.GetName())
 			return machines, err
 		}
+		slog.Debug("Found provider machine", "name", item.GetName())
 		machines = append(machines, machine)
 	}
 
+	slog.Debug("Total provider machines found", "count", len(machines), "namespace", namespace, "clusterName", clusterName)
 	return machines, nil
 }
 
 // IntelMachine returns the IntelMachine with the given name in the given namespace for the given cluster
 func (cli *Client) IntelMachine(ctx context.Context, namespace, providerMachineName string) (intelProvider.IntelMachine, error) {
+	slog.Debug("Retrieving IntelMachine", "namespace", namespace, "providerMachineName", providerMachineName)
 	return providerMachine[intelProvider.IntelMachine](ctx, cli, namespace, providerMachineName, IntelMachineResourceSchema)
 }
 
@@ -486,16 +499,20 @@ func (cli *Client) DockerMachine(ctx context.Context, namespace, providerMachine
 func providerMachine[T any](ctx context.Context, cli *Client, namespace, providerMachineName string, providerSchema schema.GroupVersionResource) (T, error) {
 	var machine T
 
+	slog.Debug("Retrieving provider machine", "namespace", namespace, "providerMachineName", providerMachineName, "providerSchema", providerSchema.Resource)
 	unstructuredMachine, err := cli.Dyn.Resource(providerSchema).Namespace(namespace).Get(ctx, providerMachineName, metav1.GetOptions{})
 	if err != nil {
+		slog.Error("Failed to get provider machine", "error", err, "namespace", namespace, "providerMachineName", providerMachineName)
 		return machine, err
 	}
 
 	err = convert.FromUnstructured(*unstructuredMachine, &machine)
 	if err != nil {
+		slog.Error("Failed to convert unstructured provider machine", "error", err, "providerMachineName", providerMachineName)
 		return machine, err
 	}
 
+	slog.Debug("Successfully retrieved provider machine", "providerMachineName", providerMachineName)
 	return machine, nil
 }
 
