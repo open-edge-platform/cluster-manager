@@ -139,6 +139,85 @@ func TestGetHostTrustedCompute(t *testing.T) {
 	}
 }
 
+func TestEnableAirGapInstall(t *testing.T) {
+	mockClient := mocks.NewMockTenantAwareInventoryClient(t)
+	inventory.GetInventoryClientFunc = func(ctx context.Context, cfg client.InventoryClientConfig) (client.TenantAwareInventoryClient, error) {
+		return mockClient, nil
+	}
+
+	cases := []struct {
+		name        string
+		mock        func()
+		expectedVal bool
+		expectedErr error
+	}{
+		{
+			name: "immutable OS type",
+			mock: func() {
+				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(&computev1.HostResource{
+					Instance: &computev1.InstanceResource{
+						CurrentOs: &osv1.OperatingSystemResource{
+							OsType: osv1.OsType_OS_TYPE_IMMUTABLE,
+						},
+					},
+				}, nil).Once()
+			},
+			expectedVal: true,
+		},
+		{
+			name: "mutable OS type",
+			mock: func() {
+				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(&computev1.HostResource{
+					Instance: &computev1.InstanceResource{
+						CurrentOs: &osv1.OperatingSystemResource{
+							OsType: osv1.OsType_OS_TYPE_MUTABLE,
+						},
+					},
+				}, nil).Once()
+			},
+			expectedVal: false,
+		},
+		{
+			name: "host instance nil",
+			mock: func() {
+				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(&computev1.HostResource{}, nil).Once()
+			},
+			expectedErr: errors.New("host instance is nil"),
+			expectedVal: false,
+		},
+		{
+			name: "current OS nil",
+			mock: func() {
+				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(&computev1.HostResource{
+					Instance: &computev1.InstanceResource{},
+				}, nil).Once()
+			},
+			expectedErr: errors.New("host instance current os is nil"),
+			expectedVal: false,
+		},
+		{
+			name: "error fetching host",
+			mock: func() {
+				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError).Once()
+			},
+			expectedErr: assert.AnError,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.mock()
+
+			invClient, err := inventory.NewInventoryClientWithOptions(inventory.Options{})
+			require.NoError(t, err)
+
+			airGapInstall, err := invClient.EnableAirGapInstall(context.Background(), "test_tenant_id", "test_host_uuid")
+			assert.Equal(t, tc.expectedVal, airGapInstall)
+			assert.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
 func TestJsonStringToMap(t *testing.T) {
 	cases := []struct {
 		name     string

@@ -70,6 +70,7 @@ func TestPostV2Clusters201(t *testing.T) {
 					ControlPlane: capi.ControlPlaneTopology{
 						Replicas: ptr(int32(1)),
 					},
+					Variables: []capi.ClusterVariable{},
 				},
 			},
 		}
@@ -209,6 +210,7 @@ func TestPostV2Clusters201(t *testing.T) {
 					ControlPlane: capi.ControlPlaneTopology{
 						Replicas: ptr(int32(1)),
 					},
+					Variables: []capi.ClusterVariable{},
 				},
 			},
 		}
@@ -333,6 +335,143 @@ func TestPostV2Clusters201(t *testing.T) {
 	})
 }
 
+func TestPostV2Clusters201K3sAirGap(t *testing.T) {
+
+	t.Run("Create k3s Cluster in AirGap Mode", func(t *testing.T) {
+		// Prepare test data
+		expectedCluster := capi.Cluster{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "cluster.x-k8s.io/v1beta1",
+				Kind:       "clusters",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "example-cluster",
+				Namespace: "655a6892-4280-4c37-97b1-31161ac0b99e",
+				Labels: map[string]string{
+					"edge-orchestrator.intel.com/clustername": "example-cluster",
+					"edge-orchestrator.intel.com/project-id":  "655a6892-4280-4c37-97b1-31161ac0b99e",
+					"prometheusMetricsURL":                    "metrics-node.kind.internal",
+					"trusted-compute-compatible":              "false",
+					"default-extension":                       "baseline",
+					"test":                                    "true",
+				},
+				Annotations: map[string]string{
+					"edge-orchestrator.intel.com/template": "baseline-k3s",
+				},
+			},
+			Spec: capi.ClusterSpec{
+				ClusterNetwork: &capi.ClusterNetwork{
+					Pods: &capi.NetworkRanges{
+						CIDRBlocks: []string{"10.0.0.0/16"},
+					},
+					Services: &capi.NetworkRanges{
+						CIDRBlocks: []string{},
+					},
+				},
+				Topology: &capi.Topology{
+					Class:   "example-cluster-class",
+					Version: "v1.30.0",
+					ControlPlane: capi.ControlPlaneTopology{
+						Replicas: ptr(int32(1)),
+					},
+					Variables: []capi.ClusterVariable{},
+				},
+			},
+		}
+		expectedActiveProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
+		expectedTemplateName := "baseline-k3s"
+
+		// Convert expected cluster to unstructured
+		unstructuredCluster, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&expectedCluster)
+		require.NoError(t, err, "convertClusterToUnstructured() error = %v, want nil")
+
+		// Mock the template fetching
+		expectedTemplate := clusterv1alpha1.ClusterTemplate{
+			TypeMeta: metav1.TypeMeta{},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: expectedTemplateName,
+			},
+			Spec: clusterv1alpha1.ClusterTemplateSpec{
+				ControlPlaneProviderType: "k3s",
+				InfraProviderType:        "docker",
+				KubernetesVersion:        "v1.30.0",
+				ClusterConfiguration:     "",
+				ClusterNetwork: clusterv1alpha1.ClusterNetwork{
+					Services: &clusterv1alpha1.NetworkRanges{
+						CIDRBlocks: []string{},
+					},
+					Pods: &clusterv1alpha1.NetworkRanges{
+						CIDRBlocks: []string{"10.0.0.0/16"},
+					},
+				},
+				ClusterLabels: map[string]string{"default-extension": "baseline"},
+			},
+			Status: clusterv1alpha1.ClusterTemplateStatus{
+				Ready: true,
+				ClusterClassRef: &corev1.ObjectReference{
+					Name: "example-cluster-class",
+				},
+			},
+		}
+		unstructuredTemplate, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&expectedTemplate)
+		require.NoError(t, err, "failed to convert template to unstructured")
+
+		// Create a mock resource interface for clustertemplates
+		templateResource := k8s.NewMockResourceInterface(t)
+		templateResource.EXPECT().Get(mock.Anything, expectedTemplateName, metav1.GetOptions{}).Return(&unstructured.Unstructured{Object: unstructuredTemplate}, nil)
+
+		// Create a mock namespaceable resource interface for clustertemplates
+		nsTemplateResource := k8s.NewMockNamespaceableResourceInterface(t)
+		nsTemplateResource.EXPECT().Namespace(expectedActiveProjectID).Return(templateResource)
+
+		// Create a mock resource interface for clusters
+		clusterResource := k8s.NewMockResourceInterface(t)
+		clusterResource.EXPECT().Create(mock.Anything, &unstructured.Unstructured{Object: unstructuredCluster}, metav1.CreateOptions{}).Return(&unstructured.Unstructured{Object: unstructuredCluster}, nil)
+
+		// Create a mock namespaceable resource interface for clusters
+		nsClusterResource := k8s.NewMockNamespaceableResourceInterface(t)
+		nsClusterResource.EXPECT().Namespace(expectedActiveProjectID).Return(clusterResource)
+
+		// Create a mock k8s client
+		mockedk8sclient := k8s.NewMockInterface(t)
+		mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsTemplateResource)
+		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsClusterResource)
+
+		// Create a server instance with the mock k8s client
+		server := NewServer(mockedk8sclient, WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
+		require.NotNil(t, server, "NewServer() returned nil, want not nil")
+
+		// Create a new request & response recorder
+		clusterSpec := api.ClusterSpec{
+			Name:     ptr("example-cluster"),
+			Template: ptr(expectedTemplateName),
+			Nodes: []api.NodeSpec{
+				{
+					Id:   "27b4e138-ea0b-11ef-8552-8b663d95bc01",
+					Role: api.NodeSpecRole(api.All),
+				},
+			},
+			Labels: &map[string]string{"test": "true"},
+		}
+		requestBody, err := json.Marshal(clusterSpec)
+		require.NoError(t, err, "Failed to marshal request body")
+		req := httptest.NewRequest("POST", "/v2/clusters", bytes.NewReader(requestBody))
+		req.Header.Set("Activeprojectid", expectedActiveProjectID)
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+
+		// Create a handler with middleware to serve the request
+		handler, err := server.ConfigureHandler()
+		require.Nil(t, err)
+		handler.ServeHTTP(rr, req)
+
+		// Check the response
+		assert.Equal(t, http.StatusCreated, rr.Code)
+		expectedResponse := fmt.Sprintf("successfully created cluster %s", "example-cluster")
+		assert.Contains(t, rr.Body.String(), expectedResponse)
+	})
+}
+
 func TestPostV2Clusters201NoNameNoTemplate(t *testing.T) {
 	expectedCluster := capi.Cluster{
 		TypeMeta: metav1.TypeMeta{
@@ -367,6 +506,7 @@ func TestPostV2Clusters201NoNameNoTemplate(t *testing.T) {
 				ControlPlane: capi.ControlPlaneTopology{
 					Replicas: ptr(int32(1)),
 				},
+				Variables: []capi.ClusterVariable{},
 			},
 		},
 	}
@@ -413,6 +553,7 @@ func TestPostV2Clusters201NoNameNoTemplate(t *testing.T) {
 	// Create k8s mock
 	templateResource := k8s.NewMockResourceInterface(t)
 	templateResource.EXPECT().List(mock.Anything, metav1.ListOptions{LabelSelector: "default=true"}).Return(unstructuredTemplateList, nil)
+	templateResource.EXPECT().Get(mock.Anything, "baseline-kubeadm", metav1.GetOptions{}).Return(unstructuredTemplate, nil)
 	nsTemplateResource := k8s.NewMockNamespaceableResourceInterface(t)
 	nsTemplateResource.EXPECT().Namespace(expectedActiveProjectID).Return(templateResource)
 	clusterResource := k8s.NewMockResourceInterface(t)
@@ -724,6 +865,7 @@ func TestPostV2Clusters500(t *testing.T) {
 					ControlPlane: capi.ControlPlaneTopology{
 						Replicas: ptr(int32(1)),
 					},
+					Variables: []capi.ClusterVariable{},
 				},
 			},
 		}

@@ -202,6 +202,8 @@ func (cli *Client) CreateCluster(ctx context.Context, namespace string, cluster 
 		return "", err
 	}
 
+	slog.Debug("creating cluster", "namespace", namespace, "cluster", unstructuredCluster)
+
 	clusterCreationResponse, err := cli.Dyn.Resource(clusterResourceSchema).Namespace(namespace).Create(ctx, unstructuredCluster, metav1.CreateOptions{})
 	if err != nil {
 		return "", err
@@ -427,6 +429,22 @@ func (cli *Client) GetMachines(ctx context.Context, namespace, clusterName strin
 	}
 
 	return machines, nil
+}
+
+func (cli *Client) GetClusterTemplate(ctx context.Context, namespace, templateName string) (*ct.ClusterTemplate, error) {
+	var template ct.ClusterTemplate
+
+	unstructuredClusterTemplate, err := cli.Dyn.Resource(templateResourceSchema).Namespace(namespace).Get(ctx, templateName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	err = convert.FromUnstructured(*unstructuredClusterTemplate, &template)
+	if err != nil {
+		return nil, err
+	}
+
+	return &template, nil
 }
 
 // CreateMachineBinding creates a new machine binding object in the given namespace
