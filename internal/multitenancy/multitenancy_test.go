@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -17,6 +19,7 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/template"
 	activeWatcher "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/apis/projectactivewatcher.edge-orchestrator.intel.com/v1"
 	watcherv1 "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/apis/projectwatcher.edge-orchestrator.intel.com/v1"
 	projectv1 "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/apis/runtimeproject.edge-orchestrator.intel.com/v1"
@@ -290,6 +293,81 @@ func (suite *TenancyDatamodelTestSuite) TestDeleteCallback() {
 			} else {
 				assert.NoError(suite.T(), err)
 			}
+		})
+	}
+}
+
+func (suite *TenancyDatamodelTestSuite) TestNewDatamodelClientK3Templates() {
+	tmpDir := suite.T().TempDir()
+	mockTemplate1 := []byte(`{"Name":"mock-k3s-template","Version":"v1.0.0","KubernetesVersion":"1.25"}`)
+	mockTemplate2 := []byte(`{"Name":"mock-kubeadm-template","Version":"v1.1.0","KubernetesVersion":"1.26"}`)
+	mockTemplate3 := []byte(`{"Name":"baseline-rke2","Version":"v2.0.0","KubernetesVersion":"1.27"}`)
+	mockBaselineTemplate := []byte(`{"Name":"baseline","Version":"v1.2.3","KubernetesVersion":"1.28"}`)
+	mockBaselineK3sTemplate := []byte(`{"Name":"baseline-k3s","Version":"v1.2.3","KubernetesVersion":"1.28"}`)
+
+	require.NoError(suite.T(), os.WriteFile(filepath.Join(tmpDir, "mock-template1.json"), mockTemplate1, 0644))
+	require.NoError(suite.T(), os.WriteFile(filepath.Join(tmpDir, "mock-template2.json"), mockTemplate2, 0644))
+	require.NoError(suite.T(), os.WriteFile(filepath.Join(tmpDir, "mock-template3.json"), mockTemplate3, 0644))
+	require.NoError(suite.T(), os.WriteFile(filepath.Join(tmpDir, "mock-baseline.json"), mockBaselineTemplate, 0644))
+	require.NoError(suite.T(), os.WriteFile(filepath.Join(tmpDir, "mock-baseline-k3s.json"), mockBaselineK3sTemplate, 0644))
+
+	oldEnv := os.Getenv("DEFAULT_TEMPLATES_DIR")
+	require.NoError(suite.T(), os.Setenv("DEFAULT_TEMPLATES_DIR", tmpDir))
+	suite.T().Cleanup(func() { os.Setenv("DEFAULT_TEMPLATES_DIR", oldEnv) })
+
+	cases := []struct {
+		name                  string
+		disableK3s            bool
+		configFunc            func() (*rest.Config, error)
+		clientSetFunc         func(*rest.Config) (*nexus.Clientset, error)
+		k8sClientFunc         func(*config.Config) (*k8s.Client, error)
+		templateFunc          func() ([]*v1alpha1.ClusterTemplate, error)
+		expectedErr           error
+		expectedClient        bool
+		expectedTemplateCount int
+		expectedDefault       string
+	}{
+		{
+			name:                  "K3s templates enabled (should see all 5, baseline-k3s is default)",
+			disableK3s:            false,
+			configFunc:            func() (*rest.Config, error) { return &rest.Config{}, nil },
+			clientSetFunc:         func(*rest.Config) (*nexus.Clientset, error) { return &nexus.Clientset{}, nil },
+			k8sClientFunc:         func(*config.Config) (*k8s.Client, error) { return &k8s.Client{}, nil },
+			templateFunc:          nil,  // call for the real function
+			expectedErr:           nil,
+			expectedClient:        true,
+			expectedTemplateCount: 5,
+			expectedDefault:       "baseline-k3s-v1.2.3",
+		},
+		{
+			name:                  "K3s templates disabled (should see only 4, baseline is default)",
+			disableK3s:            true,
+			configFunc:            func() (*rest.Config, error) { return &rest.Config{}, nil },
+			clientSetFunc:         func(*rest.Config) (*nexus.Clientset, error) { return &nexus.Clientset{}, nil },
+			k8sClientFunc:         func(*config.Config) (*k8s.Client, error) { return &k8s.Client{}, nil },
+			templateFunc:          nil,  // call for the real function
+			expectedErr:           nil,
+			expectedClient:        true,
+			expectedTemplateCount: 3,
+			expectedDefault:       "baseline-v1.2.3",
+		},
+	}
+	for _, tc := range cases {
+		suite.Run(tc.name, func() {
+			disableK3sTemplates = tc.disableK3s
+			GetTemplatesFunc = func() ([]*v1alpha1.ClusterTemplate, error) {
+				return template.ReadDefaultTemplates(disableK3sTemplates)
+			}
+			GetClusterConfigFunc = tc.configFunc
+			GetNexusClientSetFunc = tc.clientSetFunc
+			GetK8sClientFunc = tc.k8sClientFunc
+			client, err := NewDatamodelClient()
+			assert.NoError(suite.T(), err)
+			assert.NotNil(suite.T(), client)
+			assert.Equal(suite.T(), tc.expectedTemplateCount, len(client.templates))
+
+			defaultTemplateName := selectDefaultTemplateName(client.templates, disableK3sTemplates)
+			assert.Equal(suite.T(), tc.expectedDefault, defaultTemplateName)
 		})
 	}
 }
