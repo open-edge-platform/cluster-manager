@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"regexp"
+	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,18 +19,27 @@ import (
 	ct "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
+	provider "github.com/open-edge-platform/cluster-manager/v2/internal/providers"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/template"
 )
 
 const appName = "cluster-manager"
 
 var (
-	baselineRegex         = regexp.MustCompile(`^baseline-v\d+\.\d+\.\d+`)
+	// The default baseline regex matches template names like baseline-<provider>-vX.Y.Z. for exmple:
+	// baseline-v1.2.3, baseline-k3s-v1.2.3, baseline-rke2-v1.2.3, baseline-kubeadm-v1.2.3..
+	baselineRegex         = regexp.MustCompile(`^baseline(?:-[a-zA-Z0-9]+)?-v\d+\.\d+\.\d+$`)
 	nexusContextTimeout   = time.Second * 5
 	GetClusterConfigFunc  = rest.InClusterConfig
 	GetNexusClientSetFunc = nexus.NewForConfig
 	GetK8sClientFunc      = k8s.NewClient
-	GetTemplatesFunc      = template.ReadDefaultTemplates
+	// If disableK3sTemplates is true (defaultProvider == "rke2"), templates like baseline-k3s-vX.Y.Z are excluded.
+	// and baseline-vX.Y.Z becomes the default. Later with renaming of templates, this will be removed.
+	// If disableK3sTemplates is false, all templates are available and baseline-k3s-vX.Y.Z becomes the default.
+	disableK3sTemplates bool
+	GetTemplatesFunc    = func() ([]*ct.ClusterTemplate, error) {
+		return template.ReadDefaultTemplates(disableK3sTemplates)
+	}
 )
 
 type TenancyDatamodel struct {
@@ -102,6 +112,11 @@ func (tdm *TenancyDatamodel) Stop() {
 	}
 }
 
+// SetDisableK3sTemplates allows disabling the k3s templates
+func SetDisableK3sTemplates(disable bool) {
+	disableK3sTemplates = disable
+}
+
 // processRuntimeProjectsAdd is a callback function invoked when a project is added
 func (tdm *TenancyDatamodel) processRuntimeProjectsAdd(project *nexus.RuntimeprojectRuntimeProject) {
 	slog.Debug("project add event received", "project", project.DisplayName())
@@ -155,20 +170,14 @@ func (tdm *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.Ru
 	}
 	slog.Debug("added default cluster templates to project", "namespace", projectId, "project", project.DisplayName())
 
-	// Label default template
-	var defaultTemplateName string
-	for _, t := range tdm.templates {
-		if baselineRegex.MatchString(t.GetName()) {
-			defaultTemplateName = t.GetName()
-			break
-		}
-	}
+	defaultTemplateName := selectDefaultTemplateName(tdm.templates, disableK3sTemplates)
 
 	if defaultTemplateName == "" {
 		slog.Warn("default template not found", "namespace", projectId, "project", project.DisplayName())
 		return nil
 	}
 
+	// Label default template
 	labels := map[string]string{labels.DefaultLabelKey: labels.DefaultLabelVal}
 	if err = tdm.k8s.AddTemplateLabels(ctx, projectId, defaultTemplateName, labels); err != nil {
 		return fmt.Errorf("failed to label default template: %w", err)
@@ -177,6 +186,25 @@ func (tdm *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.Ru
 	slog.Debug("labeled default template", "namespace", projectId, "project", project.DisplayName())
 
 	return nil
+}
+
+func selectDefaultTemplateName(templates []*ct.ClusterTemplate, disableK3sTemplates bool) string {
+	var defaultTemplateName string
+Loop:
+	for _, t := range templates {
+		name := t.GetName()
+		if !baselineRegex.MatchString(name) {
+			continue
+		}
+		switch {
+		case !disableK3sTemplates && strings.Contains(name, provider.DefaultProvider):
+			defaultTemplateName = name
+			break Loop
+		case defaultTemplateName == "":
+			defaultTemplateName = name
+		}
+	}
+	return defaultTemplateName
 }
 
 // processRuntimeProjectsUpdate is a callback function invoked when a project is deleted

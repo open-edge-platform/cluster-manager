@@ -29,6 +29,9 @@ type Config struct {
 	// DisableMetrics disables metrics, should be false for production and true in integration without prometheus
 	DisableMetrics bool
 
+	// DisableK3sTemplates disables k3s templates, should be false for production and true in integration without k3s
+	DisableK3sTemplates bool
+
 	OidcUrl              string
 	OpaEnabled           bool
 	OpaPort              int
@@ -46,6 +49,8 @@ func ParseConfig() *Config {
 	disableMt := flag.Bool("disable-mt", false, "(optional) disable multi-tenancy integration")
 	disableInv := flag.Bool("disable-inventory", false, "(optional) disable inventory integration")
 	disableMetrics := flag.Bool("disable-metrics", false, "(optional) disable prometheus metrics handler")
+	// setting disableK3sTemplates to true for integration tests and avoid UI changes without k3s and false for production
+	disableK3sTemplates := flag.Bool("disable-k3s-templates", true, "(optional) disable k3s templates, should be false for production and true in integration without k3s")
 	logLevel := flag.Int("loglevel", 0, "(optional) log level [trace:-8|debug:-4|info:0|warn:4|error:8]")
 	logFormat := flag.String("logformat", "json", "(optional) log format [json|human]")
 	prefixes := flag.String("system-labels-prefixes", "", "(optional) comma separated list of system labels prefixes; if not provided, sane defaults are used")
@@ -59,6 +64,7 @@ func ParseConfig() *Config {
 		DisableMultitenancy: *disableMt,
 		DisableInventory:    *disableInv,
 		DisableMetrics:      *disableMetrics,
+		DisableK3sTemplates: *disableK3sTemplates,
 		LogLevel:            *logLevel,
 		LogFormat:           strings.ToLower(*logFormat),
 		ClusterDomain:       *clusterDomain,

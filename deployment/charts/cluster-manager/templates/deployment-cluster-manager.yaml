@@ -29,6 +29,8 @@ spec:
         checksum/configmap: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
     spec:
       serviceAccountName: {{ .Values.serviceAccount.name | default (include "cluster-manager.serviceAccountName" .) }}
+      securityContext:
+        runAsNonRoot: {{ .Values.clusterManager.podSecurityContext.runAsNonRoot }}
       containers:
       - name: cluster-manager
         {{- with .Values.clusterManager.image }}
