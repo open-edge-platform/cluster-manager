@@ -18,7 +18,7 @@ jobs:
       contents: read
       security-events: write
       id-token: write
-    uses: open-edge-platform/orch-ci/.github/workflows/post-merge.yml@13722579bc8edfb712203cb8e88fcc404d2218bc  # 0.1.9
+    uses: open-edge-platform/orch-ci/.github/workflows/post-merge.yml@3bdd409ccf738472c6e1547d14628b51c70dbe99  # 0.1.21
     with:
       run_build: true
       run_version_check: true
@@ -32,4 +32,10 @@ jobs:
       run_docker_push: true
       run_helm_build: true
       run_helm_push: true
-    secrets: inherit  # zizmor: ignore[secrets-inherit]
+    secrets:
+      SYS_ORCH_GITHUB: ${{ secrets.SYS_ORCH_GITHUB }}
+      COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+      COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+      NO_AUTH_ECR_PUSH_USERNAME: ${{ secrets.NO_AUTH_ECR_PUSH_USERNAME }}
+      NO_AUTH_ECR_PUSH_PASSWD: ${{ secrets.NO_AUTH_ECR_PUSH_PASSWD }}
+      MSTEAMS_WEBHOOK: ${{ secrets.TEAMS_WEBHOOK }}
