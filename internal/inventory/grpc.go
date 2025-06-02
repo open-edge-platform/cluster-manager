@@ -86,6 +86,26 @@ func (c *InventoryClient) GetHostTrustedCompute(ctx context.Context, tenantId, h
 	return host.Instance.SecurityFeature == osv1.SecurityFeature_SECURITY_FEATURE_SECURE_BOOT_AND_FULL_DISK_ENCRYPTION, nil
 }
 
+// EnableAirGapInstall returns true if the host OS type is immutable (e.g. EMT with pre-installed K8s packages)
+func (c *InventoryClient) EnableAirGapInstall(ctx context.Context, tenantId, hostUuid string) (bool, error) {
+	host, err := c.getHost(ctx, tenantId, hostUuid)
+	if err != nil {
+		return false, err
+	}
+
+	if host.Instance == nil {
+		return false, errors.New("host instance is nil")
+	}
+
+	if host.Instance.CurrentOs == nil {
+		return false, errors.New("host instance current os is nil")
+	}
+
+	// The expectation is when the host OS is immutable, we expect the k3s packages to be bundled as part of the
+	// OS image. So, we assume that the cluster is installed in air-gap mode.
+	return host.Instance.CurrentOs.OsType == osv1.OsType_OS_TYPE_IMMUTABLE, nil
+}
+
 // getHost returns the host resource for the given tenant and host uuid
 func (c *InventoryClient) getHost(ctx context.Context, tenantId, hostUuid string) (*computev1.HostResource, error) {
 	ctx, cancel := context.WithTimeout(ctx, defaultInventoryTimeout)
@@ -121,7 +141,8 @@ func (c *InventoryClient) validateHostResource(host *computev1.HostResource) err
 }
 
 // noopInventoryClient is a no-op implementation of the InventoryClient interface
-type noopInventoryClient struct{}
+type noopInventoryClient struct {
+}
 
 // NewNoopInventoryClient returns a new no-op InventoryClient
 func NewNoopInventoryClient() *noopInventoryClient {
@@ -130,6 +151,11 @@ func NewNoopInventoryClient() *noopInventoryClient {
 
 // GetHostTrustedCompute is a no-op implementation of the InventoryClient's GetHostTrustedCompute method that always returns false
 func (auth noopInventoryClient) GetHostTrustedCompute(ctx context.Context, tenantId, hostUuid string) (bool, error) {
+	return false, nil
+}
+
+// EnableAirGapInstall is a no-op implementation of the InventoryClient's EnableAirGapInstall method that always returns false
+func (auth noopInventoryClient) EnableAirGapInstall(ctx context.Context, tenantId, hostUuid string) (bool, error) {
 	return false, nil
 }
 

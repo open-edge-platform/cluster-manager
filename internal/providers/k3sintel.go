@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -52,6 +53,17 @@ func (k3sintel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
 				},
 			},
 		},
+		{
+			Name: AirGapped,
+			Schema: capiv1beta1.VariableSchema{
+				OpenAPIV3Schema: capiv1beta1.JSONSchemaProps{
+					Type: "boolean",
+					Default: &apiextensionsv1.JSON{
+						Raw: []byte("true"),
+					},
+				},
+			},
+		},
 	}
 
 	cc.Spec.Patches = []capiv1beta1.ClusterClassPatch{
@@ -77,6 +89,13 @@ func (k3sintel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
 							Path: "/spec/template/spec/kthreesConfigSpec/files/-",
 							ValueFrom: &capiv1beta1.JSONPatchValue{
 								Variable: &connectAgentManifest,
+							},
+						},
+						{
+							Op:   "add",
+							Path: "/spec/template/spec/kthreesConfigSpec/agentConfig/airGapped",
+							ValueFrom: &capiv1beta1.JSONPatchValue{
+								Variable: &AirGapped,
 							},
 						},
 					},
