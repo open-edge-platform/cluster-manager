@@ -44,6 +44,9 @@ type Provider interface {
 var (
 	connectAgentManifest = "connectAgentManifest"
 	enabledIf            = "{{ if .connectAgentManifest.path }}true{{ end }}"
+
+	AirGapped = "airGapped"
+
 )
 var providerRegistry = map[string]Provider{
 	"kubeadm:docker": kubeadmdocker{},
