@@ -5,7 +5,12 @@ package rest
 import (
 	"context"
 	"fmt"
+
+	intelv1alpha1 "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
 	"log/slog"
+
+	"k8s.io/client-go/dynamic"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,7 +32,30 @@ func (s *Server) DeleteV2ClustersName(ctx context.Context, request api.DeleteV2C
 		}, nil
 	}
 
-	err := s.k8sclient.Resource(core.ClusterResourceSchema).Namespace(activeProjectID).Delete(ctx, name, v1.DeleteOptions{})
+	// Get edge infra managed hosts for the cluster. We should de-authorize them.
+	nodes, err := GetNodesForCluster(ctx, activeProjectID, s.k8sclient, name)
+	if err != nil {
+		slog.Error("failed to get nodes for cluster", "namespace", activeProjectID, "name", name, "error", err)
+		return api.DeleteV2ClustersName500JSONResponse{
+			N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{
+				Message: ptr("failed to get nodes for cluster"),
+			},
+		}, nil
+	}
+	// De-authorize edge infra managed hosts
+	for _, node := range nodes {
+		err = s.inventory.InvalidateHost(ctx, activeProjectID, node)
+		if err != nil {
+			slog.Error("failed to de-authorize host", "namespace", activeProjectID, "node", node, "error", err)
+			return api.DeleteV2ClustersName500JSONResponse{
+				N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{
+					Message: ptr("failed to de-authorize host"),
+				},
+			}, nil
+		}
+	}
+
+	err = s.k8sclient.Resource(core.ClusterResourceSchema).Namespace(activeProjectID).Delete(ctx, name, v1.DeleteOptions{})
 	if errors.IsNotFound(err) {
 		message := fmt.Sprintf("cluster %s not found in namespace %s", name, activeProjectID)
 		return api.DeleteV2ClustersName404JSONResponse{N404NotFoundJSONResponse: api.N404NotFoundJSONResponse{Message: &message}}, nil
@@ -44,4 +72,34 @@ func (s *Server) DeleteV2ClustersName(ctx context.Context, request api.DeleteV2C
 
 	slog.Debug("Cluster successfully deleted", "name", name, "activeProjectID", activeProjectID)
 	return api.DeleteV2ClustersName204Response{}, nil
+}
+
+// GetNodesForCluster retrieves the list of nodes that are managed by edge infrastructure that are associated with a specific cluster
+// Note that MachineBindings are used to associate nodes with clusters in the Intel Cluster API provider. If the cluster
+// is not managed by the Intel Cluster API provider, this function will return an empty list.
+func GetNodesForCluster(ctx context.Context, namespace string, client dynamic.Interface, clusterName string) ([]string, error) {
+	var nodes []string
+
+	// Use a label selector to filter bindings by clusterName
+	opts := v1.ListOptions{
+		LabelSelector: fmt.Sprintf("cluster.x-k8s.io/cluster-name=%s", clusterName),
+	}
+
+	// Fetch the filtered list of bindings
+	unstructuredBindingsList, err := client.Resource(core.BindingsResourceSchema).Namespace(namespace).List(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert unstructured bindings to IntelMachineBinding objects
+	for _, item := range unstructuredBindingsList.Items {
+		var binding intelv1alpha1.IntelMachineBinding
+		err = convert.FromUnstructured(item, &binding)
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, binding.Spec.NodeGUID)
+	}
+
+	return nodes, nil
 }

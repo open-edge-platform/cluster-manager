@@ -5,6 +5,9 @@ package rest
 import (
 	"context"
 	"fmt"
+	"github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/inventory"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -27,13 +30,40 @@ func TestDeleteV2ClustersName204(t *testing.T) {
 		// Prepare test data
 		name := "example-cluster"
 		activeProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
+		expectedTemplateName := "baseline-rke2"
+		expectedIntelMachineTemplateName := fmt.Sprintf("%s-controlplane", expectedTemplateName)
+		expectedNodeid := "27b4e138-ea0b-11ef-8552-8b663d95bc01"
+		expectedClusterName := "example-cluster"
+		expectedBindingName := fmt.Sprintf("%s-%s", expectedClusterName, expectedNodeid)
+
+		binding := v1alpha1.IntelMachineBinding{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: core.BindingsResourceSchema.GroupVersion().String(),
+				Kind:       "IntelMachineBinding",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      expectedBindingName,
+				Namespace: expectedActiveProjectID,
+			},
+			Spec: v1alpha1.IntelMachineBindingSpec{
+				NodeGUID:                 expectedNodeid,
+				ClusterName:              expectedClusterName,
+				IntelMachineTemplateName: expectedIntelMachineTemplateName,
+			},
+		}
+		unstructured, err := convert.ToUnstructuredList([]v1alpha1.IntelMachineBinding{binding})
+		require.NoError(t, err, "convert.ToUnstructuredList() failed")
 
 		// Mock the delete cluster to succeed
 		resource := k8s.NewMockResourceInterface(t)
 		resource.EXPECT().Delete(mock.Anything, name, metav1.DeleteOptions{}).Return(nil)
+		resource.EXPECT().List(mock.Anything, metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("cluster.x-k8s.io/cluster-name=%s", name),
+		}).Return(unstructured, nil)
 		nsResource := k8s.NewMockNamespaceableResourceInterface(t)
 		nsResource.EXPECT().Namespace(activeProjectID).Return(resource)
 		mockedk8sclient := k8s.NewMockInterface(t)
+		mockedk8sclient.EXPECT().Resource(core.BindingsResourceSchema).Return(nsResource)
 		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
 
 		// Create a new server with the mocked k8s client
@@ -61,8 +91,7 @@ func TestDeleteV2ClustersName400(t *testing.T) {
 		// Prepare test data
 		name := "example-cluster"
 		activeProjectID := "00000000-0000-0000-0000-000000000000"
-
-		// Create a server instance with a mock k8s client
+		// Mock the delete cluster to succeed
 		mockedk8sclient := k8s.NewMockInterface(t)
 		server := NewServer(mockedk8sclient)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
@@ -91,12 +120,42 @@ func TestDeleteV2ClustersName404(t *testing.T) {
 		name := "example-cluster"
 		activeProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
 
-		// Mock the get cluster to succeed and delete cluster to fail
+		expectedTemplateName := "baseline-rke2"
+		expectedIntelMachineTemplateName := fmt.Sprintf("%s-controlplane", expectedTemplateName)
+		expectedNodeid := "27b4e138-ea0b-11ef-8552-8b663d95bc01"
+		expectedClusterName := "example-cluster"
+		expectedBindingName := fmt.Sprintf("%s-%s", expectedClusterName, expectedNodeid)
+
+		binding := v1alpha1.IntelMachineBinding{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: core.BindingsResourceSchema.GroupVersion().String(),
+				Kind:       "IntelMachineBinding",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      expectedBindingName,
+				Namespace: expectedActiveProjectID,
+			},
+			Spec: v1alpha1.IntelMachineBindingSpec{
+				NodeGUID:                 expectedNodeid,
+				ClusterName:              expectedClusterName,
+				IntelMachineTemplateName: expectedIntelMachineTemplateName,
+			},
+		}
+		unstructured, err := convert.ToUnstructuredList([]v1alpha1.IntelMachineBinding{binding})
+		require.NoError(t, err, "convert.ToUnstructuredList() failed")
+
+		// Mock the delete cluster to succeed
 		resource := k8s.NewMockResourceInterface(t)
+		resource.EXPECT().List(mock.Anything, metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("cluster.x-k8s.io/cluster-name=%s", name),
+		}).Return(unstructured, nil)
 		resource.EXPECT().Delete(mock.Anything, name, metav1.DeleteOptions{}).Return(errors.NewNotFound(schema.GroupResource{Group: "core", Resource: "clusters"}, name))
+
 		nsResource := k8s.NewMockNamespaceableResourceInterface(t)
 		nsResource.EXPECT().Namespace(activeProjectID).Return(resource)
+		// Create a server instance with a mock k8s client
 		mockedk8sclient := k8s.NewMockInterface(t)
+		mockedk8sclient.EXPECT().Resource(core.BindingsResourceSchema).Return(nsResource)
 		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
 
 		// Create a new server with the mocked k8s client
@@ -127,12 +186,40 @@ func TestDeleteV2ClustersName500(t *testing.T) {
 		name := "example-cluster"
 		activeProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
 
+		expectedTemplateName := "baseline-rke2"
+		expectedIntelMachineTemplateName := fmt.Sprintf("%s-controlplane", expectedTemplateName)
+		expectedNodeid := "27b4e138-ea0b-11ef-8552-8b663d95bc01"
+		expectedClusterName := "example-cluster"
+		expectedBindingName := fmt.Sprintf("%s-%s", expectedClusterName, expectedNodeid)
+
+		binding := v1alpha1.IntelMachineBinding{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: core.BindingsResourceSchema.GroupVersion().String(),
+				Kind:       "IntelMachineBinding",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      expectedBindingName,
+				Namespace: expectedActiveProjectID,
+			},
+			Spec: v1alpha1.IntelMachineBindingSpec{
+				NodeGUID:                 expectedNodeid,
+				ClusterName:              expectedClusterName,
+				IntelMachineTemplateName: expectedIntelMachineTemplateName,
+			},
+		}
+		unstructured, err := convert.ToUnstructuredList([]v1alpha1.IntelMachineBinding{binding})
+		require.NoError(t, err, "convert.ToUnstructuredList() failed")
+
 		// Mock the get cluster to succeed and delete cluster to fail
 		resource := k8s.NewMockResourceInterface(t)
+		resource.EXPECT().List(mock.Anything, metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("cluster.x-k8s.io/cluster-name=%s", name),
+		}).Return(unstructured, nil)
 		resource.EXPECT().Delete(mock.Anything, name, metav1.DeleteOptions{}).Return(fmt.Errorf("delete error"))
 		nsResource := k8s.NewMockNamespaceableResourceInterface(t)
 		nsResource.EXPECT().Namespace(activeProjectID).Return(resource)
 		mockedk8sclient := k8s.NewMockInterface(t)
+		mockedk8sclient.EXPECT().Resource(core.BindingsResourceSchema).Return(nsResource)
 		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
 
 		// Create a new server with the mocked k8s client
@@ -157,14 +244,45 @@ func TestDeleteV2ClustersName500(t *testing.T) {
 }
 
 func createDeleteV2ClustersNameStubServer(t *testing.T) *Server {
+
+	name := "abc"
+	expectedTemplateName := "baseline-rke2"
+	expectedIntelMachineTemplateName := fmt.Sprintf("%s-controlplane", expectedTemplateName)
+	expectedNodeid := "27b4e138-ea0b-11ef-8552-8b663d95bc01"
+	expectedClusterName := "example-cluster"
+	expectedBindingName := fmt.Sprintf("%s-%s", expectedClusterName, expectedNodeid)
+
+	binding := v1alpha1.IntelMachineBinding{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: core.BindingsResourceSchema.GroupVersion().String(),
+			Kind:       "IntelMachineBinding",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      expectedBindingName,
+			Namespace: expectedActiveProjectID,
+		},
+		Spec: v1alpha1.IntelMachineBindingSpec{
+			NodeGUID:                 expectedNodeid,
+			ClusterName:              expectedClusterName,
+			IntelMachineTemplateName: expectedIntelMachineTemplateName,
+		},
+	}
+	unstructured, err := convert.ToUnstructuredList([]v1alpha1.IntelMachineBinding{binding})
+	require.NoError(t, err, "convert.ToUnstructuredList() failed")
+
 	resource := k8s.NewMockResourceInterface(t)
+	resource.EXPECT().List(mock.Anything, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("cluster.x-k8s.io/cluster-name=%s", name),
+	}).Return(unstructured, nil).Maybe()
 	resource.EXPECT().Delete(mock.Anything, mock.Anything, metav1.DeleteOptions{}).Return(nil).Maybe()
 	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
 	nsResource.EXPECT().Namespace(mock.Anything).Return(resource).Maybe()
 	mockedk8sclient := k8s.NewMockInterface(t)
+	mockedk8sclient.EXPECT().Resource(core.BindingsResourceSchema).Return(nsResource).Maybe()
 	mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource).Maybe()
 	return &Server{
 		k8sclient: mockedk8sclient,
+		inventory: inventory.NewNoopInventoryClient(),
 	}
 }
 

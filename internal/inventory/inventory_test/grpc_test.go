@@ -6,6 +6,7 @@ package inventory_test
 import (
 	"context"
 	"errors"
+	inventoryv1 "github.com/open-edge-platform/infra-core/inventory/v2/pkg/api/inventory/v1"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -213,6 +214,88 @@ func TestEnableAirGapInstall(t *testing.T) {
 
 			airGapInstall, err := invClient.EnableAirGapInstall(context.Background(), "test_tenant_id", "test_host_uuid")
 			assert.Equal(t, tc.expectedVal, airGapInstall)
+			assert.Equal(t, tc.expectedErr, err)
+		})
+	}
+}
+
+func TestInvalidateHost(t *testing.T) {
+	mockClient := mocks.NewMockTenantAwareInventoryClient(t)
+	inventory.GetInventoryClientFunc = func(ctx context.Context, cfg client.InventoryClientConfig) (client.TenantAwareInventoryClient, error) {
+		return mockClient, nil
+	}
+	hostResourceId := "host-12345678"
+
+	cases := []struct {
+		name        string
+		mock        func()
+		expectedErr error
+	}{
+		{
+			name: "successful invalidation",
+			mock: func() {
+				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(&computev1.HostResource{
+					ResourceId: hostResourceId,
+					Instance:   &computev1.InstanceResource{},
+				}, nil).Once()
+
+				mockClient.EXPECT().Update(mock.Anything, "test_tenant_id", hostResourceId, mock.AnythingOfType("*fieldmaskpb.FieldMask"), mock.AnythingOfType("*inventoryv1.Resource")).Return(&inventoryv1.Resource{
+					Resource: &inventoryv1.Resource_Host{
+						Host: &computev1.HostResource{
+							DesiredState: computev1.HostState_HOST_STATE_UNTRUSTED,
+						},
+					},
+				}, nil).Once()
+			},
+		},
+		{
+			name: "error fetching host",
+			mock: func() {
+				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("host not found")).Once()
+			},
+			expectedErr: errors.New("host not found"),
+		},
+		{
+			name: "validation error",
+			mock: func() {
+				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Once()
+			},
+			expectedErr: errors.New("empty host resource"),
+		},
+		{
+			name: "error during update",
+			mock: func() {
+				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(&computev1.HostResource{
+					ResourceId: hostResourceId,
+					Instance:   &computev1.InstanceResource{},
+				}, nil).Once()
+
+				mockClient.EXPECT().Update(mock.Anything, "test_tenant_id", hostResourceId, mock.AnythingOfType("*fieldmaskpb.FieldMask"), mock.AnythingOfType("*inventoryv1.Resource")).Return(nil, errors.New("update failed")).Once()
+			},
+			expectedErr: errors.New("update failed"),
+		},
+		{
+			name: "nil response from update",
+			mock: func() {
+				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(&computev1.HostResource{
+					ResourceId: hostResourceId,
+					Instance:   &computev1.InstanceResource{},
+				}, nil).Once()
+
+				mockClient.EXPECT().Update(mock.Anything, "test_tenant_id", hostResourceId, mock.AnythingOfType("*fieldmaskpb.FieldMask"), mock.AnythingOfType("*inventoryv1.Resource")).Return(nil, nil).Once()
+			},
+			expectedErr: errors.New("invalidated host response is nil"),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.mock()
+
+			invClient, err := inventory.NewInventoryClientWithOptions(inventory.Options{})
+			require.NoError(t, err)
+
+			err = invClient.InvalidateHost(context.Background(), "test_tenant_id", "test_host_uuid")
 			assert.Equal(t, tc.expectedErr, err)
 		})
 	}

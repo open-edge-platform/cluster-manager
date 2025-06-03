@@ -10,6 +10,8 @@ import (
 	"log/slog"
 	"time"
 
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
+
 	"github.com/open-edge-platform/cluster-manager/v2/internal/events"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	computev1 "github.com/open-edge-platform/infra-core/inventory/v2/pkg/api/compute/v1"
@@ -127,6 +129,47 @@ func (c *InventoryClient) getHost(ctx context.Context, tenantId, hostUuid string
 	return host, nil
 }
 
+// InvalidateHost invalidates the host resource in the inventory service
+func (c *InventoryClient) InvalidateHost(ctx context.Context, tenantId, hostUuid string) error {
+	ctx, cancel := context.WithTimeout(ctx, defaultInventoryTimeout)
+	defer cancel()
+
+	slog.Debug("invalidating host", "tenantId", tenantId, "hostUuid", hostUuid)
+
+	host, err := c.getHost(ctx, tenantId, hostUuid)
+	if err != nil {
+		slog.Warn("failed to get host by uuid", "error", err, "tenantId", tenantId, "hostUuid", hostUuid)
+		return err
+	}
+	if err := c.validateHostResource(host); err != nil {
+		slog.Warn("failed to validate host resource", "error", err, "tenantId", tenantId, "hostUuid", hostUuid)
+		return err
+	}
+
+	resource := &inventoryv1.Resource{
+		Resource: &inventoryv1.Resource_Host{
+			Host: &computev1.HostResource{
+				DesiredState: computev1.HostState_HOST_STATE_UNTRUSTED,
+			},
+		},
+	}
+	fieldMask := &fieldmaskpb.FieldMask{
+		Paths: []string{"desired_state"},
+	}
+
+	if res, err := c.client.Update(ctx, tenantId, host.ResourceId, fieldMask, resource); err != nil {
+		slog.Warn("failed to invalidate host", "error", err, "tenantId", tenantId, "hostUuid", hostUuid)
+		return err
+	} else {
+		if res == nil || res.GetHost() == nil {
+			slog.Warn("invalidated host response is nil", "tenantId", tenantId, "hostUuid", hostUuid)
+			return errors.New("invalidated host response is nil")
+		}
+		slog.Info("host invalidated successfully", "tenantId", tenantId, "hostUuid", hostUuid, "hostDesiredState", res.GetHost().DesiredState)
+	}
+	return nil
+}
+
 // validateHostResource validates the host resource and grpc message
 func (c *InventoryClient) validateHostResource(host *computev1.HostResource) error {
 	if host == nil {
@@ -157,6 +200,11 @@ func (auth noopInventoryClient) GetHostTrustedCompute(ctx context.Context, tenan
 // EnableAirGapInstall is a no-op implementation of the InventoryClient's EnableAirGapInstall method that always returns false
 func (auth noopInventoryClient) EnableAirGapInstall(ctx context.Context, tenantId, hostUuid string) (bool, error) {
 	return false, nil
+}
+
+func (auth noopInventoryClient) InvalidateHost(ctx context.Context, tenantId, hostUuid string) error {
+	// No-op implementation
+	return nil
 }
 
 // WatchHosts watches for host resource events and sends them to the given channel
