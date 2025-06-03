@@ -6,9 +6,10 @@ import (
 	"context"
 	"fmt"
 
+	"log/slog"
+
 	intelv1alpha1 "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
-	"log/slog"
 
 	"k8s.io/client-go/dynamic"
 

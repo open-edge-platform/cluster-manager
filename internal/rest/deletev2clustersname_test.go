@@ -5,12 +5,13 @@ package rest
 import (
 	"context"
 	"fmt"
-	"github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
-	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
-	"github.com/open-edge-platform/cluster-manager/v2/internal/inventory"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/inventory"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/stretchr/testify/assert"
