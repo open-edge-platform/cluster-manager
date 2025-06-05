@@ -5,8 +5,10 @@ package rest
 import (
 	"context"
 	"fmt"
+	v1 "k8s.io/api/core/v1"
 	"net/http"
 	"net/http/httptest"
+	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	"testing"
 
 	"github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
@@ -55,12 +57,33 @@ func TestDeleteV2ClustersName204(t *testing.T) {
 		unstructured, err := convert.ToUnstructuredList([]v1alpha1.IntelMachineBinding{binding})
 		require.NoError(t, err, "convert.ToUnstructuredList() failed")
 
+		cluster := capi.Cluster{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: core.ClusterResourceSchema.GroupVersion().String(),
+				Kind:       "IntelCluster",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: expectedActiveProjectID,
+			},
+			Spec: capi.ClusterSpec{
+				InfrastructureRef: &v1.ObjectReference{
+					APIVersion: "infrastructure.cluster.x-k8s.io/v1alpha1",
+					Kind:       "IntelCluster",
+				},
+			},
+			Status: capi.ClusterStatus{},
+		}
+		unstructuredCluster, err := convert.ToUnstructured(cluster)
+		require.NoError(t, err, "convert.ToUnstructured() failed for cluster")
+
 		// Mock the delete cluster to succeed
 		resource := k8s.NewMockResourceInterface(t)
 		resource.EXPECT().Delete(mock.Anything, name, metav1.DeleteOptions{}).Return(nil)
 		resource.EXPECT().List(mock.Anything, metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("cluster.x-k8s.io/cluster-name=%s", name),
 		}).Return(unstructured, nil)
+		resource.EXPECT().Get(mock.Anything, name, metav1.GetOptions{}).Return(unstructuredCluster, nil)
 		nsResource := k8s.NewMockNamespaceableResourceInterface(t)
 		nsResource.EXPECT().Namespace(activeProjectID).Return(resource)
 		mockedk8sclient := k8s.NewMockInterface(t)
@@ -145,12 +168,33 @@ func TestDeleteV2ClustersName404(t *testing.T) {
 		unstructured, err := convert.ToUnstructuredList([]v1alpha1.IntelMachineBinding{binding})
 		require.NoError(t, err, "convert.ToUnstructuredList() failed")
 
+		cluster := capi.Cluster{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: core.ClusterResourceSchema.GroupVersion().String(),
+				Kind:       "IntelCluster",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: expectedActiveProjectID,
+			},
+			Spec: capi.ClusterSpec{
+				InfrastructureRef: &v1.ObjectReference{
+					APIVersion: "infrastructure.cluster.x-k8s.io/v1alpha1",
+					Kind:       "IntelCluster",
+				},
+			},
+			Status: capi.ClusterStatus{},
+		}
+		unstructuredCluster, err := convert.ToUnstructured(cluster)
+		require.NoError(t, err, "convert.ToUnstructured() failed for cluster")
+
 		// Mock the delete cluster to succeed
 		resource := k8s.NewMockResourceInterface(t)
 		resource.EXPECT().List(mock.Anything, metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("cluster.x-k8s.io/cluster-name=%s", name),
 		}).Return(unstructured, nil)
 		resource.EXPECT().Delete(mock.Anything, name, metav1.DeleteOptions{}).Return(errors.NewNotFound(schema.GroupResource{Group: "core", Resource: "clusters"}, name))
+		resource.EXPECT().Get(mock.Anything, name, metav1.GetOptions{}).Return(unstructuredCluster, nil)
 
 		nsResource := k8s.NewMockNamespaceableResourceInterface(t)
 		nsResource.EXPECT().Namespace(activeProjectID).Return(resource)
@@ -211,11 +255,33 @@ func TestDeleteV2ClustersName500(t *testing.T) {
 		unstructured, err := convert.ToUnstructuredList([]v1alpha1.IntelMachineBinding{binding})
 		require.NoError(t, err, "convert.ToUnstructuredList() failed")
 
+		cluster := capi.Cluster{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: core.ClusterResourceSchema.GroupVersion().String(),
+				Kind:       "IntelCluster",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: expectedActiveProjectID,
+			},
+			Spec: capi.ClusterSpec{
+				InfrastructureRef: &v1.ObjectReference{
+					APIVersion: "infrastructure.cluster.x-k8s.io/v1alpha1",
+					Kind:       "IntelCluster",
+				},
+			},
+			Status: capi.ClusterStatus{},
+		}
+		unstructuredCluster, err := convert.ToUnstructured(cluster)
+		require.NoError(t, err, "convert.ToUnstructured() failed for cluster")
+
 		// Mock the get cluster to succeed and delete cluster to fail
 		resource := k8s.NewMockResourceInterface(t)
 		resource.EXPECT().List(mock.Anything, metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("cluster.x-k8s.io/cluster-name=%s", name),
 		}).Return(unstructured, nil)
+		resource.EXPECT().Get(mock.Anything, name, metav1.GetOptions{}).Return(unstructuredCluster, nil)
+
 		resource.EXPECT().Delete(mock.Anything, name, metav1.DeleteOptions{}).Return(fmt.Errorf("delete error"))
 		nsResource := k8s.NewMockNamespaceableResourceInterface(t)
 		nsResource.EXPECT().Namespace(activeProjectID).Return(resource)
@@ -271,10 +337,32 @@ func createDeleteV2ClustersNameStubServer(t *testing.T) *Server {
 	unstructured, err := convert.ToUnstructuredList([]v1alpha1.IntelMachineBinding{binding})
 	require.NoError(t, err, "convert.ToUnstructuredList() failed")
 
+	cluster := capi.Cluster{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: core.ClusterResourceSchema.GroupVersion().String(),
+			Kind:       "IntelCluster",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: expectedActiveProjectID,
+		},
+		Spec: capi.ClusterSpec{
+			InfrastructureRef: &v1.ObjectReference{
+				APIVersion: "infrastructure.cluster.x-k8s.io/v1alpha1",
+				Kind:       "IntelCluster",
+			},
+		},
+		Status: capi.ClusterStatus{},
+	}
+	unstructuredCluster, err := convert.ToUnstructured(cluster)
+	require.NoError(t, err, "convert.ToUnstructured() failed for cluster")
+
 	resource := k8s.NewMockResourceInterface(t)
 	resource.EXPECT().List(mock.Anything, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("cluster.x-k8s.io/cluster-name=%s", name),
 	}).Return(unstructured, nil).Maybe()
+	resource.EXPECT().Get(mock.Anything, name, metav1.GetOptions{}).Return(unstructuredCluster, nil)
+
 	resource.EXPECT().Delete(mock.Anything, mock.Anything, metav1.DeleteOptions{}).Return(nil).Maybe()
 	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
 	nsResource.EXPECT().Namespace(mock.Anything).Return(resource).Maybe()

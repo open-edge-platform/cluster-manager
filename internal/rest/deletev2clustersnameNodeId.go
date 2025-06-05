@@ -48,7 +48,7 @@ func (s *Server) DeleteV2ClustersNameNodesNodeId(ctx context.Context, request ap
 	}
 	if force {
 		// track down the machine binding and remove the finalizer
-		// a cluster object may not exist for it anymore so we want to do this first before erroring out
+		// a cluster object may not exist for it anymore, so we want to do this first before erroring out
 		cli, err := k8s.New(k8s.WithDynamicClient(s.k8sclient))
 		if err != nil {
 			errMsg := fmt.Sprintf("failed to create k8s client: %v", err)
@@ -102,6 +102,13 @@ func (s *Server) DeleteV2ClustersNameNodesNodeId(ctx context.Context, request ap
 			slog.Error(errMsg, "error", err)
 			return api.DeleteV2ClustersNameNodesNodeId500JSONResponse{N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{Message: &errMsg}}, nil
 		}
+
+		err = s.inventory.InvalidateHost(ctx, activeProjectID, nodeID)
+		if err != nil {
+			slog.Warn("failed to de-authorize host", "namespace", activeProjectID, "node", nodeID, "error", err)
+			// Do not return an error here, we can still delete the cluster.
+		}
+
 		// if we're dealing with a single node cluster, we can delete the capi cluster
 		err = deleteCluster(ctx, s, activeProjectID, clusterName, deleteOptions)
 		if err != nil {

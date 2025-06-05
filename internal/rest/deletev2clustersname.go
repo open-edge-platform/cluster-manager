@@ -34,7 +34,7 @@ func (s *Server) DeleteV2ClustersName(ctx context.Context, request api.DeleteV2C
 	}
 
 	// Get edge infra managed hosts for the cluster. We should de-authorize them.
-	nodes, err := GetNodesForCluster(ctx, activeProjectID, s.k8sclient, name)
+	nodes, err := s.GetNodesForCluster(ctx, activeProjectID, s.k8sclient, name)
 	if err != nil {
 		slog.Error("failed to get nodes for cluster", "namespace", activeProjectID, "name", name, "error", err)
 		return api.DeleteV2ClustersName500JSONResponse{
@@ -78,8 +78,19 @@ func (s *Server) DeleteV2ClustersName(ctx context.Context, request api.DeleteV2C
 // GetNodesForCluster retrieves the list of nodes that are managed by edge infrastructure that are associated with a specific cluster
 // Note that MachineBindings are used to associate nodes with clusters in the Intel Cluster API provider. If the cluster
 // is not managed by the Intel Cluster API provider, this function will return an empty list.
-func GetNodesForCluster(ctx context.Context, namespace string, client dynamic.Interface, clusterName string) ([]string, error) {
+func (s *Server) GetNodesForCluster(ctx context.Context, namespace string, client dynamic.Interface, clusterName string) ([]string, error) {
 	var nodes []string
+
+	// Find nodes only if the Infrastructure Provider is Intel
+	infraKind, err := fetchInfrastructureRefKind(ctx, s, namespace, clusterName)
+	if err != nil {
+		slog.Error("failed to fetch infrastructure reference kind", "namespace", namespace, "clusterName", clusterName, "error", err)
+		return nil, err
+	}
+	if infraKind != "IntelCluster" {
+		slog.Debug("Skipping node retrieval, cluster is not managed by Intel Cluster API provider", "namespace", namespace, "clusterName", clusterName, "infraKind", infraKind)
+		return nodes, nil
+	}
 
 	// Use a label selector to filter bindings by clusterName
 	opts := v1.ListOptions{

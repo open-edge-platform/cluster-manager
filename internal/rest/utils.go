@@ -438,3 +438,19 @@ func fetchAllMachinesList(ctx context.Context, s *Server, namespace string) ([]u
 	}
 	return unstructuredMachineList.Items, nil
 }
+
+func fetchInfrastructureRefKind(ctx context.Context, s *Server, namespace string, clusterName string) (string, error) {
+	unstructuredCluster, err := s.k8sclient.Resource(core.ClusterResourceSchema).Namespace(namespace).Get(ctx, clusterName, v1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+	cluster := &capi.Cluster{}
+	err = convert.FromUnstructured(*unstructuredCluster, cluster)
+	if err != nil {
+		return "", err
+	}
+	if cluster.Spec.InfrastructureRef == nil {
+		return "", fmt.Errorf("infrastructure reference not found for cluster %s", clusterName)
+	}
+	return cluster.Spec.InfrastructureRef.Kind, nil
+}
