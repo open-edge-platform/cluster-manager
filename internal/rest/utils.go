@@ -23,9 +23,9 @@ import (
 type ContextKey string
 
 const (
-	ActiveProjectIdHeaderKey             = "Activeprojectid"
-	ActiveProjectIdContextKey ContextKey = ActiveProjectIdHeaderKey
-	ClusterNameSelectorKey               = "cluster.x-k8s.io/cluster-name"
+	ClusterNameSelectorKey  = "cluster.x-k8s.io/cluster-name"
+	IntelInfraClusterKind   = "IntelCluster"
+	IntelMachineBindingKind = "IntelMachineBinding"
 )
 
 func validateClusterDetail(clusterDetail api.ClusterDetailInfo) error {

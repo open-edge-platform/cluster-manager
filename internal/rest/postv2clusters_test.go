@@ -222,7 +222,7 @@ func TestPostV2Clusters201(t *testing.T) {
 		expectedBinding := intelv1alpha1.IntelMachineBinding{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: core.BindingsResourceSchema.GroupVersion().String(),
-				Kind:       "IntelMachineBinding",
+				Kind:       IntelMachineBindingKind,
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      expectedBindingName,
@@ -880,7 +880,7 @@ func TestPostV2Clusters500(t *testing.T) {
 		expectedBinding := intelv1alpha1.IntelMachineBinding{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: core.BindingsResourceSchema.GroupVersion().String(),
-				Kind:       "IntelMachineBinding",
+				Kind:       IntelMachineBindingKind,
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      expectedBindingName,

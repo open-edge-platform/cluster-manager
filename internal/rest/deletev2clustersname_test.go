@@ -60,7 +60,7 @@ func TestDeleteV2ClustersName204(t *testing.T) {
 		cluster := capi.Cluster{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: core.ClusterResourceSchema.GroupVersion().String(),
-				Kind:       "IntelCluster",
+				Kind:       IntelInfraClusterKind,
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
@@ -69,7 +69,7 @@ func TestDeleteV2ClustersName204(t *testing.T) {
 			Spec: capi.ClusterSpec{
 				InfrastructureRef: &v1.ObjectReference{
 					APIVersion: "infrastructure.cluster.x-k8s.io/v1alpha1",
-					Kind:       "IntelCluster",
+					Kind:       IntelInfraClusterKind,
 				},
 			},
 			Status: capi.ClusterStatus{},
@@ -171,7 +171,7 @@ func TestDeleteV2ClustersName404(t *testing.T) {
 		cluster := capi.Cluster{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: core.ClusterResourceSchema.GroupVersion().String(),
-				Kind:       "IntelCluster",
+				Kind:       IntelInfraClusterKind,
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
@@ -180,7 +180,7 @@ func TestDeleteV2ClustersName404(t *testing.T) {
 			Spec: capi.ClusterSpec{
 				InfrastructureRef: &v1.ObjectReference{
 					APIVersion: "infrastructure.cluster.x-k8s.io/v1alpha1",
-					Kind:       "IntelCluster",
+					Kind:       IntelInfraClusterKind,
 				},
 			},
 			Status: capi.ClusterStatus{},
@@ -258,7 +258,7 @@ func TestDeleteV2ClustersName500(t *testing.T) {
 		cluster := capi.Cluster{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: core.ClusterResourceSchema.GroupVersion().String(),
-				Kind:       "IntelCluster",
+				Kind:       IntelInfraClusterKind,
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
@@ -267,7 +267,7 @@ func TestDeleteV2ClustersName500(t *testing.T) {
 			Spec: capi.ClusterSpec{
 				InfrastructureRef: &v1.ObjectReference{
 					APIVersion: "infrastructure.cluster.x-k8s.io/v1alpha1",
-					Kind:       "IntelCluster",
+					Kind:       IntelInfraClusterKind,
 				},
 			},
 			Status: capi.ClusterStatus{},
@@ -340,7 +340,7 @@ func createDeleteV2ClustersNameStubServer(t *testing.T) *Server {
 	cluster := capi.Cluster{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: core.ClusterResourceSchema.GroupVersion().String(),
-			Kind:       "IntelCluster",
+			Kind:       IntelInfraClusterKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -349,7 +349,7 @@ func createDeleteV2ClustersNameStubServer(t *testing.T) *Server {
 		Spec: capi.ClusterSpec{
 			InfrastructureRef: &v1.ObjectReference{
 				APIVersion: "infrastructure.cluster.x-k8s.io/v1alpha1",
-				Kind:       "IntelCluster",
+				Kind:       IntelInfraClusterKind,
 			},
 		},
 		Status: capi.ClusterStatus{},

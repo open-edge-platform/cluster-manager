@@ -87,7 +87,7 @@ func (s *Server) GetNodesForCluster(ctx context.Context, namespace string, clien
 		slog.Error("failed to fetch infrastructure reference kind", "namespace", namespace, "clusterName", clusterName, "error", err)
 		return nil, err
 	}
-	if infraKind != "IntelCluster" {
+	if infraKind != IntelInfraClusterKind {
 		slog.Debug("Skipping node retrieval, cluster is not managed by Intel Cluster API provider", "namespace", namespace, "clusterName", clusterName, "infraKind", infraKind)
 		return nodes, nil
 	}

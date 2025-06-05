@@ -199,13 +199,13 @@ func createBindings(ctx context.Context, cli *k8s.Client, namespace, clusterName
 		binding := intelv1alpha1.IntelMachineBinding{
 			TypeMeta: v1.TypeMeta{
 				APIVersion: core.BindingsResourceSchema.GroupVersion().String(),
-				Kind:       "IntelMachineBinding",
+				Kind:       IntelMachineBindingKind,
 			},
 			ObjectMeta: v1.ObjectMeta{
 				Name:      fmt.Sprintf("%s-%s", clusterName, nodes.Id),
 				Namespace: namespace,
 				Labels: map[string]string{
-					"cluster.x-k8s.io/cluster-name": clusterName, // Add the label here
+					ClusterNameSelectorKey: clusterName, // Add label for cluster association
 				},
 			},
 			Spec: intelv1alpha1.IntelMachineBindingSpec{
