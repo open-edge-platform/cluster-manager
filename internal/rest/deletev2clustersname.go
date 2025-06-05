@@ -94,7 +94,7 @@ func (s *Server) GetNodesForCluster(ctx context.Context, namespace string, clien
 
 	// Use a label selector to filter bindings by clusterName
 	opts := v1.ListOptions{
-		LabelSelector: fmt.Sprintf("cluster.x-k8s.io/cluster-name=%s", clusterName),
+		LabelSelector: fmt.Sprintf("%s=%s", ClusterNameSelectorKey, clusterName),
 	}
 
 	// Fetch the filtered list of bindings
