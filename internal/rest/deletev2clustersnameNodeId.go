@@ -94,14 +94,6 @@ func (s *Server) DeleteV2ClustersNameNodesNodeId(ctx context.Context, request ap
 	}
 	// check for single node
 	if len(*cluster.Nodes) == 1 {
-		// ensure the node exists
-		// Once host ID is used instead of uid we can just pull that from the cluster object instead of doing this
-		_, err := fetchMachine(ctx, s, activeProjectID, clusterName, nodeID)
-		if err != nil {
-			errMsg := "failed to retrieve machine"
-			slog.Error(errMsg, "error", err)
-			return api.DeleteV2ClustersNameNodesNodeId500JSONResponse{N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{Message: &errMsg}}, nil
-		}
 		// if we're dealing with a single node cluster, we can delete the capi cluster
 		err = deleteCluster(ctx, s, activeProjectID, clusterName, deleteOptions)
 		if err != nil {
