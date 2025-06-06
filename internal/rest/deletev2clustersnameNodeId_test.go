@@ -75,8 +75,8 @@ func TestDeleteClustersNameNodeId(t *testing.T) {
 							},
 						},
 						"status": map[string]interface{}{
-							"nodeRef": map[string]interface{}{
-								"uid": nodeID,
+							"nodeInfo": map[string]interface{}{
+								"systemUUID": nodeID,
 							},
 						},
 						"spec": map[string]interface{}{
