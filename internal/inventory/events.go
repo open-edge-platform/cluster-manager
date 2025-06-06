@@ -92,6 +92,11 @@ func (e HostUpdated) Handle(ctx context.Context) error {
 		return err
 	}
 
+	// Exit early if there are no labels to update
+	if len(e.Labels) == 0 {
+		return nil
+	}
+
 	// Use the provided context instead of creating a new one
 	timeoutCtx, cancel := context.WithTimeout(ctx, events.EventTimeout)
 	defer cancel()
@@ -100,7 +105,6 @@ func (e HostUpdated) Handle(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get machine by host id: %w", err)
 	}
-	slog.Debug("found machine", "name", m.Name, "labels", m.Labels)
 
 	err = e.K8scli.SetMachineLabels(timeoutCtx, e.ProjectId, m.Name, e.Labels)
 	if err != nil {
