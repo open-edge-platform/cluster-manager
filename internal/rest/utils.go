@@ -23,9 +23,9 @@ import (
 type ContextKey string
 
 const (
-	ActiveProjectIdHeaderKey             = "Activeprojectid"
-	ActiveProjectIdContextKey ContextKey = ActiveProjectIdHeaderKey
-	ClusterNameSelectorKey               = "cluster.x-k8s.io/cluster-name"
+	ClusterNameSelectorKey  = "cluster.x-k8s.io/cluster-name"
+	IntelInfraClusterKind   = "IntelCluster"
+	IntelMachineBindingKind = "IntelMachineBinding"
 )
 
 func validateClusterDetail(clusterDetail api.ClusterDetailInfo) error {
@@ -437,4 +437,20 @@ func fetchAllMachinesList(ctx context.Context, s *Server, namespace string) ([]u
 		return nil, err
 	}
 	return unstructuredMachineList.Items, nil
+}
+
+func fetchInfrastructureRefKind(ctx context.Context, s *Server, namespace string, clusterName string) (string, error) {
+	unstructuredCluster, err := s.k8sclient.Resource(core.ClusterResourceSchema).Namespace(namespace).Get(ctx, clusterName, v1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+	cluster := &capi.Cluster{}
+	err = convert.FromUnstructured(*unstructuredCluster, cluster)
+	if err != nil {
+		return "", err
+	}
+	if cluster.Spec.InfrastructureRef == nil {
+		return "", fmt.Errorf("infrastructure reference not found for cluster %s", clusterName)
+	}
+	return cluster.Spec.InfrastructureRef.Kind, nil
 }

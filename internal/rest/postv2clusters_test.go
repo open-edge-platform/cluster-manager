@@ -184,7 +184,7 @@ func TestPostV2Clusters201(t *testing.T) {
 				Name:      expectedClusterName,
 				Namespace: expectedActiveProjectID,
 				Labels: map[string]string{
-					"edge-orchestrator.intel.com/clustername": "example-cluster",
+					"edge-orchestrator.intel.com/clustername": expectedClusterName,
 					"edge-orchestrator.intel.com/project-id":  "655a6892-4280-4c37-97b1-31161ac0b99e",
 					"prometheusMetricsURL":                    "metrics-node.kind.internal",
 					"trusted-compute-compatible":              "false",
@@ -222,11 +222,14 @@ func TestPostV2Clusters201(t *testing.T) {
 		expectedBinding := intelv1alpha1.IntelMachineBinding{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: core.BindingsResourceSchema.GroupVersion().String(),
-				Kind:       "IntelMachineBinding",
+				Kind:       IntelMachineBindingKind,
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      expectedBindingName,
 				Namespace: expectedActiveProjectID,
+				Labels: map[string]string{
+					"cluster.x-k8s.io/cluster-name": expectedClusterName, // Add the label here
+				},
 			},
 			Spec: intelv1alpha1.IntelMachineBindingSpec{
 				NodeGUID:                 expectedNodeid,
@@ -877,11 +880,14 @@ func TestPostV2Clusters500(t *testing.T) {
 		expectedBinding := intelv1alpha1.IntelMachineBinding{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: core.BindingsResourceSchema.GroupVersion().String(),
-				Kind:       "IntelMachineBinding",
+				Kind:       IntelMachineBindingKind,
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      expectedBindingName,
 				Namespace: expectedActiveProjectID,
+				Labels: map[string]string{
+					"cluster.x-k8s.io/cluster-name": expectedClusterName, // Add the label here
+				},
 			},
 			Spec: intelv1alpha1.IntelMachineBindingSpec{
 				NodeGUID:                 expectedNodeid,

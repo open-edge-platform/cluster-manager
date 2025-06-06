@@ -333,7 +333,7 @@ func (suite *TenancyDatamodelTestSuite) TestNewDatamodelClientK3Templates() {
 			configFunc:            func() (*rest.Config, error) { return &rest.Config{}, nil },
 			clientSetFunc:         func(*rest.Config) (*nexus.Clientset, error) { return &nexus.Clientset{}, nil },
 			k8sClientFunc:         func(*config.Config) (*k8s.Client, error) { return &k8s.Client{}, nil },
-			templateFunc:          nil,  // call for the real function
+			templateFunc:          nil, // call for the real function
 			expectedErr:           nil,
 			expectedClient:        true,
 			expectedTemplateCount: 5,
@@ -345,7 +345,7 @@ func (suite *TenancyDatamodelTestSuite) TestNewDatamodelClientK3Templates() {
 			configFunc:            func() (*rest.Config, error) { return &rest.Config{}, nil },
 			clientSetFunc:         func(*rest.Config) (*nexus.Clientset, error) { return &nexus.Clientset{}, nil },
 			k8sClientFunc:         func(*config.Config) (*k8s.Client, error) { return &k8s.Client{}, nil },
-			templateFunc:          nil,  // call for the real function
+			templateFunc:          nil, // call for the real function
 			expectedErr:           nil,
 			expectedClient:        true,
 			expectedTemplateCount: 3,
