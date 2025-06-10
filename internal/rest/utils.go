@@ -101,12 +101,15 @@ func getComponentReady(cluster *capi.Cluster, conditionType capi.ConditionType, 
 		*status.Message = unknownMessage
 	}
 	if componentCondition.Status == corev1.ConditionFalse {
-		if componentCondition.Reason == "WaitingForRKE2Server" || componentCondition.Reason == "WaitingForKThreesServer" {
+		switch componentCondition.Reason {
+		case intelv1alpha1.SecureTunnelNotEstablishedReason:
+			*status.Indicator = api.STATUSINDICATIONERROR
+			*status.Message = fmt.Sprintf("%s;%s", *status.Message, "connect agent is disconnected")
+		case "WaitingForRKE2Server", "WaitingForKThreesServer":
 			*status.Message = fmt.Sprintf("%s;%s", *status.Message, "waiting for control plane provider to indicate the control plane has been initialized")
-		} else {
+		default:
 			*status.Message = fmt.Sprintf("%s;%s", *status.Message, componentCondition.Reason)
 		}
-
 	}
 	return status
 }
