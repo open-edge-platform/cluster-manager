@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
+
+	intelv1alpha1 "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -332,6 +334,25 @@ func TestGetProviderStatus(t *testing.T) {
 			expectedStatus: &api.GenericStatus{
 				Indicator: ptr(api.STATUSINDICATIONERROR),
 				Message:   ptr("unknown"),
+				Timestamp: ptr(uint64(fixedTime.Unix())),
+			},
+		},
+		"connection lost": {
+			cluster: &capi.Cluster{
+				Status: capi.ClusterStatus{
+					Conditions: []capi.Condition{
+						{
+							Type:               capi.ReadyCondition,
+							Status:             corev1.ConditionFalse,
+							Reason:             intelv1alpha1.SecureTunnelNotEstablishedReason,
+							LastTransitionTime: metav1.Time{Time: fixedTime},
+						},
+					},
+				},
+			},
+			expectedStatus: &api.GenericStatus{
+				Indicator: ptr(api.STATUSINDICATIONERROR),
+				Message:   ptr("not ready;connect agent is disconnected"),
 				Timestamp: ptr(uint64(fixedTime.Unix())),
 			},
 		},
