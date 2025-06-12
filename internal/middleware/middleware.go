@@ -74,22 +74,4 @@ func ResponseCounterMetrics(next http.Handler) http.Handler {
 	})
 }
 
-// ProjectIDValidator validates the project ID
-func ProjectIDValidator(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// skip endpoints that do not require a project id
-		if slices.Contains(ignoredPaths, r.URL.Path) {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		activeProjectId := r.Header.Get("Activeprojectid")
-		if activeProjectId == "" || activeProjectId == "00000000-0000-0000-0000-000000000000" {
-			w.Header().Set("Content-Type", "application/json")
-			http.Error(w, `{"message": "no active project id provided"}`, http.StatusBadRequest)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
-}
+// ProjectIDValidator moved to project_validator.go
