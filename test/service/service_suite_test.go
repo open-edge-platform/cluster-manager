@@ -320,7 +320,7 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 	})
 
 	// metrics
-	Context("Metrics are generatedt", func() {
+	Context("Metrics are generated", func() {
 		It("Should return 200 on /metrics", func() {
 			resp, err := http.Get("http://" + cmAddress + "/metrics")
 			Expect(err).ToNot(HaveOccurred())
@@ -328,39 +328,8 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 			defer resp.Body.Close()
 			body, err := io.ReadAll(resp.Body)
 			Expect(err).ToNot(HaveOccurred())
-			/*
-				example curl localhost:12345/metrics
 
-				# HELP cluster_manager_http_response_codes_counter Count of HTTP response codes per endpoint
-				# TYPE cluster_manager_http_response_codes_counter counter
-				cluster_manager_http_response_codes_counter{code="200",method="GET",path="/v2/clusters"} 12
-				cluster_manager_http_response_codes_counter{code="200",method="GET",path="/v2/clusters/test-cluster"} 4
-				cluster_manager_http_response_codes_counter{code="200",method="GET",path="/v2/templates"} 2
-				cluster_manager_http_response_codes_counter{code="200",method="PUT",path="/v2/clusters/test-cluster/labels"} 4
-				cluster_manager_http_response_codes_counter{code="201",method="POST",path="/v2/clusters"} 2
-				cluster_manager_http_response_codes_counter{code="201",method="POST",path="/v2/templates"} 2
-				cluster_manager_http_response_codes_counter{code="204",method="DELETE",path="/v2/clusters/test-cluster"} 2
-				cluster_manager_http_response_codes_counter{code="204",method="DELETE",path="/v2/templates/baseline/v2.0.2"} 2
-				cluster_manager_http_response_codes_counter{code="409",method="DELETE",path="/v2/templates/baseline/v2.0.2"} 2
-				cluster_manager_http_response_codes_counter{code="500",method="POST",path="/v2/clusters"} 1
-				# HELP cluster_manager_http_response_time_seconds_histogram Response time to HTTP requests in seconds
-				# TYPE cluster_manager_http_response_time_seconds_histogram histogram
-				cluster_manager_http_response_time_seconds_histogram_bucket{le="0.005"} 6
-				cluster_manager_http_response_time_seconds_histogram_bucket{le="0.01"} 17
-				cluster_manager_http_response_time_seconds_histogram_bucket{le="0.025"} 29
-				cluster_manager_http_response_time_seconds_histogram_bucket{le="0.05"} 29
-				cluster_manager_http_response_time_seconds_histogram_bucket{le="0.1"} 32
-				cluster_manager_http_response_time_seconds_histogram_bucket{le="0.25"} 33
-				cluster_manager_http_response_time_seconds_histogram_bucket{le="0.5"} 33
-				cluster_manager_http_response_time_seconds_histogram_bucket{le="1"} 33
-				cluster_manager_http_response_time_seconds_histogram_bucket{le="2.5"} 33
-				cluster_manager_http_response_time_seconds_histogram_bucket{le="5"} 33
-				cluster_manager_http_response_time_seconds_histogram_bucket{le="10"} 33
-				cluster_manager_http_response_time_seconds_histogram_bucket{le="+Inf"} 33
-				cluster_manager_http_response_time_seconds_histogram_sum 0.66085506
-				cluster_manager_http_response_time_seconds_histogram_count 33
-			*/
-			// Read the response body and check if it contains the expected metrics
+			// check if the body contains the expected metrics
 			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"200\",method=\"GET\",path=\"/v2/clusters\"}"))
 			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"200\",method=\"GET\",path=\"/v2/clusters/test-cluster\"}"))
 			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"200\",method=\"GET\",path=\"/v2/templates\"}"))
