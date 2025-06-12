@@ -128,6 +128,7 @@ func (k3sintel) CreatePrerequisites(ctx context.Context, c client.Client, name t
 
 func (k3sintel) CreateControlPlaneTemplate(ctx context.Context, c client.Client, name types.NamespacedName, config string) error {
 	var cpt kthreescpv1beta2.KThreesControlPlaneTemplate
+	fmt.Printf("Creating KThreesControlPlaneTemplate %s/%s with input config: %s\n", name.Namespace, name.Name, config)
 	if err := json.Unmarshal([]byte(config), &cpt); err != nil {
 		return fmt.Errorf("failed to unmarshal control plane template: %w", err)
 	}
@@ -136,6 +137,7 @@ func (k3sintel) CreateControlPlaneTemplate(ctx context.Context, c client.Client,
 		Name:      name.Name,
 		Namespace: name.Namespace,
 	}
+	fmt.Printf("Creating KThreesControlPlaneTemplate %s/%s/%v\n", cpt.Namespace, cpt.Name, cpt.Spec.Template.Spec.KThreesConfigSpec.AgentConfig.AirGapped)
 
 	if err := c.Create(ctx, &cpt); err != nil {
 		if apierrors.IsAlreadyExists(err) {
