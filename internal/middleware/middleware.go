@@ -4,7 +4,6 @@
 package middleware
 
 import (
-	"log/slog"
 	"net/http"
 	"slices"
 	"time"
@@ -32,18 +31,7 @@ func Append(mw ...middleware) func(http.Handler) http.Handler {
 	}
 }
 
-// Logger logs the request and response
-func Logger(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if slices.Contains(ignoredPaths, r.URL.Path) {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		slog.Debug("received request", "method", r.Method, "path", r.URL.Path)
-		next.ServeHTTP(w, r)
-	})
-}
+// Logger moved to logger.go
 
 // RequestDurationMetrics measures the duration of the request and records it for Prometheus
 func RequestDurationMetrics(next http.Handler) http.Handler {
