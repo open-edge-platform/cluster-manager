@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
 	"os"
@@ -315,6 +316,42 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(resp.StatusCode()).To(Equal(http.StatusNoContent))
+		})
+	})
+
+	// metrics
+	Context("Metrics are generated", func() {
+		It("Should return 200 on /metrics", func() {
+			resp, err := http.Get("http://" + cmAddress + "/metrics")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(200))
+			defer resp.Body.Close()
+			body, err := io.ReadAll(resp.Body)
+			Expect(err).ToNot(HaveOccurred())
+
+			// check if the body contains the expected metrics
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"200\",method=\"GET\",path=\"/v2/clusters\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"200\",method=\"GET\",path=\"/v2/clusters/test-cluster\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"200\",method=\"GET\",path=\"/v2/templates\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"201\",method=\"POST\",path=\"/v2/clusters\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"201\",method=\"POST\",path=\"/v2/templates\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"204\",method=\"DELETE\",path=\"/v2/clusters/test-cluster\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"204\",method=\"DELETE\",path=\"/v2/templates/baseline/v2.0.2\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"409\",method=\"DELETE\",path=\"/v2/templates/baseline/v2.0.2\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_time_seconds_histogram_bucket{le=\"0.005\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_time_seconds_histogram_bucket{le=\"0.01\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_time_seconds_histogram_bucket{le=\"0.025\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_time_seconds_histogram_bucket{le=\"0.05\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_time_seconds_histogram_bucket{le=\"0.1\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_time_seconds_histogram_bucket{le=\"0.25\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_time_seconds_histogram_bucket{le=\"0.5\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_time_seconds_histogram_bucket{le=\"1\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_time_seconds_histogram_bucket{le=\"2.5\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_time_seconds_histogram_bucket{le=\"5\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_time_seconds_histogram_bucket{le=\"10\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_time_seconds_histogram_bucket{le=\"+Inf\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_time_seconds_histogram_sum"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_time_seconds_histogram_count"))
 		})
 	})
 })
