@@ -13,7 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 )
 
-// prometheus.Hisogram stub
+// prometheus.Histogram stub
 type stubHistogram struct {
 	prometheus.Histogram
 	value float64
