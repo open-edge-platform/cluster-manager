@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	"github.com/getkin/kin-openapi/openapi3filter"
-	httpmid "github.com/oapi-codegen/nethttp-middleware"
+	oapi_middleware "github.com/oapi-codegen/nethttp-middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/client-go/dynamic"
 
@@ -21,7 +21,7 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/internal/inventory"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/metrics"
-	"github.com/open-edge-platform/cluster-manager/v2/internal/middleware"
+	cm_middleware "github.com/open-edge-platform/cluster-manager/v2/internal/middleware"
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 )
 
@@ -115,11 +115,11 @@ func (s *Server) ConfigureHandler() (http.Handler, error) {
 		return nil, err
 	}
 
-	return middleware.Append(
-		middleware.ResponseCounterMetrics,
-		middleware.RequestDurationMetrics,
-		middleware.Logger,
-		middleware.ProjectIDValidator)(handler), nil
+	return cm_middleware.Append(
+		cm_middleware.ResponseCounterMetrics,
+		cm_middleware.RequestDurationMetrics,
+		cm_middleware.Logger,
+		cm_middleware.ProjectIDValidator)(handler), nil
 }
 
 // getServerHandler returns the base http handler with strict validation against the OpenAPI spec
@@ -155,7 +155,7 @@ func (s *Server) getServerHandler() (http.Handler, error) {
 	swagger.Servers = nil
 
 	// set up the request validator with authentication and error handling
-	validator := httpmid.OapiRequestValidatorWithOptions(swagger, &httpmid.Options{
+	validator := oapi_middleware.OapiRequestValidatorWithOptions(swagger, &oapi_middleware.Options{
 		Options: openapi3filter.Options{AuthenticationFunc: s.auth.Authenticate},
 		ErrorHandler: func(w http.ResponseWriter, message string, code int) {
 			slog.Error(message, "status", code)
