@@ -21,6 +21,7 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/internal/inventory"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/metrics"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/middleware"
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 )
 
@@ -114,8 +115,11 @@ func (s *Server) ConfigureHandler() (http.Handler, error) {
 		return nil, err
 	}
 
-	// add middlewares (middleware1, middleware2, ...)
-	return appendMiddlewares(responseCounterMetrics, requestDurationMetrics, logger, projectIDValidator)(handler), nil
+	return middleware.Append(
+		middleware.ResponseCounterMetrics,
+		middleware.RequestDurationMetrics,
+		middleware.Logger,
+		middleware.ProjectIDValidator)(handler), nil
 }
 
 // getServerHandler returns the base http handler with strict validation against the OpenAPI spec

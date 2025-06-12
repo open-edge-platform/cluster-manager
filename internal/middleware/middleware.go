@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-package rest
+package middleware
 
 import (
 	"log/slog"
@@ -22,8 +22,8 @@ var (
 // middleware is a function definition that wraps an http.Handler
 type middleware func(http.Handler) http.Handler
 
-// appendMiddlewares returns a new handler with the provided middleware, executed in order
-func appendMiddlewares(mw ...middleware) func(http.Handler) http.Handler {
+// Append returns a new handler with the provided middleware, executed in order
+func Append(mw ...middleware) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		for i := len(mw) - 1; i >= 0; i-- {
 			next = mw[i](next)
@@ -32,8 +32,8 @@ func appendMiddlewares(mw ...middleware) func(http.Handler) http.Handler {
 	}
 }
 
-// logger logs the request and response
-func logger(next http.Handler) http.Handler {
+// Logger logs the request and response
+func Logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if slices.Contains(ignoredPaths, r.URL.Path) {
 			next.ServeHTTP(w, r)
@@ -45,8 +45,8 @@ func logger(next http.Handler) http.Handler {
 	})
 }
 
-// requestDurationMetrics measures the duration of the request and records it for Prometheus
-func requestDurationMetrics(next http.Handler) http.Handler {
+// RequestDurationMetrics measures the duration of the request and records it for Prometheus
+func RequestDurationMetrics(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if slices.Contains(ignoredPaths, r.URL.Path) {
 			next.ServeHTTP(w, r)
@@ -60,8 +60,8 @@ func requestDurationMetrics(next http.Handler) http.Handler {
 	})
 }
 
-// responseCounterMetrics counts the number of responses and records it for Prometheus
-func responseCounterMetrics(next http.Handler) http.Handler {
+// ResponseCounterMetrics counts the number of responses and records it for Prometheus
+func ResponseCounterMetrics(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if slices.Contains(ignoredPaths, r.URL.Path) {
 			next.ServeHTTP(w, r)
@@ -74,8 +74,8 @@ func responseCounterMetrics(next http.Handler) http.Handler {
 	})
 }
 
-// projectIDValidator validates the project ID
-func projectIDValidator(next http.Handler) http.Handler {
+// ProjectIDValidator validates the project ID
+func ProjectIDValidator(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// skip endpoints that do not require a project id
 		if slices.Contains(ignoredPaths, r.URL.Path) {
