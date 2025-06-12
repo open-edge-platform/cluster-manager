@@ -116,8 +116,12 @@ func (s *Server) ConfigureHandler() (http.Handler, error) {
 	}
 
 	return cm_middleware.Append(
-		cm_middleware.ResponseCounterMetrics,
-		cm_middleware.RequestDurationMetrics,
+		func(handler http.Handler) http.Handler {
+			return cm_middleware.RequestDurationMetrics(metrics.ResponseTime, handler)
+		},
+		func(handler http.Handler) http.Handler {
+			return cm_middleware.ResponseCounterMetrics(metrics.HttpResponseCounter, handler)
+		},
 		cm_middleware.Logger,
 		cm_middleware.ProjectIDValidator)(handler), nil
 }
