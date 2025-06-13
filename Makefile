@@ -106,6 +106,9 @@ DISABLE_AUTH ?= true
 # Should be true for CO subsystem integration tests if inventory is not deployed
 DISABLE_INV ?= true
 
+# When set to true, disables metrics collection.
+DISABLE_METRICS ?= false
+
 .PHONY: all
 all: help
 
@@ -499,7 +502,7 @@ docker-load:
 
 helm-install: docker-build docker-load helm-build ## Install helm charts to the K8s cluster specified in ~/.kube/config.
 	helm upgrade --install --wait --debug cluster-template-crd $(BUILD_DIR)/cluster-template-crd-${HELM_VERSION}.tgz --set args.loglevel=DEBUG
-	helm upgrade --install --wait --debug cluster-manager $(BUILD_DIR)/cluster-manager-${HELM_VERSION}.tgz --set clusterManager.extraArgs.disable-mt=${DISABLE_MT} --set clusterManager.extraArgs.disable-auth=${DISABLE_AUTH} --set clusterManager.extraArgs.disable-inventory=${DISABLE_INV}
+	helm upgrade --install --wait --debug cluster-manager $(BUILD_DIR)/cluster-manager-${HELM_VERSION}.tgz --set clusterManager.extraArgs.disable-mt=${DISABLE_MT} --set clusterManager.extraArgs.disable-auth=${DISABLE_AUTH} --set clusterManager.extraArgs.disable-inventory=${DISABLE_INV} --set clusterManager.extraArgs.disable-metrics=${DISABLE_METRICS} 
 
 helm-uninstall: # Uninstall helm charts from the K8s cluster specified in ~/.kube/config.
 	helm uninstall cluster-manager cluster-template-crd
