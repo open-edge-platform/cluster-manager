@@ -106,7 +106,7 @@ func (k3sintel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
 					JSONPatches: []capiv1beta1.JSONPatch{
 						{
 							Op:   "add",
-							Path: "/spec/template/spec/kthreesConfigSpec/agentConfig/airGapped",
+							Path: "/spec/template/spec/kthreesConfigSpec/agentConfig",
 							ValueFrom: &capiv1beta1.JSONPatchValue{
 								Variable: &AirGapped,
 							},
