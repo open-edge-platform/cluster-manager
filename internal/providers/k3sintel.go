@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -58,9 +57,6 @@ func (k3sintel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
 			Schema: capiv1beta1.VariableSchema{
 				OpenAPIV3Schema: capiv1beta1.JSONSchemaProps{
 					Type: "boolean",
-					Default: &apiextensionsv1.JSON{
-						Raw: []byte("false"),
-					},
 				},
 			},
 		},
