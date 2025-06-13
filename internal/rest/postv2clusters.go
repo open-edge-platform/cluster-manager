@@ -4,6 +4,7 @@ package rest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -153,10 +154,19 @@ func (s *Server) createCluster(ctx context.Context, cli *k8s.Client, namespace, 
 
 	var variables []capi.ClusterVariable
 	if enableAirGap {
+		airGapCfg := struct {
+			airGapped bool `json:"airGapped"`
+		}{airGapped: enableAirGap}
+
+		airGapCfgJson, err := json.Marshal(airGapCfg)
+		if err != nil {
+			return "", err
+		}
+
 		variables = append(variables, capi.ClusterVariable{
 			Name: controlplaneprovider.AirGapped,
 			Value: apiextensionsv1.JSON{
-				Raw: []byte(strconv.FormatBool(enableAirGap)),
+				Raw: airGapCfgJson,
 			},
 		})
 	}

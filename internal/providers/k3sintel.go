@@ -56,7 +56,12 @@ func (k3sintel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
 			Name: AirGapped,
 			Schema: capiv1beta1.VariableSchema{
 				OpenAPIV3Schema: capiv1beta1.JSONSchemaProps{
-					Type: "boolean",
+					Type: "object",
+					Properties: map[string]capiv1beta1.JSONSchemaProps{
+						"airGapped": {
+							Type: "boolean",
+						},
+					},
 				},
 			},
 		},
