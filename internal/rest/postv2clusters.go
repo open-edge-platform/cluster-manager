@@ -4,14 +4,12 @@ package rest
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	controlplaneprovider "github.com/open-edge-platform/cluster-manager/v2/internal/providers"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"log/slog"
 	"strconv"
 	"time"
-
-	controlplaneprovider "github.com/open-edge-platform/cluster-manager/v2/internal/providers"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -154,19 +152,10 @@ func (s *Server) createCluster(ctx context.Context, cli *k8s.Client, namespace, 
 
 	var variables []capi.ClusterVariable
 	if enableAirGap {
-		airGapCfg := struct {
-			airGapped bool `json:"airGapped"`
-		}{airGapped: enableAirGap}
-
-		airGapCfgJson, err := json.Marshal(airGapCfg)
-		if err != nil {
-			return "", err
-		}
-
 		variables = append(variables, capi.ClusterVariable{
 			Name: controlplaneprovider.AirGapped,
 			Value: apiextensionsv1.JSON{
-				Raw: airGapCfgJson,
+				Raw: []byte(strconv.FormatBool(enableAirGap)),
 			},
 		})
 	}

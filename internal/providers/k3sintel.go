@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -53,15 +52,11 @@ func (k3sintel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
 			},
 		},
 		{
-			Name: AirGapped,
+			Name:     AirGapped,
+			Required: true,
 			Schema: capiv1beta1.VariableSchema{
 				OpenAPIV3Schema: capiv1beta1.JSONSchemaProps{
-					Type: "object",
-					Properties: map[string]capiv1beta1.JSONSchemaProps{
-						"airGapped": {
-							Type: "boolean",
-						},
-					},
+					Type: "boolean",
 				},
 			},
 		},
@@ -96,9 +91,11 @@ func (k3sintel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
 				},
 			},
 		},
+
 		{
-			Name:        "air-gapped",
-			Description: "This patch will add air-gapped configuration ",
+			Name:        "airGapped",
+			Description: "This patch will disable air-gapped configuration ",
+			EnabledIf:   &disableAirGappedIf,
 			Definitions: []capiv1beta1.PatchDefinition{
 				{
 					Selector: capiv1beta1.PatchSelector{
@@ -110,11 +107,16 @@ func (k3sintel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
 					},
 					JSONPatches: []capiv1beta1.JSONPatch{
 						{
-							Op:   "add",
-							Path: "/spec/template/spec/kthreesConfigSpec/agentConfig",
+							Op:   "replace",
+							Path: "/spec/template/spec/kthreesConfigSpec/agentConfig/airGapped",
 							ValueFrom: &capiv1beta1.JSONPatchValue{
 								Variable: &AirGapped,
 							},
+							/*
+								Value: &apiextensionsv1.JSON{
+									Raw: []byte("false"),
+								},
+							*/
 						},
 					},
 				},
