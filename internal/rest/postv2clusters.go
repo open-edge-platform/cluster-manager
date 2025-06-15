@@ -144,7 +144,9 @@ func fetchTemplate(ctx context.Context, cli *k8s.Client, namespace string, templ
 func (s *Server) createCluster(ctx context.Context, cli *k8s.Client, namespace, clusterName string, template ct.ClusterTemplate, nodes []api.NodeSpec, labels map[string]string) (string, error) {
 	slog.Debug("creating cluster", "namespace", namespace, "name", clusterName, "nodes", nodes, "labels", labels)
 
-	enableAirGap, err := s.enableAirGapInstall(ctx, cli, namespace, clusterName, template)
+	// Assumes single node cluster for now, so we can use the first node's ID for air-gap installation check
+	// TODO: This will need to change when we support multi-node clusters
+	enableAirGap, err := s.enableAirGapInstall(ctx, cli, namespace, clusterName, nodes[0].Id, template)
 	if err != nil {
 		return "", err
 	}
@@ -220,7 +222,7 @@ func createBindings(ctx context.Context, cli *k8s.Client, namespace, clusterName
 	return nil
 }
 
-func (s *Server) enableAirGapInstall(ctx context.Context, cli *k8s.Client, namespace, clusterName string, template ct.ClusterTemplate) (bool, error) {
+func (s *Server) enableAirGapInstall(ctx context.Context, cli *k8s.Client, namespace, clusterName, nodeUuid string, template ct.ClusterTemplate) (bool, error) {
 	// Fetch the cluster template
 	clusterTemplate, err := cli.GetClusterTemplate(ctx, namespace, template.Name)
 	if err != nil {
@@ -241,19 +243,19 @@ func (s *Server) enableAirGapInstall(ctx context.Context, cli *k8s.Client, names
 		if s.config.DisableInventory {
 			// This is specifically used in integration tests. However, when the inventory is enabled, the decision to
 			// airgap mode or not is made based on the OS type of the host, as determined by the inventory service.
-			slog.Debug("enable air gap by default for k3s, when inventory is disabled", "namespace", namespace, "name", clusterName)
+			slog.Debug("enable air gap by default for k3s, when inventory is disabled", "namespace", namespace, "name", clusterName, "node", nodeUuid)
 			return true, nil
 		}
-		enableAirGap, err := s.inventory.EnableAirGapInstall(ctx, namespace, clusterName)
+		enableAirGap, err := s.inventory.EnableAirGapInstall(ctx, namespace, nodeUuid)
 		if err != nil {
-			return false, fmt.Errorf("failed to determine air-gap installation for cluster %s: %w", clusterName, err)
+			return false, fmt.Errorf("failed to determine air-gap installation for cluster %s, node: %s: %w", clusterName, nodeUuid, err)
 		}
-		slog.Debug("enable air gap install", "namespace", namespace, "name", clusterName, "airgap", enableAirGap, "controlPlaneProviderType", clusterTemplate.Spec.ControlPlaneProviderType)
+		slog.Debug("enable air gap install", "namespace", namespace, "name", clusterName, "node", nodeUuid, "airgap", enableAirGap, "controlPlaneProviderType", clusterTemplate.Spec.ControlPlaneProviderType)
 		return enableAirGap, nil
 	}
 
 	// Default case: air-gap installation not required
-	slog.Debug("air gap install not required", "namespace", namespace, "name", clusterName, "controlPlaneProviderType", clusterTemplate.Spec.ControlPlaneProviderType)
+	slog.Debug("air gap install not required", "namespace", namespace, "name", clusterName, "node", nodeUuid, "controlPlaneProviderType", clusterTemplate.Spec.ControlPlaneProviderType)
 	return false, nil
 }
 
