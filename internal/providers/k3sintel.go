@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -53,10 +54,12 @@ func (k3sintel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
 		},
 		{
 			Name:     AirGapped,
-			Required: true,
 			Schema: capiv1beta1.VariableSchema{
 				OpenAPIV3Schema: capiv1beta1.JSONSchemaProps{
 					Type: "boolean",
+					Default: &apiextensionsv1.JSON{
+						Raw: []byte("false"),
+					},
 				},
 			},
 		},
@@ -95,7 +98,6 @@ func (k3sintel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
 		{
 			Name:        "airGapped",
 			Description: "This patch will disable air-gapped configuration ",
-			EnabledIf:   &disableAirGappedIf,
 			Definitions: []capiv1beta1.PatchDefinition{
 				{
 					Selector: capiv1beta1.PatchSelector{
@@ -112,11 +114,6 @@ func (k3sintel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
 							ValueFrom: &capiv1beta1.JSONPatchValue{
 								Variable: &AirGapped,
 							},
-							/*
-								Value: &apiextensionsv1.JSON{
-									Raw: []byte("false"),
-								},
-							*/
 						},
 					},
 				},

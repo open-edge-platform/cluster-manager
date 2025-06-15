@@ -46,7 +46,6 @@ var (
 	enabledIf            = "{{ if .connectAgentManifest.path }}true{{ end }}"
 
 	AirGapped          = "airGapped"
-	disableAirGappedIf = "true"
 )
 var providerRegistry = map[string]Provider{
 	"kubeadm:docker": kubeadmdocker{},
