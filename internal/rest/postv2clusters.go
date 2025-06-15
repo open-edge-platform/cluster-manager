@@ -243,7 +243,7 @@ func (s *Server) enableAirGapInstall(ctx context.Context, cli *k8s.Client, names
 			// This is specifically used in integration tests. However, when the inventory is enabled, the decision to
 			// airgap mode or not is made based on the OS type of the host, as determined by the inventory service.
 			slog.Debug("enable air gap by default for k3s, when inventory is disabled", "namespace", namespace, "name", clusterName, "node", nodeUuid)
-			return false, nil
+			return true, nil
 		}
 		enableAirGap, err := s.inventory.EnableAirGapInstall(ctx, namespace, nodeUuid)
 		if err != nil {
