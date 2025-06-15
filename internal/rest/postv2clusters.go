@@ -5,11 +5,12 @@ package rest
 import (
 	"context"
 	"fmt"
-	controlplaneprovider "github.com/open-edge-platform/cluster-manager/v2/internal/providers"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"log/slog"
 	"strconv"
 	"time"
+
+	controlplaneprovider "github.com/open-edge-platform/cluster-manager/v2/internal/providers"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
