@@ -181,7 +181,7 @@ test-unit: envtest gocov helm-test ## Run tests.
 # - CERT_MANAGER_INSTALL_SKIP=true
 .PHONY: test-service
 test-service: ## Run the e2e tests. Expected an isolated environment using Kind.
-	DELETE_CLUSTER=false go test ./test/service/ -v -ginkgo.v
+	go test ./test/service/ -v -ginkgo.v
 
 .PHONY: lint
 lint: fmt vet golint yamllint helmlint mdlint ## Run linters
@@ -488,7 +488,7 @@ kind-create: ## Create a development kind cluster with CAPI enabled
 	echo "Creating a Kind cluster with CAPI enabled..."
 	kind create cluster --name $(KIND_CLUSTER) --config $(KIND_CONFIG)
 	@make setup-clusterctl-config	
-	CLUSTER_TOPOLOGY=true clusterctl init --core cluster-api:${CLUSTERCTL_VERSION} --bootstrap kubeadm:${KUBEADM_VERSION},rke2:${RKE2_VERSION},k3s:${K3s_VERSION} --control-plane kubeadm:${KUBEADM_VERSION},rke2:${RKE2_VERSION},k3s:${K3s_VERSION} --infrastructure docker:${DOCKER_INFRA_VERSION} --config ~/.config/cluster-api/clusterctl.yaml
+	CLUSTER_TOPOLOGY=true clusterctl init --core cluster-api:${CLUSTERCTL_VERSION} --bootstrap kubeadm:${KUBEADM_VERSION},rke2:${RKE2_VERSION},k3s:${K3s_VERSION} --control-plane kubeadm:${KUBEADM_VERSION},rke2:${RKE2_VERSION},k3s:${K3s_VERSION} --infrastructure docker:${DOCKER_INFRA_VERSION}
 
 .PHONY: kind-expose-cm
 kind-expose-cm: ## Expose the cluster manager service to the host
