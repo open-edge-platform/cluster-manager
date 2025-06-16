@@ -195,7 +195,6 @@ func (c *InventoryClient) WatchHosts(hostEvents chan<- events.Event) {
 					}
 
 				case inventoryv1.SubscribeEventsResponse_EVENT_KIND_UPDATED:
-					slog.Debug("host updated event", "name", host.Name, "hostid", host.ResourceId)
 
 					l, err := JsonStringToMap(host.Metadata)
 					if err != nil {
