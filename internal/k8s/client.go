@@ -458,6 +458,15 @@ func (cli *Client) CreateMachineBinding(ctx context.Context, namespace string, b
 	return err
 }
 
+// DeleteMachineBinding deletes the machine binding object with the given name in the given namespace
+func (cli *Client) DeleteMachineBinding(ctx context.Context, namespace, bindingName string) error {
+	deletePolicy := metav1.DeletePropagationForeground
+	deleteOptions := metav1.DeleteOptions{
+		PropagationPolicy: &deletePolicy,
+	}
+	return cli.Dyn.Resource(bindingsResourceSchema).Namespace(namespace).Delete(ctx, bindingName, deleteOptions)
+}
+
 // IntelMachines returns all IntelMachine objects in the given namespace for the given cluster
 func (cli *Client) IntelMachines(ctx context.Context, namespace, clusterName string) ([]intelProvider.IntelMachine, error) {
 	return providerMachines[intelProvider.IntelMachine](ctx, cli, namespace, clusterName, IntelMachineResourceSchema)

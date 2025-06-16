@@ -94,29 +94,39 @@ func (s *Server) PostV2Clusters(ctx context.Context, request api.PostV2ClustersR
 		return api.PostV2Clusters400JSONResponse{N400BadRequestJSONResponse: api.N400BadRequestJSONResponse{Message: &msg}}, nil
 	}
 
-	// create cluster
-	slog.Debug("creating cluster", "namespace", namespace)
-	createdClusterName, err := s.createCluster(ctx, cli, namespace, clusterName, template, nodes, clusterLabels)
-	if err != nil {
-		slog.Error("failed to create cluster", "namespace", namespace, "name", clusterName, "error", err)
-		return api.PostV2Clusters500JSONResponse{
-			N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{
-				Message: ptr(fmt.Sprintf("failed to create cluster: %v", err)),
-			},
-		}, nil
-	}
-
 	// create machine binding for Intel infra provider
 	if api.TemplateInfoInfraprovidertype(template.Spec.InfraProviderType) == api.Intel {
+		slog.Debug("creating machine bindings for Intel infra provider", "namespace", namespace, "clusterName", clusterName, "templateName", template.Name)
 		err := createBindings(ctx, cli, namespace, clusterName, template.Name, nodes)
 		if err != nil {
 			msg := fmt.Sprintf("failed to create machine bindings: %v", err)
 			slog.Error(msg)
 			return api.PostV2Clusters500JSONResponse{N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{Message: &msg}}, nil
 		}
+		slog.Info("Machine bindings created for Intel infra provider", "namespace", namespace, "clusterName", clusterName, "templateName", template.Name)
 	}
 
-	slog.Info("Cluster created", "namespace", namespace, "name", createdClusterName)
+	// create cluster
+	slog.Debug("creating cluster", "namespace", namespace, "name", clusterName, "template", template.Name, "nodes", nodes, "labels", clusterLabels)
+	createdClusterName, err := s.createCluster(ctx, cli, namespace, clusterName, template, nodes, clusterLabels)
+	if err != nil {
+		slog.Error("failed to create cluster", "namespace", namespace, "name", clusterName, "error", err)
+		// rolback machine bindings if cluster creation fails
+		if api.TemplateInfoInfraprovidertype(template.Spec.InfraProviderType) == api.Intel {
+			slog.Warn("rolling back machine bindings due to cluster creation failure", "namespace", namespace, "clusterName", clusterName)
+			if rollbackErr := deleteBindings(ctx, cli, namespace, clusterName, nodes); rollbackErr != nil {
+				slog.Error("failed to rollback machine bindings", "namespace", namespace, "clusterName", clusterName, "error", rollbackErr)
+			} else {
+				slog.Info("machine bindings rolled back successfully", "namespace", namespace, "clusterName", clusterName)
+			}
+		}
+		return api.PostV2Clusters500JSONResponse{
+			N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{
+				Message: ptr(fmt.Sprintf("failed to create cluster: %v", err)),
+			},
+		}, nil
+	}
+	slog.Info("cluster created successfully", "namespace", namespace, "name", createdClusterName)
 	return api.PostV2Clusters201JSONResponse(fmt.Sprintf("successfully created cluster %s", createdClusterName)), nil
 }
 
@@ -215,6 +225,16 @@ func createBindings(ctx context.Context, cli *k8s.Client, namespace, clusterName
 		err := cli.CreateMachineBinding(ctx, namespace, binding)
 		if err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func deleteBindings(ctx context.Context, cli *k8s.Client, namespace, clusterName string, nodes []api.NodeSpec) error {
+	for _, node := range nodes {
+		bindingName := fmt.Sprintf("%s-%s", clusterName, node.Id)
+		if err := cli.DeleteMachineBinding(ctx, namespace, bindingName); err != nil {
+			return fmt.Errorf("failed to delete machine binding %s: %w", bindingName, err)
 		}
 	}
 	return nil

@@ -85,8 +85,6 @@ func (e HostUpdated) validateHostUpdated() error {
 
 // Handle the HostUpdate event
 func (e HostUpdated) Handle(ctx context.Context) error {
-	slog.Debug("HostUpdate", "HostId", e.HostId, "ProjectId", e.ProjectId, "Labels", e.Labels)
-
 	// Validate all fields
 	if err := e.validateHostUpdated(); err != nil {
 		return err
