@@ -15,6 +15,7 @@ CLUSTERCTL_VERSION ?= v1.9.5
 KUBEADM_VERSION    ?= v1.9.0
 RKE2_VERSION       ?= v0.12.0
 K3s_VERSION        ?= v0.2.1
+LPP_VERSION		   ?= v0.0.31
 DOCKER_INFRA_VERSION   ?= v1.8.5
 CLUSTERCTL := $(shell command -v clusterctl 2> /dev/null)
 
@@ -616,4 +617,19 @@ update-api-version: ## Update API version
 
 .PHONY: embed-manifests
 embed-manifests:
+	@echo "download local-path-provisoner(lpp) $(LPP_VERSION) manifest..."
+	@wget https://raw.githubusercontent.com/rancher/local-path-provisioner/refs/tags/$(LPP_VERSION)/deploy/local-path-storage.yaml -O ./default-cluster-templates/manifests/local-path-storage.yaml
+	@echo "download complete."
+	## remove the namespace from the local-path-storage.yaml file; assuming the namespace is the first component in the yaml
+	@echo "delete lpp manifest..."
+	sed -i '1,5d' ./default-cluster-templates/manifests/local-path-storage.yaml
+	## update the namespace names
+	sed -i 's/namespace: local-path-storage/namespace: kube-system/g' ./default-cluster-templates/manifests/local-path-storage.yaml
+	## set-up the storage class:
+	## 1. set the LPP storage class as the default storage class
+	## 2. use the local volume type for LPP (instead of hostPath)
+	sed -i 's/provisioner: rancher.io\/local-path/  annotations:\n    storageclass.kubernetes.io\/is-default-class: \"true\"\n    defaultVolumeType: "local"\nprovisioner: rancher.io\/local-path/g' ./default-cluster-templates/manifests/local-path-storage.yaml
 	@./default-cluster-templates/manifests/embed_lpp_manifest.sh baseline privileged restricted
+	@echo "delete lpp manifest..."
+	@rm -rf ./default-cluster-templates/manifests/local-path-storage.yaml
+	@echo "delete complete."

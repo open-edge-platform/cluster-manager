@@ -1,7 +1,7 @@
 set -eu -o pipefail
 
 
-lpp_manifest_file="$(pwd)/default-cluster-templates/manifests/lpp-manifest.yaml"
+lpp_manifest_file="$(pwd)/default-cluster-templates/manifests/local-path-storage.yaml"
 lpp_manifest_path_value="/var/lib/rancher/rke2/server/manifests/local-path-provisioner.yaml"
 
 echo "using manifest from: $lpp_manifest_file"
