@@ -1,8 +1,8 @@
 {
-  "name": "baseline-k3s",
+  "name": "privileged-k3s",
   "version": "v0.0.2",
   "kubernetesVersion": "v1.33.0+k3s1",
-  "description": "Baseline Cluster Template for k3s",
+  "description": "Privileged Cluster Template for k3s",
   "controlplaneprovidertype": "k3s",
   "infraprovidertype": "intel",
   "clusterconfiguration": {
@@ -21,7 +21,6 @@
               {}
             ],
             "agentConfig": {
-              "airGapped": true,
               "kubeletArgs": [
                 "--topology-manager-policy=best-effort",
                 "--cpu-manager-policy=static",
@@ -71,6 +70,6 @@
     }
   },
   "cluster-labels": {
-    "default-extension": "baseline"
+    "default-extension": "privileged"
   }
 }
