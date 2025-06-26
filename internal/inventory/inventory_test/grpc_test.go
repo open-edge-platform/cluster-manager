@@ -156,7 +156,7 @@ func TestEnableAirGapInstall(t *testing.T) {
 			mock: func() {
 				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(&computev1.HostResource{
 					Instance: &computev1.InstanceResource{
-						CurrentOs: &osv1.OperatingSystemResource{
+						Os: &osv1.OperatingSystemResource{
 							OsType: osv1.OsType_OS_TYPE_IMMUTABLE,
 						},
 					},
@@ -169,7 +169,7 @@ func TestEnableAirGapInstall(t *testing.T) {
 			mock: func() {
 				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(&computev1.HostResource{
 					Instance: &computev1.InstanceResource{
-						CurrentOs: &osv1.OperatingSystemResource{
+						Os: &osv1.OperatingSystemResource{
 							OsType: osv1.OsType_OS_TYPE_MUTABLE,
 						},
 					},
@@ -186,13 +186,13 @@ func TestEnableAirGapInstall(t *testing.T) {
 			expectedVal: false,
 		},
 		{
-			name: "current OS nil",
+			name: "OS nil",
 			mock: func() {
 				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(&computev1.HostResource{
 					Instance: &computev1.InstanceResource{},
 				}, nil).Once()
 			},
-			expectedErr: errors.New("host instance current os is nil"),
+			expectedErr: errors.New("host instance os is nil"),
 			expectedVal: false,
 		},
 		{
