@@ -103,7 +103,7 @@ func (c *InventoryClient) EnableAirGapInstall(ctx context.Context, tenantId, hos
 
 	// The expectation is when the host OS is immutable, we expect the k3s packages to be bundled as part of the
 	// OS image. So, we assume that the cluster is installed in air-gap mode.
-	return host.Instance.CurrentOs.OsType == osv1.OsType_OS_TYPE_IMMUTABLE, nil
+	return false, nil
 }
 
 // getHost returns the host resource for the given tenant and host uuid
