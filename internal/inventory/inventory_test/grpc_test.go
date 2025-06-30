@@ -156,7 +156,7 @@ func TestEnableAirGapInstall(t *testing.T) {
 			mock: func() {
 				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(&computev1.HostResource{
 					Instance: &computev1.InstanceResource{
-						CurrentOs: &osv1.OperatingSystemResource{
+						DesiredOs: &osv1.OperatingSystemResource{
 							OsType: osv1.OsType_OS_TYPE_IMMUTABLE,
 						},
 					},
@@ -169,7 +169,7 @@ func TestEnableAirGapInstall(t *testing.T) {
 			mock: func() {
 				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(&computev1.HostResource{
 					Instance: &computev1.InstanceResource{
-						CurrentOs: &osv1.OperatingSystemResource{
+						DesiredOs: &osv1.OperatingSystemResource{
 							OsType: osv1.OsType_OS_TYPE_MUTABLE,
 						},
 					},
