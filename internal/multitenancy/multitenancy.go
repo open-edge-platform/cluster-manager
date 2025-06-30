@@ -157,7 +157,7 @@ func (tdm *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.Ru
 	// Create namespace
 	err := tdm.k8s.CreateNamespace(ctx, projectId)
 	if err != nil {
-		slog.Warn("failed to create namespace for project: %v", err)
+		slog.Warn(fmt.Sprintf("failed to create namespace for project: %v", err))
 	} else {
 		slog.Debug("created namespace for project", "namespace", projectId, "project", project.DisplayName())
 	}
@@ -166,7 +166,7 @@ func (tdm *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.Ru
 	for _, template := range tdm.templates {
 		err = tdm.k8s.CreateTemplate(ctx, projectId, template)
 		if err != nil {
-			slog.Warn("failed to create '%s' default template: %w", template.GetName(), err)
+			slog.Warn(fmt.Sprintf("failed to create '%s' default template: %v", template.GetName(), err))
 		} else {
 			slog.Debug("created template", "namespace", projectId, "template", template.GetName(), "project", project.DisplayName())
 		}
