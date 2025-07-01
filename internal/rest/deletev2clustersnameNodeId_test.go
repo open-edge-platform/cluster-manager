@@ -128,50 +128,6 @@ func TestDeleteClustersNameNodeId(t *testing.T) {
 		machineResource := k8s.NewMockResourceInterface(t)
 		intelMachineResource := k8s.NewMockResourceInterface(t)
 		intelMachineResource.EXPECT().Get(mock.Anything, mock.Anything, metav1.GetOptions{}).Return(&unstructured.Unstructured{Object: map[string]interface{}{}}, nil)
-		intelMachineResource.EXPECT().List(mock.Anything, metav1.ListOptions{LabelSelector: "cluster.x-k8s.io/cluster-name=" + name}).Return(&unstructured.UnstructuredList{
-			Items: []unstructured.Unstructured{
-				{
-					Object: map[string]interface{}{
-						"apiVersion": "cluster.k8s.io/v1alpha1",
-						"kind":       "IntelMachine",
-						"metadata": map[string]interface{}{
-							"name":      "machine1",
-							"namespace": activeProjectID,
-							"annotations": map[string]interface{}{
-								"intelmachine.infrastructure.cluster.x-k8s.io/host-id": nodeID,
-							},
-							"finalizers": []string{"intelmachine.infrastructure.cluster.x-k8s.io/host-cleanup"},
-						},
-						"status": map[string]interface{}{
-							"nodeRef": map[string]interface{}{
-								"uid": nodeID,
-							},
-						},
-						"spec": map[string]interface{}{},
-					},
-				},
-				{
-					Object: map[string]interface{}{
-						"apiVersion": "cluster.k8s.io/v1alpha1",
-						"kind":       "IntelMachine",
-						"metadata": map[string]interface{}{
-							"name":      "machine2",
-							"namespace": activeProjectID,
-							"annotations": map[string]interface{}{
-								"intelmachine.infrastructure.cluster.x-k8s.io/host-id": "different-id",
-							},
-						},
-						"status": map[string]interface{}{
-							"nodeRef": map[string]interface{}{
-								"uid": "different-node-id",
-							},
-						},
-						"spec": map[string]interface{}{},
-					},
-				},
-			},
-		}, nil)
-		intelMachineResource.EXPECT().Patch(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&unstructured.Unstructured{}, nil)
 		clusterResource.EXPECT().Get(mock.Anything, name, metav1.GetOptions{}).Return(&unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": "v1",

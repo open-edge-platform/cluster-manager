@@ -157,18 +157,20 @@ func (tdm *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.Ru
 	// Create namespace
 	err := tdm.k8s.CreateNamespace(ctx, projectId)
 	if err != nil {
-		return fmt.Errorf("failed to create namespace for project: %w", err)
+		slog.Warn(fmt.Sprintf("failed to create namespace for project: %v", err))
+	} else {
+		slog.Debug("created namespace for project", "namespace", projectId, "project", project.DisplayName())
 	}
-	slog.Debug("created namespace for project", "namespace", projectId, "project", project.DisplayName())
 
 	// Apply templates
 	for _, template := range tdm.templates {
 		err = tdm.k8s.CreateTemplate(ctx, projectId, template)
 		if err != nil {
-			return fmt.Errorf("failed to apply '%s' default template: %w", template.GetName(), err)
+			slog.Warn(fmt.Sprintf("failed to create '%s' default template: %v", template.GetName(), err))
+		} else {
+			slog.Debug("created template", "namespace", projectId, "template", template.GetName(), "project", project.DisplayName())
 		}
 	}
-	slog.Debug("added default cluster templates to project", "namespace", projectId, "project", project.DisplayName())
 
 	defaultTemplateName := selectDefaultTemplateName(tdm.templates, disableK3sTemplates)
 
