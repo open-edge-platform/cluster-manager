@@ -161,6 +161,16 @@ func (s *Server) createCluster(ctx context.Context, cli *k8s.Client, namespace, 
 		})
 	}
 
+	if template.Spec.ControlPlaneProviderType == "k3s" {
+		// Add the INSTALL_K3S_BIN_DIR variable for k3s control plane provider
+		variables = append(variables, capi.ClusterVariable{
+			Name: "INSTALL_K3S_BIN_DIR",
+			Value: apiextensionsv1.JSON{
+				Raw: []byte("/usr/bin"),
+			},
+		})
+	}
+
 	// create cluster
 	replicas := int32(len(nodes))
 	cluster := capi.Cluster{
