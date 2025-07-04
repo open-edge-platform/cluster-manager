@@ -75,6 +75,7 @@ clusterManager:
     disable-mt: false
     disable-inventory: false
     disable-metrics: true
+    disable-k3s-templates: false
 
   extraEnv: []
 
