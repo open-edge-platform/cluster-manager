@@ -1,7 +1,7 @@
 {
   "name": "restricted-k3s",
-  "version": "v0.0.2",
-  "kubernetesVersion": "v1.33.0+k3s1",
+  "version": "v0.0.3",
+  "kubernetesVersion": "v1.32.4+k3s1",
   "description": "Restricted Cluster Template for k3s",
   "controlplaneprovidertype": "k3s",
   "infraprovidertype": "intel",
@@ -37,9 +37,6 @@
               "sudo cp /var/lib/rancher/k3s/agent/pod-manifests/connect-agent.yaml /var/lib/kubelet/static-pods/connect-agent.yaml"
             ],
             "postK3sCommands": [
-              "kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.30.0/manifests/operator-crds.yaml",
-              "kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.30.0/manifests/tigera-operator.yaml",
-              "kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.30.0/manifests/custom-resources.yaml"
             ],
             "serverConfig": {
               "kubeApiServerArg": [
@@ -51,7 +48,7 @@
               "clusterDomain": "cluster.edge",
               "disableCloudController": false
             },
-            "version": "v1.33.0+k3s1"
+            "version": "v1.32.4+k3s1"
           }
         }
       }
