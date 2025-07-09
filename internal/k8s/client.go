@@ -183,6 +183,33 @@ func (cli *Client) CreateNamespace(ctx context.Context, name string) error {
 	return err
 }
 
+func (cli *Client) CreateSecret(ctx context.Context, namespace string, name string, data map[string][]byte) error {
+	secretRes := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Data: data,
+		Type: v1.SecretTypeOpaque,
+	}
+
+	secretObject, err := runtime.DefaultUnstructuredConverter.ToUnstructured(secret)
+	if err != nil {
+		return fmt.Errorf("failed to convert secret to unstructured object: %w", err)
+	}
+
+	secretManifest := &unstructured.Unstructured{Object: secretObject}
+	_, err = cli.Dyn.Resource(secretRes).Namespace(namespace).Create(ctx, secretManifest, metav1.CreateOptions{})
+
+	if err != nil && !errors.IsAlreadyExists(err) {
+		slog.Error("failed to create secret", "namespace", namespace, "name", name, "error", err)
+		return fmt.Errorf("failed to create secret %s in namespace %s: %w", name, namespace, err)
+	}
+
+	return nil
+}
+
 // CreateTemplate creates a new template object in the given namespace
 func (cli *Client) CreateTemplate(ctx context.Context, namespace string, template *ct.ClusterTemplate) error {
 	templateObject, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&template)

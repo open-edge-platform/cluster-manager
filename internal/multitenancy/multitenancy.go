@@ -13,17 +13,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
-	activeWatcher "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/apis/projectactivewatcher.edge-orchestrator.intel.com/v1"
-	nexus "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/nexus-client"
-
 	ct "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
 	provider "github.com/open-edge-platform/cluster-manager/v2/internal/providers"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/template"
+	activeWatcher "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/apis/projectactivewatcher.edge-orchestrator.intel.com/v1"
+	nexus "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/nexus-client"
 )
 
-const appName = "cluster-manager"
+const (
+	appName                        = "cluster-manager"
+	podSecurityAdmissionSecretName = "pod-security-admission-config"
+)
 
 var (
 	// The default baseline regex matches template names like baseline-<provider>-vX.Y.Z. for exmple:
@@ -33,12 +35,72 @@ var (
 	GetClusterConfigFunc  = rest.InClusterConfig
 	GetNexusClientSetFunc = nexus.NewForConfig
 	GetK8sClientFunc      = k8s.NewClient
+
 	// If disableK3sTemplates is true (defaultProvider == "rke2"), templates like baseline-k3s-vX.Y.Z are excluded.
 	// and baseline-vX.Y.Z becomes the default. Later with renaming of templates, this will be removed.
 	// If disableK3sTemplates is false, all templates are available and baseline-k3s-vX.Y.Z becomes the default.
 	disableK3sTemplates bool
 	GetTemplatesFunc    = func() ([]*ct.ClusterTemplate, error) {
 		return template.ReadDefaultTemplates(disableK3sTemplates)
+	}
+
+	// Secret with Kubernetes standard pod security admission configuration that applies to all namespaces except kube-system.
+	// https://kubernetes.io/docs/concepts/security/pod-security-admission/
+	psaSecretData = map[string][]byte{
+		"baseline": []byte(`apiVersion: apiserver.config.k8s.io/v1
+kind: AdmissionConfiguration
+plugins:
+  - name: PodSecurity
+	configuration:
+	  apiVersion: pod-security.admission.config.k8s.io/v1beta1
+	  kind: PodSecurityConfiguration
+	  defaults:
+		enforce: "baseline"
+		enforce-version: "latest"
+		audit: "baseline"
+		audit-version: "latest"
+		warn: "baseline"
+		warn-version: "latest"
+      exemptions:
+        usernames: []
+        runtimeClasses: []
+        namespaces: [kube-system]`),
+		"privileged": []byte(`apiVersion: apiserver.config.k8s.io/v1
+kind: AdmissionConfiguration
+plugins:
+  - name: PodSecurity
+	configuration:
+	  apiVersion: pod-security.admission.config.k8s.io/v1beta1
+	  kind: PodSecurityConfiguration
+	  defaults:
+		enforce: "baseline"
+		enforce-version: "latest"
+		audit: "baseline"
+		audit-version: "latest"
+		warn: "baseline"
+		warn-version: "latest"
+      exemptions:
+        usernames: []
+        runtimeClasses: []
+        namespaces: [kube-system]`),
+		"restricted": []byte(`apiVersion: apiserver.config.k8s.io/v1
+kind: AdmissionConfiguration
+plugins:
+  - name: PodSecurity
+	configuration:
+	  apiVersion: pod-security.admission.config.k8s.io/v1beta1
+	  kind: PodSecurityConfiguration
+	  defaults:
+		enforce: "restricted"
+		enforce-version: "latest"
+		audit: "baseline"
+		audit-version: "latest"
+		warn: "baseline"
+		warn-version: "latest"
+      exemptions:
+        usernames: []
+        runtimeClasses: []
+        namespaces: [kube-system]`),
 	}
 )
 
@@ -160,6 +222,13 @@ func (tdm *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.Ru
 		slog.Warn(fmt.Sprintf("failed to create namespace for project: %v", err))
 	} else {
 		slog.Debug("created namespace for project", "namespace", projectId, "project", project.DisplayName())
+	}
+
+	// Create Pod Security Admission secret
+	if err := tdm.k8s.CreateSecret(ctx, projectId, podSecurityAdmissionSecretName, psaSecretData); err != nil {
+		slog.Warn(fmt.Sprintf("failed to create pod security admission secret in namespace '%s': %v", projectId, err))
+	} else {
+		slog.Debug("created pod security admission secret", "namespace", projectId, "project", project.DisplayName())
 	}
 
 	// Apply templates
