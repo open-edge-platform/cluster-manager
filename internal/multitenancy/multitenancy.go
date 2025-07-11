@@ -51,16 +51,16 @@ var (
 kind: AdmissionConfiguration
 plugins:
   - name: PodSecurity
-	configuration:
-	  apiVersion: pod-security.admission.config.k8s.io/v1beta1
-	  kind: PodSecurityConfiguration
-	  defaults:
-		enforce: "baseline"
-		enforce-version: "latest"
-		audit: "baseline"
-		audit-version: "latest"
-		warn: "baseline"
-		warn-version: "latest"
+    configuration:
+      apiVersion: pod-security.admission.config.k8s.io/v1beta1
+      kind: PodSecurityConfiguration
+      defaults:
+        enforce: "baseline"
+        enforce-version: "latest"
+        audit: "baseline"
+        audit-version: "latest"
+        warn: "baseline"
+        warn-version: "latest"
       exemptions:
         usernames: []
         runtimeClasses: []
@@ -69,16 +69,16 @@ plugins:
 kind: AdmissionConfiguration
 plugins:
   - name: PodSecurity
-	configuration:
-	  apiVersion: pod-security.admission.config.k8s.io/v1beta1
-	  kind: PodSecurityConfiguration
-	  defaults:
-		enforce: "baseline"
-		enforce-version: "latest"
-		audit: "baseline"
-		audit-version: "latest"
-		warn: "baseline"
-		warn-version: "latest"
+    configuration:
+      apiVersion: pod-security.admission.config.k8s.io/v1beta1
+      kind: PodSecurityConfiguration
+      defaults:
+        enforce: "privileged"
+        enforce-version: "latest"
+        audit: "privileged"
+        audit-version: "latest"
+        warn: "privileged"
+        warn-version: "latest"
       exemptions:
         usernames: []
         runtimeClasses: []
@@ -87,16 +87,16 @@ plugins:
 kind: AdmissionConfiguration
 plugins:
   - name: PodSecurity
-	configuration:
-	  apiVersion: pod-security.admission.config.k8s.io/v1beta1
-	  kind: PodSecurityConfiguration
-	  defaults:
-		enforce: "restricted"
-		enforce-version: "latest"
-		audit: "baseline"
-		audit-version: "latest"
-		warn: "baseline"
-		warn-version: "latest"
+    configuration:
+      apiVersion: pod-security.admission.config.k8s.io/v1beta1
+      kind: PodSecurityConfiguration
+      defaults:
+        enforce: "restricted"
+        enforce-version: "latest"
+        audit: "restricted"
+        audit-version: "latest"
+        warn: "restricted"
+        warn-version: "latest"
       exemptions:
         usernames: []
         runtimeClasses: []
