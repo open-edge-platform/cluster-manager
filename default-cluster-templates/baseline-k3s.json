@@ -52,7 +52,13 @@
               "kubeControllerManagerArgs": [],
               "kubeSchedulerArgs": [],
               "clusterDomain": "cluster.edge",
-              "disableCloudController": false
+              "disableCloudController": false,
+              "disableComponents": [
+                "metrics-server",
+                "traefik",
+                "etcd-proxy",
+                "servicelb"
+              ]
             },
             "version": "v1.32.4+k3s1"
           }

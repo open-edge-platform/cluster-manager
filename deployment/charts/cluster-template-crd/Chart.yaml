@@ -9,5 +9,5 @@ type: application
 version: 2.1.7
 appVersion: 2.1.7
 annotations:
-  revision: b3601844b9734546f202c671056612c37e41412d
-  created: "2025-07-10T21:17:12Z"
+  revision: 3e3aa7856e07cd6c72c05750b6e4eef71597684e
+  created: "2025-07-11T00:48:41Z"
