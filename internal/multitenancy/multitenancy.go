@@ -44,63 +44,8 @@ var (
 		return template.ReadDefaultTemplates(disableK3sTemplates)
 	}
 
-	// Secret with Kubernetes standard pod security admission configuration that applies to all namespaces except kube-system.
-	// https://kubernetes.io/docs/concepts/security/pod-security-admission/
-	psaSecretData = map[string][]byte{
-		"baseline": []byte(`apiVersion: apiserver.config.k8s.io/v1
-kind: AdmissionConfiguration
-plugins:
-  - name: PodSecurity
-    configuration:
-      apiVersion: pod-security.admission.config.k8s.io/v1beta1
-      kind: PodSecurityConfiguration
-      defaults:
-        enforce: "baseline"
-        enforce-version: "latest"
-        audit: "baseline"
-        audit-version: "latest"
-        warn: "baseline"
-        warn-version: "latest"
-      exemptions:
-        usernames: []
-        runtimeClasses: []
-        namespaces: [kube-system]`),
-		"privileged": []byte(`apiVersion: apiserver.config.k8s.io/v1
-kind: AdmissionConfiguration
-plugins:
-  - name: PodSecurity
-    configuration:
-      apiVersion: pod-security.admission.config.k8s.io/v1beta1
-      kind: PodSecurityConfiguration
-      defaults:
-        enforce: "privileged"
-        enforce-version: "latest"
-        audit: "privileged"
-        audit-version: "latest"
-        warn: "privileged"
-        warn-version: "latest"
-      exemptions:
-        usernames: []
-        runtimeClasses: []
-        namespaces: [kube-system]`),
-		"restricted": []byte(`apiVersion: apiserver.config.k8s.io/v1
-kind: AdmissionConfiguration
-plugins:
-  - name: PodSecurity
-    configuration:
-      apiVersion: pod-security.admission.config.k8s.io/v1beta1
-      kind: PodSecurityConfiguration
-      defaults:
-        enforce: "restricted"
-        enforce-version: "latest"
-        audit: "restricted"
-        audit-version: "latest"
-        warn: "restricted"
-        warn-version: "latest"
-      exemptions:
-        usernames: []
-        runtimeClasses: []
-        namespaces: [kube-system]`),
+	GetPodSecurityAdmissionConfigFunc = func() (map[string][]byte, error) {
+		return template.ReadPodSecurityAdmissionConfigs()
 	}
 )
 
@@ -108,6 +53,7 @@ type TenancyDatamodel struct {
 	client    *nexus.Clientset
 	k8s       *k8s.Client
 	templates []*ct.ClusterTemplate
+	psaData   map[string][]byte
 }
 
 func NewDatamodelClient() (*TenancyDatamodel, error) {
@@ -133,7 +79,13 @@ func NewDatamodelClient() (*TenancyDatamodel, error) {
 		return nil, fmt.Errorf("failed to read default cluster templates: %w", err)
 	}
 
-	return &TenancyDatamodel{client: client, k8s: k8s, templates: templates}, nil
+	// Read pod security admission configs
+	psaData, err := GetPodSecurityAdmissionConfigFunc()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read pod security admission configs: %w", err)
+	}
+
+	return &TenancyDatamodel{client: client, k8s: k8s, templates: templates, psaData: psaData}, nil
 }
 
 func (tdm *TenancyDatamodel) Start() error {
@@ -225,7 +177,7 @@ func (tdm *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.Ru
 	}
 
 	// Create Pod Security Admission secret
-	if err := tdm.k8s.CreateSecret(ctx, projectId, podSecurityAdmissionSecretName, psaSecretData); err != nil {
+	if err := tdm.k8s.CreateSecret(ctx, projectId, podSecurityAdmissionSecretName, tdm.psaData); err != nil {
 		slog.Warn(fmt.Sprintf("failed to create pod security admission secret in namespace '%s': %v", projectId, err))
 	} else {
 		slog.Debug("created pod security admission secret", "namespace", projectId, "project", project.DisplayName())
