@@ -52,6 +52,7 @@ var providerRegistry = map[string]Provider{
 	"rke2:docker":    rke2docker{},
 	"rke2:intel":     rke2intel{},
 	"k3s:intel":      k3sintel{},
+	"k3s:docker":     k3sdocker{},
 }
 
 func GetCapiProvider(controlPlaneProvider, infraProvider string) Provider {

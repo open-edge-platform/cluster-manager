@@ -23,7 +23,7 @@
                 "contentFrom": {
                   "secret": {
                     "name": "pod-security-admission-config",
-                    "key": "baseline"
+                    "key": "baseline.yaml"
                   }
                 }
               }

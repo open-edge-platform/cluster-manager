@@ -194,8 +194,8 @@ func ReadDefaultTemplates(disableK3sTemplates bool) ([]*v1alpha1.ClusterTemplate
 
 func ReadPodSecurityAdmissionConfigs() (map[string][]byte, error) {
 	psaData := make(map[string][]byte)
-	for _, level := range []string{"baseline", "privileged", "restricted"} {
-		path := fmt.Sprintf("/pod-security-admission/%s.yaml", level)
+	for _, level := range []string{"baseline.yaml", "privileged.yaml", "restricted.yaml"} {
+		path := fmt.Sprintf("/pod-security-admission/%s", level)
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read pod security admission config '%s': %w", path, err)
