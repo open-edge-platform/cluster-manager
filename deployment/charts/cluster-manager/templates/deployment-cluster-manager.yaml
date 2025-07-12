@@ -80,6 +80,9 @@ spec:
         volumeMounts:
         - name: default-templates
           mountPath: /default-templates
+        - name: psa-config
+          mountPath: /pod-security-admission
+          readOnly: true
         env:
         - name: OIDC_SERVER_URL
           value: {{ .Values.openidc.issuer }}
@@ -141,3 +144,6 @@ spec:
         configMap:
             name: {{ include "cluster-manager.fullname" . }}-opa-rego-v1
       {{- end }}
+      - name: psa-config
+        secret:
+          secretName: pod-security-admission-config

@@ -28,7 +28,7 @@ func TestService(t *testing.T) {
 }
 
 const cmAddress = "localhost:8080"
-const ctRelativePath = "../../default-cluster-templates/baseline.json"
+const ctRelativePath = "../../default-cluster-templates/baseline-k3s.json"
 const hostIdAnnotationKey = "intelmachine.infrastructure.cluster.x-k8s.io/host-id"
 
 var testTenantID uuid.UUID
@@ -48,12 +48,19 @@ func init() {
 
 // we need to simulate multi-tenancy, as it is disabled in service tests because it requires a real tenant service to work
 var _ = BeforeSuite(func() {
-	// create  the namespace for the tenant
+	// create the namespace for the tenant
 	fmt.Println("Creating namespace for tenant", testTenantID.String())
 	cmd := exec.Command("kubectl", "create", "namespace", testTenantID.String())
 	err := cmd.Run()
 	Expect(err).ToNot(HaveOccurred())
 	fmt.Println("Created namespace for tenant", testTenantID.String())
+
+	// create the psa secret for the tenant
+	fmt.Println("Creating pod security admission config secret for tenant", testTenantID.String())
+	cmd = exec.Command("kubectl", "-n", testTenantID.String(), "apply", "-f", "../../deployment/charts/cluster-manager/templates/secret.yaml")
+	err = cmd.Run()
+	Expect(err).ToNot(HaveOccurred())
+	fmt.Println("Created pod security admission config secret for tenant", testTenantID.String())
 
 	// create the baseline cluster template in the tenant namespace
 	filePath, err := resolvePath(ctRelativePath)
@@ -336,8 +343,8 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"201\",method=\"POST\",path=\"/v2/clusters\"}"))
 			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"201\",method=\"POST\",path=\"/v2/templates\"}"))
 			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"204\",method=\"DELETE\",path=\"/v2/clusters/test-cluster\"}"))
-			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"204\",method=\"DELETE\",path=\"/v2/templates/baseline/v2.0.2\"}"))
-			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"409\",method=\"DELETE\",path=\"/v2/templates/baseline/v2.0.2\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"204\",method=\"DELETE\",path=\"/v2/templates/baseline-k3s/v0.0.4\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"409\",method=\"DELETE\",path=\"/v2/templates/baseline-k3s/v0.0.4\"}"))
 			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_time_seconds_histogram_bucket{le=\"0.005\"}"))
 			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_time_seconds_histogram_bucket{le=\"0.01\"}"))
 			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_time_seconds_histogram_bucket{le=\"0.025\"}"))

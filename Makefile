@@ -313,8 +313,6 @@ helm-build: ## Package helm charts.
 		yq eval -i '.annotations.created = "${LABEL_CREATED}"' $$d/Chart.yaml; \
 		helm package --app-version=${VERSION} --version=${HELM_VERSION} --debug -u $$d -d $(BUILD_DIR); \
 	done
-	# revert the temporary changes done in charts
-	git checkout deployment/charts/cluster-template-crd/Chart.yaml deployment/charts/cluster-manager/Chart.yaml
 
 .PHONY: helm-list
 helm-list:
@@ -613,3 +611,22 @@ update-api-version: ## Update API version
 	@read -p "Enter new version: " new_version; \
 	sed -i "s/^  version:.*/  version: $${new_version}/" api/openapi/openapi.yaml
 	make generate-api
+
+HELM_VARS ?=
+
+.PHONY: emf-redeploy
+emf-redeploy: KIND_CLUSTER=kind
+emf-redeploy: helm-build docker-build docker-load ## Redeploy cluster-manager helm charts in the running EMF cluster
+	kubectl patch application -n dev root-app --type=merge -p '{"spec":{"syncPolicy":{"automated":{"selfHeal":false}}}}'
+	kubectl delete application -n dev cluster-manager --ignore-not-found=true
+	kubectl delete crd clusters.cluster.edge-orchestrator.intel.com --ignore-not-found=true
+	kubectl delete crd clustertemplates.edge-orchestrator.intel.com --ignore-not-found=true
+	helm upgrade --install cluster-template-crd deployment/charts/cluster-template-crd -n orch-cluster --create-namespace
+	helm upgrade --install cluster-manager deployment/charts/cluster-manager -n orch-cluster --create-namespace \
+	  --set clusterManager.extraArgs.disable-mt=false \
+	  --set clusterManager.extraArgs.disable-auth=false \
+
+.PHONY: emf-rebuild
+emf-rebuild: KIND_CLUSTER=kind
+emf-rebuild: docker-build docker-load ## Rebuild cluster-manager container from source and redeploy
+	kubectl delete po -l app=cluster-manager-cm -n orch-cluster

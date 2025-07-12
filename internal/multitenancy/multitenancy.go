@@ -13,17 +13,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
-	activeWatcher "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/apis/projectactivewatcher.edge-orchestrator.intel.com/v1"
-	nexus "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/nexus-client"
-
 	ct "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
 	provider "github.com/open-edge-platform/cluster-manager/v2/internal/providers"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/template"
+	activeWatcher "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/apis/projectactivewatcher.edge-orchestrator.intel.com/v1"
+	nexus "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/nexus-client"
 )
 
-const appName = "cluster-manager"
+const (
+	appName                        = "cluster-manager"
+	podSecurityAdmissionSecretName = "pod-security-admission-config"
+)
 
 var (
 	// The default baseline regex matches template names like baseline-<provider>-vX.Y.Z. for exmple:
@@ -33,6 +35,7 @@ var (
 	GetClusterConfigFunc  = rest.InClusterConfig
 	GetNexusClientSetFunc = nexus.NewForConfig
 	GetK8sClientFunc      = k8s.NewClient
+
 	// If disableK3sTemplates is true (defaultProvider == "rke2"), templates like baseline-k3s-vX.Y.Z are excluded.
 	// and baseline-vX.Y.Z becomes the default. Later with renaming of templates, this will be removed.
 	// If disableK3sTemplates is false, all templates are available and baseline-k3s-vX.Y.Z becomes the default.
@@ -40,12 +43,17 @@ var (
 	GetTemplatesFunc    = func() ([]*ct.ClusterTemplate, error) {
 		return template.ReadDefaultTemplates(disableK3sTemplates)
 	}
+
+	GetPodSecurityAdmissionConfigFunc = func() (map[string][]byte, error) {
+		return template.ReadPodSecurityAdmissionConfigs()
+	}
 )
 
 type TenancyDatamodel struct {
 	client    *nexus.Clientset
 	k8s       *k8s.Client
 	templates []*ct.ClusterTemplate
+	psaData   map[string][]byte
 }
 
 func NewDatamodelClient() (*TenancyDatamodel, error) {
@@ -71,7 +79,13 @@ func NewDatamodelClient() (*TenancyDatamodel, error) {
 		return nil, fmt.Errorf("failed to read default cluster templates: %w", err)
 	}
 
-	return &TenancyDatamodel{client: client, k8s: k8s, templates: templates}, nil
+	// Read pod security admission configs
+	psaData, err := GetPodSecurityAdmissionConfigFunc()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read pod security admission configs: %w", err)
+	}
+
+	return &TenancyDatamodel{client: client, k8s: k8s, templates: templates, psaData: psaData}, nil
 }
 
 func (tdm *TenancyDatamodel) Start() error {
@@ -160,6 +174,13 @@ func (tdm *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.Ru
 		slog.Warn(fmt.Sprintf("failed to create namespace for project: %v", err))
 	} else {
 		slog.Debug("created namespace for project", "namespace", projectId, "project", project.DisplayName())
+	}
+
+	// Create Pod Security Admission secret
+	if err := tdm.k8s.CreateSecret(ctx, projectId, podSecurityAdmissionSecretName, tdm.psaData); err != nil {
+		slog.Warn(fmt.Sprintf("failed to create pod security admission secret in namespace '%s': %v", projectId, err))
+	} else {
+		slog.Debug("created pod security admission secret", "namespace", projectId, "project", project.DisplayName())
 	}
 
 	// Apply templates

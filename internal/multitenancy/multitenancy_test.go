@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 
 	"github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
@@ -41,9 +42,7 @@ func (suite *TenancyDatamodelTestSuite) SetupTest() {
 
 	k8s := k8s.NewClientFake()
 
-	templates := []*v1alpha1.ClusterTemplate{
-		&v1alpha1.ClusterTemplate{},
-	}
+	templates := []*v1alpha1.ClusterTemplate{}
 
 	suite.tdm = &TenancyDatamodel{client: client, k8s: k8s, templates: templates}
 }
@@ -59,13 +58,14 @@ func (suite *TenancyDatamodelTestSuite) TestStop() {
 
 func (suite *TenancyDatamodelTestSuite) TestNewDatamodelClient() {
 	cases := []struct {
-		name           string
-		configFunc     func() (*rest.Config, error)
-		clientSetFunc  func(*rest.Config) (*nexus.Clientset, error)
-		k8sClientFunc  func(*config.Config) (*k8s.Client, error)
-		templateFunc   func() ([]*v1alpha1.ClusterTemplate, error)
-		expectedErr    error
-		expectedClient bool
+		name                           string
+		configFunc                     func() (*rest.Config, error)
+		clientSetFunc                  func(*rest.Config) (*nexus.Clientset, error)
+		k8sClientFunc                  func(*config.Config) (*k8s.Client, error)
+		templateFunc                   func() ([]*v1alpha1.ClusterTemplate, error)
+		podSecurityAdmissionConfigFunc func() (map[string][]byte, error)
+		expectedErr                    error
+		expectedClient                 bool
 	}{
 		{
 			name: "success",
@@ -79,10 +79,11 @@ func (suite *TenancyDatamodelTestSuite) TestNewDatamodelClient() {
 				return k8s.NewClientFake(), nil
 			},
 			templateFunc: func() ([]*v1alpha1.ClusterTemplate, error) {
-				templates := []*v1alpha1.ClusterTemplate{
-					&v1alpha1.ClusterTemplate{},
-				}
+				templates := []*v1alpha1.ClusterTemplate{}
 				return templates, nil
+			},
+			podSecurityAdmissionConfigFunc: func() (map[string][]byte, error) {
+				return map[string][]byte{}, nil
 			},
 			expectedErr:    nil,
 			expectedClient: true,
@@ -92,11 +93,12 @@ func (suite *TenancyDatamodelTestSuite) TestNewDatamodelClient() {
 			configFunc: func() (*rest.Config, error) {
 				return nil, errors.New("config error")
 			},
-			clientSetFunc:  nil,
-			k8sClientFunc:  nil,
-			templateFunc:   nil,
-			expectedErr:    errors.New("failed to get kubeconfig: config error"),
-			expectedClient: false,
+			clientSetFunc:                  nil,
+			k8sClientFunc:                  nil,
+			templateFunc:                   nil,
+			podSecurityAdmissionConfigFunc: nil,
+			expectedErr:                    errors.New("failed to get kubeconfig: config error"),
+			expectedClient:                 false,
 		},
 		{
 			name: "clientset error",
@@ -106,10 +108,11 @@ func (suite *TenancyDatamodelTestSuite) TestNewDatamodelClient() {
 			clientSetFunc: func(*rest.Config) (*nexus.Clientset, error) {
 				return nil, errors.New("client set error")
 			},
-			k8sClientFunc:  nil,
-			templateFunc:   nil,
-			expectedErr:    errors.New("failed to create nexus client: client set error"),
-			expectedClient: false,
+			k8sClientFunc:                  nil,
+			templateFunc:                   nil,
+			podSecurityAdmissionConfigFunc: nil,
+			expectedErr:                    errors.New("failed to create nexus client: client set error"),
+			expectedClient:                 false,
 		},
 	}
 
@@ -119,6 +122,7 @@ func (suite *TenancyDatamodelTestSuite) TestNewDatamodelClient() {
 			GetNexusClientSetFunc = tc.clientSetFunc
 			GetK8sClientFunc = tc.k8sClientFunc
 			GetTemplatesFunc = tc.templateFunc
+			GetPodSecurityAdmissionConfigFunc = tc.podSecurityAdmissionConfigFunc
 
 			client, err := NewDatamodelClient()
 			if tc.expectedClient {
@@ -278,7 +282,7 @@ func (suite *TenancyDatamodelTestSuite) TestDeleteCallback() {
 	for _, tc := range cases {
 		suite.Run(tc.name, func() {
 			ctx := context.Background()
-			project, err := suite.tdm.client.Runtimeproject().CreateRuntimeProjectByName(ctx, tc.project)
+			project, _ := suite.tdm.client.Runtimeproject().CreateRuntimeProjectByName(ctx, tc.project)
 			project.AddActiveWatchers(ctx, &activeWatcher.ProjectActiveWatcher{
 				ObjectMeta: metav1.ObjectMeta{Name: appName},
 				Spec: activeWatcher.ProjectActiveWatcherSpec{
@@ -287,7 +291,7 @@ func (suite *TenancyDatamodelTestSuite) TestDeleteCallback() {
 					TimeStamp:       safeUnixTime(),
 				},
 			})
-			err = suite.tdm.client.Runtimeproject().DeleteRuntimeProjectByName(ctx, tc.project.DisplayName())
+			err := suite.tdm.client.Runtimeproject().DeleteRuntimeProjectByName(ctx, tc.project.DisplayName())
 			if tc.expectedErr != nil {
 				assert.EqualError(suite.T(), err, tc.expectedErr.Error())
 			} else {
@@ -316,40 +320,43 @@ func (suite *TenancyDatamodelTestSuite) TestNewDatamodelClientK3Templates() {
 	suite.T().Cleanup(func() { os.Setenv("DEFAULT_TEMPLATES_DIR", oldEnv) })
 
 	cases := []struct {
-		name                  string
-		disableK3s            bool
-		configFunc            func() (*rest.Config, error)
-		clientSetFunc         func(*rest.Config) (*nexus.Clientset, error)
-		k8sClientFunc         func(*config.Config) (*k8s.Client, error)
-		templateFunc          func() ([]*v1alpha1.ClusterTemplate, error)
-		expectedErr           error
-		expectedClient        bool
-		expectedTemplateCount int
-		expectedDefault       string
+		name                           string
+		disableK3s                     bool
+		configFunc                     func() (*rest.Config, error)
+		clientSetFunc                  func(*rest.Config) (*nexus.Clientset, error)
+		k8sClientFunc                  func(*config.Config) (*k8s.Client, error)
+		templateFunc                   func() ([]*v1alpha1.ClusterTemplate, error)
+		podSecurityAdmissionConfigFunc func() (map[string][]byte, error)
+		expectedErr                    error
+		expectedClient                 bool
+		expectedTemplateCount          int
+		expectedDefault                string
 	}{
 		{
-			name:                  "K3s templates enabled (should see all 5, baseline-k3s is default)",
-			disableK3s:            false,
-			configFunc:            func() (*rest.Config, error) { return &rest.Config{}, nil },
-			clientSetFunc:         func(*rest.Config) (*nexus.Clientset, error) { return &nexus.Clientset{}, nil },
-			k8sClientFunc:         func(*config.Config) (*k8s.Client, error) { return &k8s.Client{}, nil },
-			templateFunc:          nil, // call for the real function
-			expectedErr:           nil,
-			expectedClient:        true,
-			expectedTemplateCount: 5,
-			expectedDefault:       "baseline-k3s-v1.2.3",
+			name:                           "K3s templates enabled (should see all 5, baseline-k3s is default)",
+			disableK3s:                     false,
+			configFunc:                     func() (*rest.Config, error) { return &rest.Config{}, nil },
+			clientSetFunc:                  func(*rest.Config) (*nexus.Clientset, error) { return &nexus.Clientset{}, nil },
+			k8sClientFunc:                  func(*config.Config) (*k8s.Client, error) { return &k8s.Client{}, nil },
+			templateFunc:                   nil, // call for the real function
+			podSecurityAdmissionConfigFunc: func() (map[string][]byte, error) { return map[string][]byte{}, nil },
+			expectedErr:                    nil,
+			expectedClient:                 true,
+			expectedTemplateCount:          5,
+			expectedDefault:                "baseline-k3s-v1.2.3",
 		},
 		{
-			name:                  "K3s templates disabled (should see only 4, baseline is default)",
-			disableK3s:            true,
-			configFunc:            func() (*rest.Config, error) { return &rest.Config{}, nil },
-			clientSetFunc:         func(*rest.Config) (*nexus.Clientset, error) { return &nexus.Clientset{}, nil },
-			k8sClientFunc:         func(*config.Config) (*k8s.Client, error) { return &k8s.Client{}, nil },
-			templateFunc:          nil, // call for the real function
-			expectedErr:           nil,
-			expectedClient:        true,
-			expectedTemplateCount: 3,
-			expectedDefault:       "baseline-v1.2.3",
+			name:                           "K3s templates disabled (should see only 4, baseline is default)",
+			disableK3s:                     true,
+			configFunc:                     func() (*rest.Config, error) { return &rest.Config{}, nil },
+			clientSetFunc:                  func(*rest.Config) (*nexus.Clientset, error) { return &nexus.Clientset{}, nil },
+			k8sClientFunc:                  func(*config.Config) (*k8s.Client, error) { return &k8s.Client{}, nil },
+			templateFunc:                   nil, // call for the real function
+			podSecurityAdmissionConfigFunc: func() (map[string][]byte, error) { return map[string][]byte{}, nil },
+			expectedErr:                    nil,
+			expectedClient:                 true,
+			expectedTemplateCount:          3,
+			expectedDefault:                "baseline-v1.2.3",
 		},
 	}
 	for _, tc := range cases {
@@ -361,6 +368,7 @@ func (suite *TenancyDatamodelTestSuite) TestNewDatamodelClientK3Templates() {
 			GetClusterConfigFunc = tc.configFunc
 			GetNexusClientSetFunc = tc.clientSetFunc
 			GetK8sClientFunc = tc.k8sClientFunc
+			GetPodSecurityAdmissionConfigFunc = tc.podSecurityAdmissionConfigFunc
 			client, err := NewDatamodelClient()
 			assert.NoError(suite.T(), err)
 			assert.NotNil(suite.T(), client)
@@ -369,5 +377,76 @@ func (suite *TenancyDatamodelTestSuite) TestNewDatamodelClientK3Templates() {
 			defaultTemplateName := selectDefaultTemplateName(client.templates, disableK3sTemplates)
 			assert.Equal(suite.T(), tc.expectedDefault, defaultTemplateName)
 		})
+	}
+}
+func (suite *TenancyDatamodelTestSuite) TestSetupProject() {
+	disableK3sTemplates = false
+	testProject := &nexus.RuntimeprojectRuntimeProject{
+		RuntimeProject: &projectv1.RuntimeProject{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-project",
+				UID:  "test-uid",
+				Labels: map[string]string{
+					"nexus/display_name": "test-project-display-name",
+				},
+			},
+			Spec: projectv1.RuntimeProjectSpec{
+				Deleted: false,
+			},
+		},
+	}
+
+	templates := []*v1alpha1.ClusterTemplate{
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "privileged-k3s-v1.2.3"},
+			Spec:       v1alpha1.ClusterTemplateSpec{KubernetesVersion: "1.2.3"},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "baseline-k3s-v1.2.3"},
+			Spec:       v1alpha1.ClusterTemplateSpec{KubernetesVersion: "1.2.3"},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "restricted-k3s-v1.2.3"},
+			Spec:       v1alpha1.ClusterTemplateSpec{KubernetesVersion: "1.2.3"},
+		},
+	}
+
+	psaData := map[string][]byte{
+		"privileged": []byte("privileged-configs"),
+		"baseline":   []byte("baseline-configs"),
+		"restricted": []byte("restricted-configs"),
+	}
+
+	fakeK8s := k8s.NewClientFake()
+
+	tdm := &TenancyDatamodel{
+		client:    suite.tdm.client,
+		k8s:       fakeK8s,
+		templates: templates,
+		psaData:   psaData,
+	}
+
+	ctx := context.Background()
+	err := tdm.setupProject(ctx, testProject)
+	assert.NoError(suite.T(), err)
+
+	// Check that namespace was created
+	namespaceRes := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
+	_, err = fakeK8s.Dyn.Resource(namespaceRes).Get(ctx, "test-uid", metav1.GetOptions{})
+	assert.NoError(suite.T(), err, "namespace should be created")
+
+	// Check that PSA secret was created
+	secretRes := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
+	secret, err := fakeK8s.Dyn.Resource(secretRes).Namespace("test-uid").Get(ctx, "pod-security-admission-config", metav1.GetOptions{})
+	assert.NoError(suite.T(), err, "secret should be created")
+
+	// Check that secret has three items
+	assert.Len(suite.T(), secret.Object["data"].(map[string]interface{}), 3)
+
+	// Check that templates were created
+	templateRes := schema.GroupVersionResource{Group: "edge-orchestrator.intel.com", Version: "v1alpha1", Resource: "clustertemplates"}
+	for _, tmpl := range templates {
+		_, err = fakeK8s.Dyn.Resource(templateRes).Namespace("test-uid").Get(ctx, tmpl.GetName(), metav1.GetOptions{})
+		assert.NoError(suite.T(), err, "template should be created")
 	}
 }

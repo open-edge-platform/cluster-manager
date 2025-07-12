@@ -1,6 +1,6 @@
 {
   "name": "privileged-k3s",
-  "version": "v0.0.3",
+  "version": "v0.0.4",
   "kubernetesVersion": "v1.32.4+k3s1",
   "description": "Privileged Cluster Template for k3s",
   "controlplaneprovidertype": "k3s",
@@ -18,35 +18,47 @@
         "spec": {
           "kthreesConfigSpec": {
             "files": [
-              {}
+              {
+                "path": "/var/lib/rancher/k3s/server/psa.yaml",
+                "contentFrom": {
+                  "secret": {
+                    "name": "pod-security-admission-config",
+                    "key": "privileged.yaml"
+                  }
+                }
+              }
             ],
             "agentConfig": {
+              "airGapped": true,
               "kubeletArgs": [
                 "--topology-manager-policy=best-effort",
                 "--cpu-manager-policy=static",
                 "--reserved-cpus=1",
                 "--max-pods=250",
                 "--tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
-                "--pod-manifest-path=/var/lib/kubelet/static-pods"
+                "--pod-manifest-path=/var/lib/rancher/k3s/agent/pod-manifests"
               ]
             },
             "preK3sCommands": [
               "mkdir -p /etc/systemd/system/k3s-server.service.d",
-              "echo '[Service]\nEnvironmentFile=/etc/environment' > /etc/systemd/system/k3s-server.service.d/override.conf",
-              "mkdir -p /var/lib/kubelet/static-pods",
-              "sudo cp /var/lib/rancher/k3s/agent/pod-manifests/connect-agent.yaml /var/lib/kubelet/static-pods/connect-agent.yaml"
+              "echo '[Service]\nEnvironmentFile=/etc/environment' > /etc/systemd/system/k3s-server.service.d/override.conf"
             ],
-            "postK3sCommands": [
-            ],
+            "postK3sCommands": [],
             "serverConfig": {
               "kubeApiServerArg": [
-                "--feature-gates=PortForwardWebsockets=true",
-                "--tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"
+                "--tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+                "--admission-control-config-file=/var/lib/rancher/k3s/server/psa.yaml"
               ],
               "kubeControllerManagerArgs": [],
               "kubeSchedulerArgs": [],
               "clusterDomain": "cluster.edge",
-              "disableCloudController": false
+              "disableCloudController": false,
+              "disableComponents": [
+                "metrics-server",
+                "traefik",
+                "etcd-proxy",
+                "servicelb"
+              ]
             },
             "version": "v1.32.4+k3s1"
           }
@@ -66,7 +78,5 @@
       ]
     }
   },
-  "cluster-labels": {
-    "default-extension": "privileged"
-  }
+  "cluster-labels": {}
 }

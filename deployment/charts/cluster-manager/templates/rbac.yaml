@@ -14,7 +14,7 @@ rules:
   verbs: ["create", "patch"]
 - apiGroups: [""]
   resources: ["secrets"]
-  verbs: ["get", "list", "watch"]
+  verbs: ["get", "list", "watch", "create"]
 - apiGroups: ["authentication.k8s.io"]
   resources: ["tokenreviews"]
   verbs: ["create"]
