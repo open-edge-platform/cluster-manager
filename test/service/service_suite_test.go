@@ -57,7 +57,7 @@ var _ = BeforeSuite(func() {
 
 	// create the psa secret for the tenant
 	fmt.Println("Creating pod security admission config secret for tenant", testTenantID.String())
-	cmd = exec.Command("kubectl", "-n", testTenantID.String(), "apply", "-f", "deployment/charts/cluster-manager/templates/secret.yaml")
+	cmd = exec.Command("kubectl", "-n", testTenantID.String(), "apply", "-f", "../../deployment/charts/cluster-manager/templates/secret.yaml")
 	err = cmd.Run()
 	Expect(err).ToNot(HaveOccurred())
 	fmt.Println("Created pod security admission config secret for tenant", testTenantID.String())
