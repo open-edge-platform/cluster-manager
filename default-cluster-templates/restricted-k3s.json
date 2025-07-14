@@ -1,6 +1,6 @@
 {
   "name": "restricted-k3s",
-  "version": "v0.0.4",
+  "version": "v0.0.5",
   "kubernetesVersion": "v1.32.4+k3s1",
   "description": "Restricted Cluster Template for k3s",
   "controlplaneprovidertype": "k3s",
@@ -41,7 +41,9 @@
             },
             "preK3sCommands": [
               "mkdir -p /etc/systemd/system/k3s-server.service.d",
-              "echo '[Service]\nEnvironmentFile=/etc/environment' > /etc/systemd/system/k3s-server.service.d/override.conf"
+              "echo '[Service]\nEnvironmentFile=/etc/environment' > /etc/systemd/system/k3s-server.service.d/override.conf",
+              "echo  'INSTALL_K3S_SYMLINK=skip' | tee -a /etc/environment",
+              "echo  'INSTALL_K3S_SKIP_DOWNLOAD=true' | tee -a /etc/environment"
             ],
             "postK3sCommands": [],
             "serverConfig": {
