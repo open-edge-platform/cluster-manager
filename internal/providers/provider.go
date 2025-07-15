@@ -44,7 +44,7 @@ type Provider interface {
 var (
 	connectAgentManifest  = "connectAgentManifest"
 	connectAgentEnabledIf = "{{ if .connectAgentManifest.path }}true{{ end }}"
-	readOnlyEnabledIf     = "{{ if .readOnly }}true{{ end }}"
+	readOnlyEnabledIf     = "{{ .readOnlyEnabled }}"
 
 	ReadOnly = "readOnly"
 )

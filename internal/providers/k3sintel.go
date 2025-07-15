@@ -137,12 +137,12 @@ func (k3sintel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
 					},
 					JSONPatches: []capiv1beta1.JSONPatch{
 						{
-							// This patch assumes something is already at .Files array.
+							// This patch assumes something is already at .preK3sCommands array.
 							// If not (like in vanilla baseline template), we'll need a different patch
 							Op:   "add",
 							Path: "/spec/template/spec/kthreesConfigSpec/preK3sCommands/-",
 							Value: &apiextensionsv1.JSON{
-								Raw: []byte("export INSTALL_K3S_BIN_DIR_READ_ONLY=true"),
+								Raw: []byte(`"export INSTALL_K3S_BIN_DIR_READ_ONLY=true"`),
 							},
 						},
 					},

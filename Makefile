@@ -630,3 +630,4 @@ emf-redeploy: helm-build docker-build docker-load ## Redeploy cluster-manager he
 emf-rebuild: KIND_CLUSTER=kind
 emf-rebuild: docker-build docker-load ## Rebuild cluster-manager container from source and redeploy
 	kubectl delete po -l app=cluster-manager-cm -n orch-cluster
+	kubectl delete po -l pp=cluster-manager-controller -n orch-cluster
