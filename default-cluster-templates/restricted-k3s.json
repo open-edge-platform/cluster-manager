@@ -1,6 +1,6 @@
 {
   "name": "restricted-k3s",
-  "version": "v0.0.5",
+  "version": "v0.0.4",
   "kubernetesVersion": "v1.32.4+k3s1",
   "description": "Restricted Cluster Template for k3s",
   "controlplaneprovidertype": "k3s",
