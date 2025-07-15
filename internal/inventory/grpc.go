@@ -87,7 +87,7 @@ func (c *InventoryClient) GetHostTrustedCompute(ctx context.Context, tenantId, h
 }
 
 // EnableAirGapInstall returns true if the host OS type is immutable (e.g. EMT with pre-installed K8s packages)
-func (c *InventoryClient) EnableAirGapInstall(ctx context.Context, tenantId, hostUuid string) (bool, error) {
+func (c *InventoryClient) IsImmutable(ctx context.Context, tenantId, hostUuid string) (bool, error) {
 	host, err := c.getHost(ctx, tenantId, hostUuid)
 	if err != nil {
 		return false, err
@@ -154,8 +154,8 @@ func (auth noopInventoryClient) GetHostTrustedCompute(ctx context.Context, tenan
 	return false, nil
 }
 
-// EnableAirGapInstall is a no-op implementation of the InventoryClient's EnableAirGapInstall method that always returns false
-func (auth noopInventoryClient) EnableAirGapInstall(ctx context.Context, tenantId, hostUuid string) (bool, error) {
+// IsImmutable is a no-op implementation of the InventoryClient's IsImmutable method that always returns false
+func (auth noopInventoryClient) IsImmutable(ctx context.Context, tenantId, hostUuid string) (bool, error) {
 	return false, nil
 }
 

@@ -54,7 +54,7 @@ func (k3sintel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
 			},
 		},
 		{
-			Name: AirGapped,
+			Name: ReadOnly,
 			Schema: capiv1beta1.VariableSchema{
 				OpenAPIV3Schema: capiv1beta1.JSONSchemaProps{
 					Type: "boolean",
@@ -71,7 +71,7 @@ func (k3sintel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
 			Name: "connect-agent-manifest",
 			Description: "This patch will add connect-agent manifest " +
 				"injected by Cluster Connect Gateway.",
-			EnabledIf: &enabledIf,
+			EnabledIf: &connectAgentEnabledIf,
 			Definitions: []capiv1beta1.PatchDefinition{
 				{
 					Selector: capiv1beta1.PatchSelector{
@@ -98,7 +98,7 @@ func (k3sintel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
 
 		{
 			Name:        "airGapped",
-			Description: "This patch will disable air-gapped configuration ",
+			Description: "This patch will enable/disable air-gapped configuration ",
 			Definitions: []capiv1beta1.PatchDefinition{
 				{
 					Selector: capiv1beta1.PatchSelector{
@@ -113,7 +113,36 @@ func (k3sintel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
 							Op:   "replace",
 							Path: "/spec/template/spec/kthreesConfigSpec/agentConfig/airGapped",
 							ValueFrom: &capiv1beta1.JSONPatchValue{
-								Variable: &AirGapped,
+								Variable: &ReadOnly,
+							},
+						},
+					},
+				},
+			},
+		},
+
+		{
+			Name: "readOnly",
+			Description: "This patch will add PreK3sCommand " +
+				"that sets K3S_BIN_DIR_READ_ONLY=true.",
+			EnabledIf: &readOnlyEnabledIf,
+			Definitions: []capiv1beta1.PatchDefinition{
+				{
+					Selector: capiv1beta1.PatchSelector{
+						APIVersion: "controlplane.cluster.x-k8s.io/v1beta2",
+						Kind:       KThreesControlPlaneTemplate,
+						MatchResources: capiv1beta1.PatchSelectorMatch{
+							ControlPlane: true,
+						},
+					},
+					JSONPatches: []capiv1beta1.JSONPatch{
+						{
+							// This patch assumes something is already at .Files array.
+							// If not (like in vanilla baseline template), we'll need a different patch
+							Op:   "add",
+							Path: "/spec/template/spec/kthreesConfigSpec/preK3sCommands/-",
+							Value: &apiextensionsv1.JSON{
+								Raw: []byte("export INSTALL_K3S_BIN_DIR_READ_ONLY=true"),
 							},
 						},
 					},

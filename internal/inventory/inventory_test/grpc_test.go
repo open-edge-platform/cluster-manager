@@ -139,7 +139,7 @@ func TestGetHostTrustedCompute(t *testing.T) {
 	}
 }
 
-func TestEnableAirGapInstall(t *testing.T) {
+func TestIsImmutable(t *testing.T) {
 	mockClient := mocks.NewMockTenantAwareInventoryClient(t)
 	inventory.GetInventoryClientFunc = func(ctx context.Context, cfg client.InventoryClientConfig) (client.TenantAwareInventoryClient, error) {
 		return mockClient, nil
@@ -211,8 +211,8 @@ func TestEnableAirGapInstall(t *testing.T) {
 			invClient, err := inventory.NewInventoryClientWithOptions(inventory.Options{})
 			require.NoError(t, err)
 
-			airGapInstall, err := invClient.EnableAirGapInstall(context.Background(), "test_tenant_id", "test_host_uuid")
-			assert.Equal(t, tc.expectedVal, airGapInstall)
+			readOnlyInstall, err := invClient.IsImmutable(context.Background(), "test_tenant_id", "test_host_uuid")
+			assert.Equal(t, tc.expectedVal, readOnlyInstall)
 			assert.Equal(t, tc.expectedErr, err)
 		})
 	}

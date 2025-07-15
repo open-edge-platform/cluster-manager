@@ -42,10 +42,11 @@ type Provider interface {
 }
 
 var (
-	connectAgentManifest = "connectAgentManifest"
-	enabledIf            = "{{ if .connectAgentManifest.path }}true{{ end }}"
+	connectAgentManifest  = "connectAgentManifest"
+	connectAgentEnabledIf = "{{ if .connectAgentManifest.path }}true{{ end }}"
+	readOnlyEnabledIf     = "{{ if .readOnly }}true{{ end }}"
 
-	AirGapped = "airGapped"
+	ReadOnly = "readOnly"
 )
 var providerRegistry = map[string]Provider{
 	"kubeadm:docker": kubeadmdocker{},

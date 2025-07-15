@@ -41,9 +41,7 @@
             },
             "preK3sCommands": [
               "mkdir -p /etc/systemd/system/k3s-server.service.d",
-              "echo '[Service]\nEnvironmentFile=/etc/environment' > /etc/systemd/system/k3s-server.service.d/override.conf",
-              "echo  'INSTALL_K3S_SYMLINK=skip' | tee -a /etc/environment",
-              "echo  'INSTALL_K3S_SKIP_DOWNLOAD=true' | tee -a /etc/environment"
+              "echo '[Service]\nEnvironmentFile=/etc/environment' > /etc/systemd/system/k3s-server.service.d/override.conf"
             ],
             "postK3sCommands": [],
             "serverConfig": {
