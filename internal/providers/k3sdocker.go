@@ -122,7 +122,7 @@ func (rd k3sdocker) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
 
 	cc.Spec.Variables = []capiv1beta1.ClusterClassVariable{
 		{
-			Name: AirGapped,
+			Name: ReadOnly,
 			Schema: capiv1beta1.VariableSchema{
 				OpenAPIV3Schema: capiv1beta1.JSONSchemaProps{
 					Type: "boolean",

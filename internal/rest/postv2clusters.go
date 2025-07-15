@@ -146,17 +146,17 @@ func (s *Server) createCluster(ctx context.Context, cli *k8s.Client, namespace, 
 
 	// Assumes single node cluster for now, so we can use the first node's ID for air-gap installation check
 	// TODO: This will need to change when we support multi-node clusters
-	enableAirGap, err := s.enableAirGapInstall(ctx, cli, namespace, clusterName, nodes[0].Id, template)
+	enableReadOnly, err := s.enableReadOnlyInstall(ctx, cli, namespace, clusterName, nodes[0].Id, template)
 	if err != nil {
 		return "", err
 	}
 
 	var variables []capi.ClusterVariable
-	if enableAirGap {
+	if enableReadOnly {
 		variables = append(variables, capi.ClusterVariable{
-			Name: controlplaneprovider.AirGapped,
+			Name: controlplaneprovider.ReadOnly,
 			Value: apiextensionsv1.JSON{
-				Raw: []byte(strconv.FormatBool(enableAirGap)),
+				Raw: []byte(strconv.FormatBool(enableReadOnly)),
 			},
 		})
 	}
@@ -222,7 +222,7 @@ func createBindings(ctx context.Context, cli *k8s.Client, namespace, clusterName
 	return nil
 }
 
-func (s *Server) enableAirGapInstall(ctx context.Context, cli *k8s.Client, namespace, clusterName, nodeUuid string, template ct.ClusterTemplate) (bool, error) {
+func (s *Server) enableReadOnlyInstall(ctx context.Context, cli *k8s.Client, namespace, clusterName, nodeUuid string, template ct.ClusterTemplate) (bool, error) {
 	// Fetch the cluster template
 	clusterTemplate, err := cli.GetClusterTemplate(ctx, namespace, template.Name)
 	if err != nil {
@@ -246,16 +246,16 @@ func (s *Server) enableAirGapInstall(ctx context.Context, cli *k8s.Client, names
 			slog.Debug("enable air gap by default for k3s, when inventory is disabled", "namespace", namespace, "name", clusterName, "node", nodeUuid)
 			return true, nil
 		}
-		enableAirGap, err := s.inventory.EnableAirGapInstall(ctx, namespace, nodeUuid)
+		enableReadOnly, err := s.inventory.IsImmutable(ctx, namespace, nodeUuid)
 		if err != nil {
-			return false, fmt.Errorf("failed to determine air-gap installation for cluster %s, node: %s: %w", clusterName, nodeUuid, err)
+			return false, fmt.Errorf("failed to determine read-only install for cluster %s, node: %s: %w", clusterName, nodeUuid, err)
 		}
-		slog.Debug("enable air gap install", "namespace", namespace, "name", clusterName, "node", nodeUuid, "airgap", enableAirGap, "controlPlaneProviderType", clusterTemplate.Spec.ControlPlaneProviderType)
-		return enableAirGap, nil
+		slog.Debug("enable read-only install", "namespace", namespace, "name", clusterName, "node", nodeUuid, "immutable", enableReadOnly, "controlPlaneProviderType", clusterTemplate.Spec.ControlPlaneProviderType)
+		return enableReadOnly, nil
 	}
 
 	// Default case: air-gap installation not required
-	slog.Debug("air gap install not required", "namespace", namespace, "name", clusterName, "node", nodeUuid, "controlPlaneProviderType", clusterTemplate.Spec.ControlPlaneProviderType)
+	slog.Debug("read-only install is not required", "namespace", namespace, "name", clusterName, "node", nodeUuid, "controlPlaneProviderType", clusterTemplate.Spec.ControlPlaneProviderType)
 	return false, nil
 }
 

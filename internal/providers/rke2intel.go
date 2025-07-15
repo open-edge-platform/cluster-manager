@@ -58,7 +58,7 @@ func (rke2intel) AlterClusterClass(cc *capiv1beta1.ClusterClass) {
 			Name: "connect-agent-manifest",
 			Description: "This patch will add connect-agent manifest " +
 				"injected by Cluster Connect Gateway.",
-			EnabledIf: &enabledIf,
+			EnabledIf: &connectAgentEnabledIf,
 			Definitions: []capiv1beta1.PatchDefinition{
 				{
 					Selector: capiv1beta1.PatchSelector{

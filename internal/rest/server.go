@@ -42,7 +42,7 @@ type Provider interface {
 
 type Inventory interface {
 	GetHostTrustedCompute(ctx context.Context, tenantId, hostUuid string) (bool, error)
-	EnableAirGapInstall(ctx context.Context, tenantId, hostUuid string) (bool, error)
+	IsImmutable(ctx context.Context, tenantId, hostUuid string) (bool, error)
 }
 
 type Server struct {
