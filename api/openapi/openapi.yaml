@@ -93,6 +93,7 @@ paths:
                 properties:
                   clusters:
                     type: array
+                    maxItems: 100
                     items:
                       $ref: '#/components/schemas/ClusterInfo'
                   totalElements:
@@ -233,6 +234,7 @@ paths:
           application/json:
             schema:
               type: array
+              maxItems: 100
               items:
                 $ref: '#/components/schemas/NodeSpec'
       responses:
@@ -688,6 +690,7 @@ components:
           type: string
         nodes:
           type: array
+          maxItems: 1000
           items:
             $ref: '#/components/schemas/NodeInfo'
         labels:
@@ -769,6 +772,7 @@ components:
           pattern: '^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
         nodes:
           type: array
+          maxItems: 1000
           items:
             $ref: '#/components/schemas/NodeSpec'
         labels:
@@ -904,6 +908,7 @@ components:
           $ref: '#/components/schemas/DefaultTemplateInfo'
         templateInfoList:
           type: array
+          maxItems: 100
           items:
             $ref: '#/components/schemas/TemplateInfo'
         totalElements:
@@ -1018,6 +1023,7 @@ components:
       properties:
         versionList:
           type: array
+          maxItems: 1000
           items:
             type: string
             minLength: 1
@@ -1034,6 +1040,7 @@ components:
       properties:
         cidrBlocks:
           type: array
+          maxItems: 1000
           items:
             type: string
             pattern: "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}/(?:[0-9]|[1-2][0-9]|3[0-2])$"
