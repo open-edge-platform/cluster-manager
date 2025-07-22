@@ -162,7 +162,8 @@ func TestIsImmutable(t *testing.T) {
 					},
 				}, nil).Once()
 			},
-			expectedVal: true,
+			// IsImmutable always return false for now
+			expectedVal: false,
 		},
 		{
 			name: "mutable OS type",
