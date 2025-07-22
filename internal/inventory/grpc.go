@@ -103,7 +103,9 @@ func (c *InventoryClient) IsImmutable(ctx context.Context, tenantId, hostUuid st
 
 	// The expectation is when the host OS is immutable, we expect the k3s packages to be bundled as part of the
 	// OS image. So, we assume that the cluster is installed in air-gap mode.
-	return host.Instance.DesiredOs.OsType == osv1.OsType_OS_TYPE_IMMUTABLE, nil
+	// return host.Instance.DesiredOs.OsType == osv1.OsType_OS_TYPE_IMMUTABLE, nil
+	// Always return false for now as we don't support immutable EMT with pre-installed K3s packages yet
+	return false, nil
 }
 
 // getHost returns the host resource for the given tenant and host uuid

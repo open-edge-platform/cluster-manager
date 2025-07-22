@@ -1,6 +1,6 @@
 {
   "name": "privileged-k3s",
-  "version": "v0.0.4",
+  "version": "v0.0.5",
   "kubernetesVersion": "v1.32.4+k3s1",
   "description": "Privileged Cluster Template for k3s",
   "controlplaneprovidertype": "k3s",
@@ -41,7 +41,9 @@
             },
             "preK3sCommands": [
               "mkdir -p /etc/systemd/system/k3s-server.service.d",
-              "echo '[Service]\nEnvironmentFile=/etc/environment' > /etc/systemd/system/k3s-server.service.d/override.conf"
+              "echo '[Service]\nEnvironmentFile=/etc/environment' > /etc/systemd/system/k3s-server.service.d/override.conf",
+              "mkdir -p /var/lib/rancher/k3s/bin",
+              "export INSTALL_K3S_BIN_DIR=/var/lib/rancher/k3s/bin"
             ],
             "postK3sCommands": [],
             "serverConfig": {
