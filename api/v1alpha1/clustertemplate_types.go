@@ -34,7 +34,7 @@ const (
 type ClusterTemplateSpec struct {
 	// +optional
 	// +kubebuilder:validation:Enum=kubeadm;rke2;k3s
-	// +kubebuilder:default=rke2
+	// +kubebuilder:default=k3s
 	ControlPlaneProviderType string `json:"controlPlaneProviderType,omitempty" yaml:"controlPlaneProviderType"`
 
 	// +optional

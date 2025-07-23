@@ -72,9 +72,10 @@ clusterManager:
   # Additional command line flags to pass.
   extraArgs:
     disable-auth: false
-    disable-mt: false
+    disable-multi-tenancy: false
     disable-inventory: false
     disable-metrics: true
+    default-template: "baseline-k3s-v0.0.5"
 
   extraEnv: []
 

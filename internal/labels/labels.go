@@ -90,3 +90,10 @@ func Valid(labels map[string]string) bool {
 	}
 	return true
 }
+
+func Remove(labels map[string]string, keys ...string) map[string]string {
+	for _, key := range keys {
+		delete(labels, key)
+	}
+	return labels
+}
