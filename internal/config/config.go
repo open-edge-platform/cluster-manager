@@ -47,6 +47,8 @@ type Config struct {
 func ParseConfig() *Config {
 	disableAuth := flag.Bool("disable-auth", false, "(optional) disable rest authentication/authorization")
 	disableMultitenancy := flag.Bool("disable-multi-tenancy", false, "(optional) disable multi-tenancy integration")
+	// Deprecated: use --disable-multi-tenancy instead
+	disableMt := flag.Bool("disable-mt", false, "(deprecated) disable multi-tenancy integration (use --disable-multi-tenancy)")
 	disableInv := flag.Bool("disable-inventory", false, "(optional) disable inventory integration")
 	disableMetrics := flag.Bool("disable-metrics", false, "(optional) disable prometheus metrics handler")
 	defaultTemplate := flag.String("default-template", "", "(optional) default template to use for new projects")
@@ -60,7 +62,7 @@ func ParseConfig() *Config {
 
 	cfg := &Config{
 		DisableAuth:         *disableAuth,
-		DisableMultitenancy: *disableMultitenancy,
+		DisableMultitenancy: *disableMultitenancy || *disableMt,
 		DisableInventory:    *disableInv,
 		DisableMetrics:      *disableMetrics,
 		DefaultTemplate:     *defaultTemplate,
