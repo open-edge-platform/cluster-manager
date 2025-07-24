@@ -173,14 +173,14 @@ func (t *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.Runt
 	// Create namespace
 	err := t.k8s.CreateNamespace(ctx, projectId)
 	if err != nil {
-		slog.Warn(fmt.Sprintf("failed to create namespace for project: %v", err))
+		return fmt.Errorf("failed to create namespace for project: %v", err)
 	} else {
 		slog.Debug("created namespace for project", "namespace", projectId, "project", project.DisplayName())
 	}
 
 	// Create Pod Security Admission secret
 	if err := t.k8s.CreateSecret(ctx, projectId, podSecurityAdmissionSecretName, t.psaData); err != nil {
-		slog.Warn(fmt.Sprintf("failed to create pod security admission secret in namespace '%s': %v", projectId, err))
+		return fmt.Errorf("failed to create pod security admission secret in namespace '%s': %v", projectId, err)
 	} else {
 		slog.Debug("created pod security admission secret", "namespace", projectId, "project", project.DisplayName())
 	}
@@ -189,7 +189,7 @@ func (t *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.Runt
 	for _, template := range t.templates {
 		err = t.k8s.CreateTemplate(ctx, projectId, template)
 		if err != nil {
-			slog.Warn(fmt.Sprintf("failed to create '%s' template: %v", template.GetName(), err))
+			return fmt.Errorf("failed to create '%s' template: %v", template.GetName(), err)
 		} else {
 			slog.Debug("created template", "namespace", projectId, "template", template.GetName(), "project", project.DisplayName())
 		}
@@ -200,12 +200,11 @@ func (t *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.Runt
 	// 2. If default template is set in the configuration, it will be used
 	// 3. If no default template is set in the configuration, the first template in the template list will be used
 	if err := t.setDefaultTemplate(ctx, projectId); err != nil {
-		slog.Warn(fmt.Sprintf("failed to set default template for project '%s': %v", project.DisplayName(), err))
+		return fmt.Errorf("failed to set default template for project '%s': %v", project.DisplayName(), err)
 	} else {
 		slog.Debug("labeled default template", "namespace", projectId, "project", project.DisplayName())
 	}
 
-	// Intentially not returning error here, as we don't want to block project creation
 	return nil
 }
 

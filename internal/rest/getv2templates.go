@@ -23,7 +23,7 @@ func (s *Server) GetV2Templates(ctx context.Context, request api.GetV2TemplatesR
 
 	cli := k8s.New(s.k8sclient)
 	if cli == nil {
-		message := fmt.Sprintf("failed to create k8s client")
+		message := "failed to create k8s client"
 		slog.Error(message)
 		return api.GetV2Templates500JSONResponse{N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{Message: &message}}, nil
 	}

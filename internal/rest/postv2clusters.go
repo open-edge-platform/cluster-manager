@@ -60,7 +60,7 @@ func (s *Server) PostV2Clusters(ctx context.Context, request api.PostV2ClustersR
 	// create k8s client
 	cli := k8s.New(s.k8sclient)
 	if cli == nil {
-		msg := fmt.Sprintf("failed to create k8s client")
+		msg := "failed to create k8s client"
 		slog.Error(msg)
 		return api.PostV2Clusters500JSONResponse{N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{Message: &msg}}, nil
 	}
