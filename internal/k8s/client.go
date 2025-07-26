@@ -188,6 +188,9 @@ func (cli *Client) CreateTemplate(ctx context.Context, namespace string, templat
 
 	templateManifest := &unstructured.Unstructured{Object: templateObject}
 	_, err = cli.Dyn.Resource(templateResourceSchema).Namespace(namespace).Create(ctx, templateManifest, metav1.CreateOptions{})
+	if errors.IsAlreadyExists(err) {
+		return nil
+	}
 	return err
 }
 

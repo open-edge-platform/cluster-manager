@@ -195,10 +195,11 @@ func (t *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.Runt
 		}
 	}
 
-	// Set default template. Default template is selected in the order of:
-	// 1. If a valid default template is already set for the project, it will be used
-	// 2. If default template is set in the configuration, it will be used
-	// 3. If no default template is set in the configuration, the first template in the template list will be used
+	// Set the default template for the project.
+	// Selection order:
+	// 1. Use an existing valid default template if already set for the project.
+	// 2. Use the default template specified in the configuration, if available.
+	// 3. Otherwise, use the first template from the available template list.
 	if err := t.setDefaultTemplate(ctx, projectId); err != nil {
 		return fmt.Errorf("failed to set default template for project '%s': %v", project.DisplayName(), err)
 	} else {
@@ -226,18 +227,14 @@ func (t *TenancyDatamodel) setDefaultTemplate(ctx context.Context, projectId str
 		slog.Debug("removed default label from invalid template", "namespace", projectId, "template", template.Name)
 	}
 
-	if t.defaultTemplate == "" {
-		// If no default template is set in the configuration, use the first template in the list
+	// If no default template is set in the configuration or configured default template is not available,
+	// use the first template in the list
+	if t.defaultTemplate == "" || !t.k8s.HasTemplate(ctx, projectId, t.defaultTemplate) {
 		if len(t.templates) == 0 {
 			return fmt.Errorf("no templates available to set as default for project %s", projectId)
 		}
 		t.defaultTemplate = t.templates[0].GetName()
 		slog.Debug("no default template configured, using first template in the list", "namespace", projectId, "template", t.defaultTemplate)
-	}
-
-	// Ensure defaultTemplate in the configuration is available in the template list
-	if !t.k8s.HasTemplate(ctx, projectId, t.defaultTemplate) {
-		return fmt.Errorf("configured default template %s does not exist", t.defaultTemplate)
 	}
 
 	// Apply default label to the default template

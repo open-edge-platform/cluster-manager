@@ -5,7 +5,6 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "cluster-manager.fullname" . }}
-  namespace: {{.Release.Namespace}}
   labels:
     app: "{{.Chart.Name}}-cm"
 spec:
@@ -39,3 +38,19 @@ spec:
     {{- include "cluster-manager.selectorLabels" . | nindent 4 }}
 {{- end}}
 {{- end}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{.Release.Name}}-template-controller"
+  labels:
+    app.kubernetes.io/name: "{{.Release.Name}}-template-controller"
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  ports:
+  - name: http-health
+    port: 8081
+    protocol: TCP
+    targetPort: 8081
+  selector:
+    app: "{{.Chart.Name}}-controller"

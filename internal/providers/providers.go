@@ -45,7 +45,9 @@ var (
 	connectAgentManifest  = "connectAgentManifest"
 	connectAgentEnabledIf = "{{ if .connectAgentManifest.path }}true{{ end }}"
 	readOnlyEnabledIf     = "{{ .readOnly }}"
-	providerRegistry      = map[string]Provider{
+
+	// TODO: deprecate rke2
+	providerRegistry = map[string]Provider{
 		"kubeadm:docker": kubeadmdocker{},
 		"rke2:docker":    rke2docker{},
 		"rke2:intel":     rke2intel{},
@@ -55,10 +57,9 @@ var (
 
 	ReadOnly = "readOnly"
 
-	// TODO: Remove RKE2
+	// List of officially supported control plane types
+	// TODO: make the provider list configurable
 	ControlPlaneProviders = []string{
-		"kubeadm",
-		"rke2",
 		"k3s",
 	}
 

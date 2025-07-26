@@ -75,7 +75,7 @@ clusterManager:
     disable-multi-tenancy: false
     disable-inventory: false
     disable-metrics: true
-    default-template: "baseline-k3s-v0.0.5"
+    default-template: "privileged-k3s-v0.0.5"
 
   extraEnv: []
 
