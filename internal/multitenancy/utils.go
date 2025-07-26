@@ -17,11 +17,11 @@ import (
 	nexus "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/nexus-client"
 )
 
-func (tdm *TenancyDatamodel) addProjectWatcher() error {
+func (t *TenancyDatamodel) addProjectWatcher() error {
 	ctx, cancel := context.WithTimeout(context.Background(), nexusContextTimeout)
 	defer cancel()
 
-	_, err := tdm.client.TenancyMultiTenancy().Config().AddProjectWatchers(ctx, &watcherv1.ProjectWatcher{ObjectMeta: metav1.ObjectMeta{Name: appName}})
+	_, err := t.nexus.TenancyMultiTenancy().Config().AddProjectWatchers(ctx, &watcherv1.ProjectWatcher{ObjectMeta: metav1.ObjectMeta{Name: appName}})
 	if nexus.IsAlreadyExists(err) {
 		slog.Warn("project watcher already exists", "error", err)
 		return nil
@@ -31,11 +31,11 @@ func (tdm *TenancyDatamodel) addProjectWatcher() error {
 	return err
 }
 
-func (tdm *TenancyDatamodel) deleteProjectWatcher() error {
+func (t *TenancyDatamodel) deleteProjectWatcher() error {
 	ctx, cancel := context.WithTimeout(context.Background(), nexusContextTimeout)
 	defer cancel()
 
-	err := tdm.client.TenancyMultiTenancy().Config().DeleteProjectWatchers(ctx, appName)
+	err := t.nexus.TenancyMultiTenancy().Config().DeleteProjectWatchers(ctx, appName)
 	if nexus.IsNotFound(err) {
 		slog.Warn("project watcher does not exist", "error", err)
 		return nil

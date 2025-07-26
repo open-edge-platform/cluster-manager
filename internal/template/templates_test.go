@@ -286,38 +286,28 @@ func TestReadDefaultTemplates(t *testing.T) {
 	require.NoError(t, os.Setenv("DEFAULT_TEMPLATES_DIR", tmpDir))
 	t.Cleanup(func() { os.Setenv("DEFAULT_TEMPLATES_DIR", oldEnv) })
 	tests := []struct {
-		name                string
-		disableK3sTemplates bool
-		setupEnv            func()
-		wantNames           []string
-		wantErr             bool
+		name      string
+		setupEnv  func()
+		wantNames []string
+		wantErr   bool
 	}{
 		{
-			name:                "reads all valid templates",
-			disableK3sTemplates: false,
-			setupEnv:            func() { require.NoError(t, os.Setenv("DEFAULT_TEMPLATES_DIR", tmpDir)) },
-			wantNames:           []string{"test-template-v1.0.0", "k3s-template-v1.0.0"},
-			wantErr:             false,
+			name:      "reads all valid templates",
+			setupEnv:  func() { require.NoError(t, os.Setenv("DEFAULT_TEMPLATES_DIR", tmpDir)) },
+			wantNames: []string{"test-template-v1.0.0", "k3s-template-v1.0.0"},
+			wantErr:   false,
 		},
 		{
-			name:                "skips k3s templates if disabled",
-			disableK3sTemplates: true,
-			setupEnv:            func() { require.NoError(t, os.Setenv("DEFAULT_TEMPLATES_DIR", tmpDir)) },
-			wantNames:           []string{"test-template-v1.0.0"},
-			wantErr:             false,
-		},
-		{
-			name:                "returns error if directory does not exist",
-			disableK3sTemplates: false,
-			setupEnv:            func() { require.NoError(t, os.Setenv("DEFAULT_TEMPLATES_DIR", "/non-existent-dir")) },
-			wantNames:           nil,
-			wantErr:             true,
+			name:      "returns error if directory does not exist",
+			setupEnv:  func() { require.NoError(t, os.Setenv("DEFAULT_TEMPLATES_DIR", "/non-existent-dir")) },
+			wantNames: nil,
+			wantErr:   true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupEnv()
-			templates, err := ReadDefaultTemplates(tt.disableK3sTemplates)
+			templates, err := ReadDefaultTemplates()
 			if tt.wantErr {
 				require.Error(t, err)
 				require.Nil(t, templates)

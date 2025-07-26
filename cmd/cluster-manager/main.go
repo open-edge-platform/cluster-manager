@@ -36,7 +36,7 @@ func main() {
 		labels.OverrideSystemPrefixes(config.SystemLabelsPrefixes)
 	}
 
-	multitenancy.SetDisableK3sTemplates(config.DisableK3sTemplates)
+	multitenancy.SetDefaultTemplate(config.DefaultTemplate)
 
 	if !config.DisableMultitenancy {
 		// TODO? may need to be initialized after server as all resource handling is done in the server
@@ -51,9 +51,9 @@ func main() {
 		}
 	}
 
-	k8sclient, err := k8s.New(k8s.WithInClusterConfig())
-	if err != nil {
-		slog.Error("failed to initialize clientset", "error", err)
+	k8sclient := k8s.New().WithInClusterConfig()
+	if k8sclient == nil {
+		slog.Error("failed to initialize k8s clientset")
 		os.Exit(3)
 	}
 

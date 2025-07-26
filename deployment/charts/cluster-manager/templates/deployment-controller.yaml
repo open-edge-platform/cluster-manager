@@ -71,6 +71,9 @@ spec:
           - containerPort: 9443
             name: webhook-server
             protocol: TCP
+          - containerPort: 8081
+            name: http-health
+            protocol: TCP
         securityContext:
           {{- toYaml .Values.templateController.containerSecurityContext | nindent 10 }}
         livenessProbe:

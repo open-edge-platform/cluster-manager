@@ -30,7 +30,22 @@ spec:
     spec:
       serviceAccountName: {{ .Values.serviceAccount.name | default (include "cluster-manager.serviceAccountName" .) }}
       securityContext:
+        runAsUser: 1000
         runAsNonRoot: {{ .Values.clusterManager.podSecurityContext.runAsNonRoot }}
+      initContainers:
+      # cluster-manager creates/updates default templates during the initialization and it requires the template-controller to be ready.
+      # So, ensure template controller is ready before starting cluster-manager.
+      - name: wait-for-template-controller
+        image: alpine/curl
+        command: ["sh", "-c", "until curl --fail --connect-timeout 3 http://{{.Release.Name}}-template-controller:8081/readyz; do echo 'Waiting for template-controller...'; sleep 5; done"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop:
+            - "ALL"
       containers:
       - name: cluster-manager
         {{- with .Values.clusterManager.image }}

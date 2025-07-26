@@ -16,8 +16,7 @@ import (
 
 	backoff "github.com/cenkalti/backoff/v4"
 	intelProvider "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
-	ct "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
-	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
+	v1alpha1 "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
 	v1 "k8s.io/api/core/v1"
@@ -91,77 +90,47 @@ type Client struct {
 	Dyn dynamic.Interface
 }
 
-func New(opts ...func(*Client)) (*Client, error) {
-	client := &Client{}
-	for _, opt := range opts {
-		opt(client)
+func New(dyn ...dynamic.Interface) *Client {
+	var d dynamic.Interface
+	if len(dyn) > 0 {
+		d = dyn[0]
 	}
-	return client, nil
+	return &Client{Dyn: d}
 }
 
-func WithInClusterConfig() func(*Client) {
-	return func(cli *Client) {
-		cfg, err := rest.InClusterConfig()
-		if err != nil {
-			panic(fmt.Errorf("failed to get in cluster config: %w", err)) // unrecoverable error
-		}
-
-		qpsValue, burstValue, err := getRateLimiterParams()
-		if err != nil {
-			slog.Warn("unable to get rate limiter params; using default values", "error", err)
-		}
-		slog.Info("rate limiter params", "qps", qpsValue, "burst", burstValue)
-
-		cfg.QPS = float32(qpsValue)
-		cfg.Burst = int(burstValue)
-
-		cli.Dyn, err = dynamic.NewForConfig(cfg)
-		if err != nil {
-			panic(fmt.Errorf("failed to create dynamic clientSet: %w", err)) // unrecoverable error
-		}
-	}
-}
-
-func WithDynamicClient(dyn dynamic.Interface) func(*Client) {
-	return func(cli *Client) {
-		cli.Dyn = dyn
-	}
-}
-
-func WithFakeClient() func(*Client) {
-	return func(cli *Client) {
-		cli.Dyn = fake.NewSimpleDynamicClient(runtime.NewScheme())
-	}
-}
-
-// NewClient is OBSOLETE and should not be used, use New() instead
-// TODO: refactor multitenancy to use New() instead of NewClient()
-func NewClient(cfg *config.Config) (*Client, error) {
-	k8sConfig, err := rest.InClusterConfig()
+func (c *Client) WithInClusterConfig() *Client {
+	cfg, err := rest.InClusterConfig()
 	if err != nil {
-		slog.Error("failed to get cluster config", "error", err)
-		return nil, err
+		slog.Error("failed to get in-cluster config", "error", err)
+		return nil
 	}
 
-	client, err := dynamic.NewForConfig(k8sConfig)
+	qpsValue, burstValue, err := getRateLimiterParams()
 	if err != nil {
-		slog.Error("failed to create dynamic clientSet", "error", err)
-		return nil, err
+		slog.Warn("unable to get rate limiter params; using default values", "error", err)
 	}
+	slog.Debug("rate limiter params", "qps", qpsValue, "burst", burstValue)
+	cfg.QPS = float32(qpsValue)
+	cfg.Burst = int(burstValue)
 
-	return &Client{client}, nil
+	c.Dyn, err = dynamic.NewForConfig(cfg)
+	if err != nil {
+		slog.Error("failed to create dynamic client", "error", err)
+		return nil
+	}
+	return c
 }
 
-// NewClientFake is OBSOLETE and should not be used, use New(WitFakeClient()) instead
-// TODO: refactor multitenancy to use New(WithFakeClient()) instead of NewClientFake()
-func NewClientFake() *Client {
-	client := fake.NewSimpleDynamicClient(runtime.NewScheme())
-
-	return &Client{client}
+func (c *Client) WithFakeClient() *Client {
+	c.Dyn = fake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{
+			{Group: "edge-orchestrator.intel.com", Version: "v1alpha1", Resource: "clustertemplates"}: "ClusterTemplateList",
+		})
+	return c
 }
 
 // CreateNamespace creates a new namespace with the given name
-func (cli *Client) CreateNamespace(ctx context.Context, name string) error {
+func (c *Client) CreateNamespace(ctx context.Context, name string) error {
 	namespaceRes := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
 	namespaceInfo := v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -176,14 +145,14 @@ func (cli *Client) CreateNamespace(ctx context.Context, name string) error {
 
 	namespace := unstructured.Unstructured{Object: namespaceObject}
 
-	_, err = cli.Dyn.Resource(namespaceRes).Create(ctx, &namespace, metav1.CreateOptions{})
+	_, err = c.Dyn.Resource(namespaceRes).Create(ctx, &namespace, metav1.CreateOptions{})
 	if errors.IsAlreadyExists(err) {
 		return nil
 	}
 	return err
 }
 
-func (cli *Client) CreateSecret(ctx context.Context, namespace string, name string, data map[string][]byte) error {
+func (c *Client) CreateSecret(ctx context.Context, namespace string, name string, data map[string][]byte) error {
 	secretRes := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -200,7 +169,7 @@ func (cli *Client) CreateSecret(ctx context.Context, namespace string, name stri
 	}
 
 	secretManifest := &unstructured.Unstructured{Object: secretObject}
-	_, err = cli.Dyn.Resource(secretRes).Namespace(namespace).Create(ctx, secretManifest, metav1.CreateOptions{})
+	_, err = c.Dyn.Resource(secretRes).Namespace(namespace).Create(ctx, secretManifest, metav1.CreateOptions{})
 
 	if err != nil && !errors.IsAlreadyExists(err) {
 		slog.Error("failed to create secret", "namespace", namespace, "name", name, "error", err)
@@ -211,7 +180,7 @@ func (cli *Client) CreateSecret(ctx context.Context, namespace string, name stri
 }
 
 // CreateTemplate creates a new template object in the given namespace
-func (cli *Client) CreateTemplate(ctx context.Context, namespace string, template *ct.ClusterTemplate) error {
+func (cli *Client) CreateTemplate(ctx context.Context, namespace string, template *v1alpha1.ClusterTemplate) error {
 	templateObject, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&template)
 	if err != nil {
 		return fmt.Errorf("failed to convert templete to unstructured object: %w", err)
@@ -219,11 +188,14 @@ func (cli *Client) CreateTemplate(ctx context.Context, namespace string, templat
 
 	templateManifest := &unstructured.Unstructured{Object: templateObject}
 	_, err = cli.Dyn.Resource(templateResourceSchema).Namespace(namespace).Create(ctx, templateManifest, metav1.CreateOptions{})
+	if errors.IsAlreadyExists(err) {
+		return nil
+	}
 	return err
 }
 
 // CreateCluster creates a new cluster object in the given namespace
-func (cli *Client) CreateCluster(ctx context.Context, namespace string, cluster capi.Cluster) (string, error) {
+func (c *Client) CreateCluster(ctx context.Context, namespace string, cluster capi.Cluster) (string, error) {
 	unstructuredCluster, err := convert.ToUnstructured(cluster)
 	if err != nil {
 		return "", err
@@ -231,7 +203,7 @@ func (cli *Client) CreateCluster(ctx context.Context, namespace string, cluster 
 
 	slog.Debug("creating cluster", "namespace", namespace, "cluster", unstructuredCluster)
 
-	clusterCreationResponse, err := cli.Dyn.Resource(clusterResourceSchema).Namespace(namespace).Create(ctx, unstructuredCluster, metav1.CreateOptions{})
+	clusterCreationResponse, err := c.Dyn.Resource(clusterResourceSchema).Namespace(namespace).Create(ctx, unstructuredCluster, metav1.CreateOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -239,84 +211,94 @@ func (cli *Client) CreateCluster(ctx context.Context, namespace string, cluster 
 }
 
 // DeleteClusters deletes all clusters in the given namespace
-func (cli *Client) DeleteClusters(ctx context.Context, namespace string) error {
+func (c *Client) DeleteClusters(ctx context.Context, namespace string) error {
 	deletePolicy := metav1.DeletePropagationForeground
 	deleteOptions := metav1.DeleteOptions{
 		PropagationPolicy: &deletePolicy,
 	}
 
-	return cli.Dyn.Resource(clusterResourceSchema).Namespace(namespace).DeleteCollection(ctx, deleteOptions, metav1.ListOptions{})
+	return c.Dyn.Resource(clusterResourceSchema).Namespace(namespace).DeleteCollection(ctx, deleteOptions, metav1.ListOptions{})
 }
 
 // DeleteTemplates deletes all templates in the given namespace
-func (cli *Client) DeleteTemplates(ctx context.Context, namespace string) error {
+func (c *Client) DeleteTemplates(ctx context.Context, namespace string) error {
 	deletePolicy := metav1.DeletePropagationForeground
 	deleteOptions := metav1.DeleteOptions{
 		PropagationPolicy: &deletePolicy,
 	}
 
-	return cli.Dyn.Resource(templateResourceSchema).Namespace(namespace).DeleteCollection(ctx, deleteOptions, metav1.ListOptions{})
+	return c.Dyn.Resource(templateResourceSchema).Namespace(namespace).DeleteCollection(ctx, deleteOptions, metav1.ListOptions{})
 }
 
 // DeleteNamespace deletes the namespace with the given name
-func (cli *Client) DeleteNamespace(ctx context.Context, namespace string) error {
+func (c *Client) DeleteNamespace(ctx context.Context, namespace string) error {
 	namespaceRes := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
 	deletePolicy := metav1.DeletePropagationForeground
 	deleteOptions := metav1.DeleteOptions{
 		PropagationPolicy: &deletePolicy,
 	}
 
-	return cli.Dyn.Resource(namespaceRes).Delete(ctx, namespace, deleteOptions)
+	return c.Dyn.Resource(namespaceRes).Delete(ctx, namespace, deleteOptions)
 }
 
 // SetClusterLabels overrides the labels of the cluster object in the given namespace
-func (cli *Client) SetClusterLabels(ctx context.Context, namespace string, clusterName string, newUserLabels map[string]string) error {
+func (c *Client) SetClusterLabels(ctx context.Context, namespace string, clusterName string, newUserLabels map[string]string) error {
 	if newUserLabels == nil {
 		return nil
 	}
 
-	return modifyLabels(ctx, cli, namespace, clusterResourceSchema, clusterName, func(cluster *unstructured.Unstructured) {
+	return modifyLabels(ctx, c, namespace, clusterResourceSchema, clusterName, func(cluster *unstructured.Unstructured) {
 		cluster.SetLabels(labels.Merge(labels.SystemLabels(cluster.GetLabels()), newUserLabels))
 	})
 }
 
 // SetMachineLabels overrides the labels of the machine object in the given namespace
-func (cli *Client) SetMachineLabels(ctx context.Context, namespace string, machineName string, newUserLabels map[string]string) error {
+func (c *Client) SetMachineLabels(ctx context.Context, namespace string, machineName string, newUserLabels map[string]string) error {
 	if newUserLabels == nil {
 		return nil
 	}
-	return modifyLabels(ctx, cli, namespace, machineResourceSchema, machineName, func(machine *unstructured.Unstructured) {
+	return modifyLabels(ctx, c, namespace, machineResourceSchema, machineName, func(machine *unstructured.Unstructured) {
 		machine.SetLabels(labels.Merge(labels.SystemLabels(machine.GetLabels()), newUserLabels))
 	})
 }
 
 // AddTemplateLabels appends new labels on the template object in the given namespace
-func (cli *Client) AddTemplateLabels(ctx context.Context, namespace string, templateName string, newLabels map[string]string) error {
+func (c *Client) AddTemplateLabels(ctx context.Context, namespace string, templateName string, newLabels map[string]string) error {
 	if newLabels == nil {
 		return nil
 	}
 
-	return modifyLabels(ctx, cli, namespace, templateResourceSchema, templateName, func(template *unstructured.Unstructured) {
+	return modifyLabels(ctx, c, namespace, templateResourceSchema, templateName, func(template *unstructured.Unstructured) {
 		template.SetLabels(labels.Merge(template.GetLabels(), newLabels))
+	})
+}
+
+func (c *Client) RemoveTemplateLabels(ctx context.Context, namespace string, templateName string, labelKeys ...string) error {
+	if len(labelKeys) == 0 {
+		return nil
+	}
+
+	return modifyLabels(ctx, c, namespace, templateResourceSchema, templateName, func(template *unstructured.Unstructured) {
+		template.SetLabels(labels.Remove(template.GetLabels(), labelKeys...))
 	})
 }
 
 // modifyLabels modifies the labels of the given resource in the given namespace
 // It retries on transient "the object has been modified" error, which is expected when the cluster object was updated by another process after we fetched it
 // It returns an error if the operation fails after all retries
-func modifyLabels(ctx context.Context, cli *Client, namespace string, resourceSchema schema.GroupVersionResource, resourceName string, op func(*unstructured.Unstructured)) error {
+func modifyLabels(ctx context.Context, c *Client, namespace string, resourceSchema schema.GroupVersionResource, resourceName string, op func(*unstructured.Unstructured)) error {
 	transientError := func(err error) bool {
 		tryAgainErrPattern := "the object has been modified; please apply your changes to the latest version and try again"
 		return strings.Contains(err.Error(), tryAgainErrPattern)
 	}
 
 	transaction := func() error {
-		resource, err := cli.Dyn.Resource(resourceSchema).Namespace(namespace).Get(ctx, resourceName, metav1.GetOptions{})
+		resource, err := c.Dyn.Resource(resourceSchema).Namespace(namespace).Get(ctx, resourceName, metav1.GetOptions{})
 		if err != nil {
 			return backoff.Permanent(err)
 		}
 		op(resource)
-		if _, err = cli.Dyn.Resource(resourceSchema).Namespace(namespace).Update(ctx, resource, metav1.UpdateOptions{}); err != nil {
+		if _, err = c.Dyn.Resource(resourceSchema).Namespace(namespace).Update(ctx, resource, metav1.UpdateOptions{}); err != nil {
 			if transientError(err) {
 				return err // retry on transient error
 			}
@@ -329,11 +311,11 @@ func modifyLabels(ctx context.Context, cli *Client, namespace string, resourceSc
 }
 
 // DefaultTemplate returns the default template in the given namespace
-func (cli *Client) DefaultTemplate(ctx context.Context, namespace string) (ct.ClusterTemplate, error) {
-	var template ct.ClusterTemplate
+func (c *Client) DefaultTemplate(ctx context.Context, namespace string) (v1alpha1.ClusterTemplate, error) {
+	var template v1alpha1.ClusterTemplate
 
 	listOptions := metav1.ListOptions{LabelSelector: fmt.Sprintf("%v=%v", labels.DefaultLabelKey, labels.DefaultLabelVal)}
-	unstructuredClusterTemplatesList, err := cli.Dyn.Resource(templateResourceSchema).Namespace(namespace).List(ctx, listOptions)
+	unstructuredClusterTemplatesList, err := c.Dyn.Resource(templateResourceSchema).Namespace(namespace).List(ctx, listOptions)
 	if err != nil {
 		return template, err
 	}
@@ -357,16 +339,16 @@ func (cli *Client) DefaultTemplate(ctx context.Context, namespace string) (ct.Cl
 }
 
 // Templates returns all templates in the given namespace
-func (cli *Client) Templates(ctx context.Context, namespace string) ([]ct.ClusterTemplate, error) {
-	var templates []ct.ClusterTemplate
+func (c *Client) Templates(ctx context.Context, namespace string) ([]v1alpha1.ClusterTemplate, error) {
+	var templates []v1alpha1.ClusterTemplate
 
-	unstructuredClusterTemplatesList, err := cli.Dyn.Resource(templateResourceSchema).Namespace(namespace).List(ctx, metav1.ListOptions{})
+	unstructuredClusterTemplatesList, err := c.Dyn.Resource(templateResourceSchema).Namespace(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return templates, err
 	}
 
 	for _, item := range unstructuredClusterTemplatesList.Items {
-		var template ct.ClusterTemplate
+		var template v1alpha1.ClusterTemplate
 		err = convert.FromUnstructured(item, &template)
 		if err != nil {
 			return templates, err
@@ -378,10 +360,10 @@ func (cli *Client) Templates(ctx context.Context, namespace string) ([]ct.Cluste
 }
 
 // Template returns the template with the given name in the given namespace
-func (cli *Client) Template(ctx context.Context, namespace, name string) (ct.ClusterTemplate, error) {
-	var template ct.ClusterTemplate
+func (c *Client) Template(ctx context.Context, namespace, name string) (v1alpha1.ClusterTemplate, error) {
+	var template v1alpha1.ClusterTemplate
 
-	unstructuredTemplate, err := cli.Dyn.Resource(templateResourceSchema).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+	unstructuredTemplate, err := c.Dyn.Resource(templateResourceSchema).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return template, err
 	}
@@ -395,10 +377,10 @@ func (cli *Client) Template(ctx context.Context, namespace, name string) (ct.Clu
 }
 
 // GetCluster returns the cluster with the given name in the given namespace
-func (cli *Client) GetCluster(ctx context.Context, namespace, name string) (*capi.Cluster, error) {
+func (c *Client) GetCluster(ctx context.Context, namespace, name string) (*capi.Cluster, error) {
 	var cluster capi.Cluster
 
-	unstructuredCluster, err := cli.Dyn.Resource(clusterResourceSchema).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+	unstructuredCluster, err := c.Dyn.Resource(clusterResourceSchema).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, ErrClusterNotFound
@@ -415,9 +397,9 @@ func (cli *Client) GetCluster(ctx context.Context, namespace, name string) (*cap
 }
 
 // GetMachineByHostID returns the machine with the given host ID in the given namespace for the given cluster
-func (cli *Client) GetMachineByHostID(ctx context.Context, namespace, hostID string) (capi.Machine, error) {
+func (c *Client) GetMachineByHostID(ctx context.Context, namespace, hostID string) (capi.Machine, error) {
 	opts := metav1.ListOptions{}
-	unstructuredMachinesList, err := cli.Dyn.Resource(machineResourceSchema).Namespace(namespace).List(ctx, opts)
+	unstructuredMachinesList, err := c.Dyn.Resource(machineResourceSchema).Namespace(namespace).List(ctx, opts)
 	if err != nil {
 		return capi.Machine{}, err
 	}
@@ -437,11 +419,11 @@ func (cli *Client) GetMachineByHostID(ctx context.Context, namespace, hostID str
 }
 
 // GetMachines returns the machine with the given name in the given namespace for the given cluster
-func (cli *Client) GetMachines(ctx context.Context, namespace, clusterName string) ([]capi.Machine, error) {
+func (c *Client) GetMachines(ctx context.Context, namespace, clusterName string) ([]capi.Machine, error) {
 	var machines []capi.Machine
 
 	opts := metav1.ListOptions{LabelSelector: fmt.Sprintf("cluster.x-k8s.io/cluster-name=%v", clusterName)}
-	unstructuredMachinesList, err := cli.Dyn.Resource(machineResourceSchema).Namespace(namespace).List(ctx, opts)
+	unstructuredMachinesList, err := c.Dyn.Resource(machineResourceSchema).Namespace(namespace).List(ctx, opts)
 	if err != nil {
 		return machines, err
 	}
@@ -458,10 +440,10 @@ func (cli *Client) GetMachines(ctx context.Context, namespace, clusterName strin
 	return machines, nil
 }
 
-func (cli *Client) GetClusterTemplate(ctx context.Context, namespace, templateName string) (*ct.ClusterTemplate, error) {
-	var template ct.ClusterTemplate
+func (c *Client) GetClusterTemplate(ctx context.Context, namespace, templateName string) (*v1alpha1.ClusterTemplate, error) {
+	var template v1alpha1.ClusterTemplate
 
-	unstructuredClusterTemplate, err := cli.Dyn.Resource(templateResourceSchema).Namespace(namespace).Get(ctx, templateName, metav1.GetOptions{})
+	unstructuredClusterTemplate, err := c.Dyn.Resource(templateResourceSchema).Namespace(namespace).Get(ctx, templateName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -474,25 +456,30 @@ func (cli *Client) GetClusterTemplate(ctx context.Context, namespace, templateNa
 	return &template, nil
 }
 
+func (c *Client) HasTemplate(ctx context.Context, namespace, templateName string) bool {
+	_, err := c.Dyn.Resource(templateResourceSchema).Namespace(namespace).Get(ctx, templateName, metav1.GetOptions{})
+	return err == nil
+}
+
 // CreateMachineBinding creates a new machine binding object in the given namespace
-func (cli *Client) CreateMachineBinding(ctx context.Context, namespace string, binding intelProvider.IntelMachineBinding) error {
+func (c *Client) CreateMachineBinding(ctx context.Context, namespace string, binding intelProvider.IntelMachineBinding) error {
 	unstructuredBinding, err := convert.ToUnstructured(binding)
 	if err != nil {
 		return err
 	}
 
-	_, err = cli.Dyn.Resource(bindingsResourceSchema).Namespace(namespace).Create(ctx, unstructuredBinding, metav1.CreateOptions{})
+	_, err = c.Dyn.Resource(bindingsResourceSchema).Namespace(namespace).Create(ctx, unstructuredBinding, metav1.CreateOptions{})
 	return err
 }
 
 // IntelMachines returns all IntelMachine objects in the given namespace for the given cluster
-func (cli *Client) IntelMachines(ctx context.Context, namespace, clusterName string) ([]intelProvider.IntelMachine, error) {
-	return providerMachines[intelProvider.IntelMachine](ctx, cli, namespace, clusterName, IntelMachineResourceSchema)
+func (c *Client) IntelMachines(ctx context.Context, namespace, clusterName string) ([]intelProvider.IntelMachine, error) {
+	return providerMachines[intelProvider.IntelMachine](ctx, c, namespace, clusterName, IntelMachineResourceSchema)
 }
 
 // DockerMachines returns all DockerMachine objects in the given namespace for the given cluster
-func (cli *Client) DockerMachines(ctx context.Context, namespace, clusterName string) ([]dockerProvider.DockerMachine, error) {
-	return providerMachines[dockerProvider.DockerMachine](ctx, cli, namespace, clusterName, DockerMachineResourceSchema)
+func (c *Client) DockerMachines(ctx context.Context, namespace, clusterName string) ([]dockerProvider.DockerMachine, error) {
+	return providerMachines[dockerProvider.DockerMachine](ctx, c, namespace, clusterName, DockerMachineResourceSchema)
 }
 
 // providerMachines returns the provider machines in the given namespace for the given cluster
@@ -518,20 +505,20 @@ func providerMachines[T any](ctx context.Context, cli *Client, namespace, cluste
 }
 
 // IntelMachine returns the IntelMachine with the given name in the given namespace for the given cluster
-func (cli *Client) IntelMachine(ctx context.Context, namespace, providerMachineName string) (intelProvider.IntelMachine, error) {
-	return providerMachine[intelProvider.IntelMachine](ctx, cli, namespace, providerMachineName, IntelMachineResourceSchema)
+func (c *Client) IntelMachine(ctx context.Context, namespace, providerMachineName string) (intelProvider.IntelMachine, error) {
+	return providerMachine[intelProvider.IntelMachine](ctx, c, namespace, providerMachineName, IntelMachineResourceSchema)
 }
 
 // DockerMachine returns the DockerMachine with the given name in the given namespace for the given cluster
-func (cli *Client) DockerMachine(ctx context.Context, namespace, providerMachineName string) (dockerProvider.DockerMachine, error) {
-	return providerMachine[dockerProvider.DockerMachine](ctx, cli, namespace, providerMachineName, DockerMachineResourceSchema)
+func (c *Client) DockerMachine(ctx context.Context, namespace, providerMachineName string) (dockerProvider.DockerMachine, error) {
+	return providerMachine[dockerProvider.DockerMachine](ctx, c, namespace, providerMachineName, DockerMachineResourceSchema)
 }
 
 // providerMachine returns the provider machine with the given name in the given namespace for the given cluster
-func providerMachine[T any](ctx context.Context, cli *Client, namespace, providerMachineName string, providerSchema schema.GroupVersionResource) (T, error) {
+func providerMachine[T any](ctx context.Context, c *Client, namespace, providerMachineName string, providerSchema schema.GroupVersionResource) (T, error) {
 	var machine T
 
-	unstructuredMachine, err := cli.Dyn.Resource(providerSchema).Namespace(namespace).Get(ctx, providerMachineName, metav1.GetOptions{})
+	unstructuredMachine, err := c.Dyn.Resource(providerSchema).Namespace(namespace).Get(ctx, providerMachineName, metav1.GetOptions{})
 	if err != nil {
 		return machine, err
 	}

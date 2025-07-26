@@ -153,8 +153,8 @@ func setupMockK8sClient(t *testing.T, projectID, hostId string) (*k8s.Client, *u
 	nsMachineResource.EXPECT().Namespace(projectID).Return(machineResource)
 	mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(nsMachineResource)
 
-	cli, err := k8s.New(k8s.WithDynamicClient(mockedk8sclient))
-	require.Nil(t, err)
+	cli := k8s.New(mockedk8sclient)
+	require.NotNil(t, cli)
 
 	return cli, machine
 }

@@ -51,7 +51,6 @@ func (r *ClusterTemplateReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	logger := log.FromContext(ctx)
 
 	// Fetch the ClusterTemplate instance
-	// Fetch the ClusterTemplate instance
 	clusterTemplate := &clustertemplatev1alpha1.ClusterTemplate{}
 	err := r.Get(ctx, req.NamespacedName, clusterTemplate)
 	if err != nil {

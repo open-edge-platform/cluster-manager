@@ -19,44 +19,43 @@ import (
 	"github.com/stretchr/testify/require"
 	k8score "k8s.io/api/core/v1"
 	k8sapimachinery "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	_ "sigs.k8s.io/cluster-api/test/infrastructure/docker/api/v1beta1"
 )
 
-func WithIntelMachinesMock(t *testing.T, namespace, clusterName string, machines []capi.Machine, intelMachines []intelInfraProvider.IntelMachine) func(*k8s.Client) {
+func WithIntelMachinesMock(t *testing.T, namespace, clusterName string, machines []capi.Machine, intelMachines []intelInfraProvider.IntelMachine) dynamic.Interface {
 	labelsSelector := fmt.Sprintf("cluster.x-k8s.io/cluster-name=%v", clusterName)
 
-	return func(cli *k8s.Client) {
-		// machines
-		um, err := convert.ToUnstructuredList(machines)
+	// machines
+	um, err := convert.ToUnstructuredList(machines)
+	require.NoError(t, err)
+
+	machinesResource := k8s.NewMockResourceInterface(t)
+	machinesResource.EXPECT().List(mock.Anything, k8sapimachinery.ListOptions{LabelSelector: labelsSelector}).Return(um, nil)
+
+	nMachinesResource := k8s.NewMockNamespaceableResourceInterface(t)
+	nMachinesResource.EXPECT().Namespace(namespace).Return(machinesResource)
+
+	// dynamic client
+	c := k8s.NewMockInterface(t)
+	c.EXPECT().Resource(core.MachineResourceSchema).Return(nMachinesResource)
+
+	// intel machines
+	for _, im := range intelMachines {
+		um, err := convert.ToUnstructured(im)
 		require.NoError(t, err)
 
-		machinesResource := k8s.NewMockResourceInterface(t)
-		machinesResource.EXPECT().List(mock.Anything, k8sapimachinery.ListOptions{LabelSelector: labelsSelector}).Return(um, nil)
+		intelMachineResource := k8s.NewMockResourceInterface(t)
+		intelMachineResource.EXPECT().Get(mock.Anything, im.ObjectMeta.Name, k8sapimachinery.GetOptions{}).Return(um, nil)
 
-		nMachinesResource := k8s.NewMockNamespaceableResourceInterface(t)
-		nMachinesResource.EXPECT().Namespace(namespace).Return(machinesResource)
+		nIntelMachineResource := k8s.NewMockNamespaceableResourceInterface(t)
+		nIntelMachineResource.EXPECT().Namespace(namespace).Return(intelMachineResource)
 
-		// dynamic client
-		c := k8s.NewMockInterface(t)
-		c.EXPECT().Resource(core.MachineResourceSchema).Return(nMachinesResource)
-
-		// intel machines
-		for _, im := range intelMachines {
-			um, err := convert.ToUnstructured(im)
-			require.NoError(t, err)
-
-			intelMachineResource := k8s.NewMockResourceInterface(t)
-			intelMachineResource.EXPECT().Get(mock.Anything, im.ObjectMeta.Name, k8sapimachinery.GetOptions{}).Return(um, nil)
-
-			nIntelMachineResource := k8s.NewMockNamespaceableResourceInterface(t)
-			nIntelMachineResource.EXPECT().Namespace(namespace).Return(intelMachineResource)
-
-			c.EXPECT().Resource(k8s.IntelMachineResourceSchema).Return(nIntelMachineResource)
-		}
-
-		cli.Dyn = c
+		c.EXPECT().Resource(k8s.IntelMachineResourceSchema).Return(nIntelMachineResource)
 	}
+
+	return c
 }
 
 func TestNodes(t *testing.T) {
@@ -89,8 +88,8 @@ func TestNodes(t *testing.T) {
 	expectedNode := []api.NodeInfo{{Id: convert.Ptr(intelMachineNameId), Role: convert.Ptr("all"), Status: &status}}
 
 	// mock k8s client
-	cli, err := k8s.New(WithIntelMachinesMock(t, namespace, clusterName, machines, intelMachines))
-	assert.NoError(t, err)
+	cli := k8s.New(WithIntelMachinesMock(t, namespace, clusterName, machines, intelMachines))
+	assert.NotNil(t, cli)
 
 	// test
 	nodes, err := cluster.Nodes(context.Background(), cli, c)

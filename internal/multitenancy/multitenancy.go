@@ -6,20 +6,19 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"regexp"
-	"strings"
+	"slices"
 	"time"
 
+	activeWatcher "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/apis/projectactivewatcher.edge-orchestrator.intel.com/v1"
+	nexus "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/nexus-client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
-	ct "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
+	v1alpha1 "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
-	provider "github.com/open-edge-platform/cluster-manager/v2/internal/providers"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/providers"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/template"
-	activeWatcher "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/apis/projectactivewatcher.edge-orchestrator.intel.com/v1"
-	nexus "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/nexus-client"
 )
 
 const (
@@ -28,75 +27,74 @@ const (
 )
 
 var (
-	// The default baseline regex matches template names like baseline-<provider>-vX.Y.Z. for exmple:
-	// baseline-v1.2.3, baseline-k3s-v1.2.3, baseline-rke2-v1.2.3, baseline-kubeadm-v1.2.3..
-	baselineRegex         = regexp.MustCompile(`^baseline(?:-[a-zA-Z0-9]+)?-v\d+\.\d+\.\d+$`)
-	nexusContextTimeout   = time.Second * 5
 	GetClusterConfigFunc  = rest.InClusterConfig
+	GetK8sClientFunc      = k8s.New().WithInClusterConfig
 	GetNexusClientSetFunc = nexus.NewForConfig
-	GetK8sClientFunc      = k8s.NewClient
+	nexusContextTimeout   = time.Second * 5
 
-	// If disableK3sTemplates is true (defaultProvider == "rke2"), templates like baseline-k3s-vX.Y.Z are excluded.
-	// and baseline-vX.Y.Z becomes the default. Later with renaming of templates, this will be removed.
-	// If disableK3sTemplates is false, all templates are available and baseline-k3s-vX.Y.Z becomes the default.
-	disableK3sTemplates bool
-	GetTemplatesFunc    = func() ([]*ct.ClusterTemplate, error) {
-		return template.ReadDefaultTemplates(disableK3sTemplates)
+	GetTemplatesFunc = func() ([]*v1alpha1.ClusterTemplate, error) {
+		return template.ReadDefaultTemplates()
 	}
 
 	GetPodSecurityAdmissionConfigFunc = func() (map[string][]byte, error) {
 		return template.ReadPodSecurityAdmissionConfigs()
 	}
+
+	defaultTemplate string
 )
 
 type TenancyDatamodel struct {
-	client    *nexus.Clientset
-	k8s       *k8s.Client
-	templates []*ct.ClusterTemplate
-	psaData   map[string][]byte
+	nexus           *nexus.Clientset
+	k8s             *k8s.Client
+	templates       []*v1alpha1.ClusterTemplate
+	psaData         map[string][]byte
+	defaultTemplate string
 }
 
 func NewDatamodelClient() (*TenancyDatamodel, error) {
 	config, err := GetClusterConfigFunc()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get kubeconfig: %w", err)
+		return nil, fmt.Errorf("failed to get orch kubernetes config: %w", err)
 	}
 
-	var client *nexus.Clientset
-	if client, err = GetNexusClientSetFunc(config); err != nil {
+	nexusClient, err := GetNexusClientSetFunc(config)
+	if err != nil {
 		return nil, fmt.Errorf("failed to create nexus client: %w", err)
 	}
 
-	// Prepare k8s connection
-	k8s, err := GetK8sClientFunc(nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to kubernetes: %w", err)
+	k8sClient := GetK8sClientFunc()
+	if k8sClient == nil {
+		return nil, fmt.Errorf("failed to get kubernetes client: %w", err)
 	}
 
-	// Read all the default templates
 	templates, err := GetTemplatesFunc()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read default cluster templates: %w", err)
+		return nil, fmt.Errorf("failed to read cluster templates: %w", err)
 	}
 
-	// Read pod security admission configs
 	psaData, err := GetPodSecurityAdmissionConfigFunc()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read pod security admission configs: %w", err)
 	}
 
-	return &TenancyDatamodel{client: client, k8s: k8s, templates: templates, psaData: psaData}, nil
+	return &TenancyDatamodel{
+		nexus:           nexusClient,
+		k8s:             k8sClient,
+		templates:       templates,
+		psaData:         psaData,
+		defaultTemplate: defaultTemplate,
+	}, nil
 }
 
-func (tdm *TenancyDatamodel) Start() error {
-	tdm.client.SubscribeAll()
+func (t *TenancyDatamodel) Start() error {
+	t.nexus.SubscribeAll()
 
-	if err := tdm.addProjectWatcher(); err != nil {
+	if err := t.addProjectWatcher(); err != nil {
 		return fmt.Errorf("failed to register '%s' as a project watcher: %w", appName, err)
 	}
 
-	handler, err := tdm.client.TenancyMultiTenancy().Runtime().Orgs("*").Folders("*").Projects("*").RegisterAddCallback(tdm.processRuntimeProjectsAdd)
-	if err != nil {
+	if handler, err := t.nexus.TenancyMultiTenancy().Runtime().Orgs("*").Folders("*").Projects("*").
+		RegisterAddCallback(t.processRuntimeProjectsAdd); err != nil {
 		slog.Error("failed to register project add callback", "error", err)
 		return err
 	} else if err = verifySynced(handler); err != nil {
@@ -105,8 +103,8 @@ func (tdm *TenancyDatamodel) Start() error {
 	}
 	slog.Info("subscribed to project add events")
 
-	handler, err = tdm.client.TenancyMultiTenancy().Runtime().Orgs("*").Folders("*").Projects("*").RegisterUpdateCallback(tdm.processRuntimeProjectsUpdate)
-	if err != nil {
+	if handler, err := t.nexus.TenancyMultiTenancy().Runtime().Orgs("*").Folders("*").Projects("*").
+		RegisterUpdateCallback(t.processRuntimeProjectsUpdate); err != nil {
 		slog.Error("failed to register project update callback", "error", err)
 		return err
 	} else if err = verifySynced(handler); err != nil {
@@ -118,24 +116,24 @@ func (tdm *TenancyDatamodel) Start() error {
 	return nil
 }
 
-func (tdm *TenancyDatamodel) Stop() {
-	tdm.client.UnsubscribeAll()
+func (t *TenancyDatamodel) Stop() {
+	t.nexus.UnsubscribeAll()
 
-	if err := tdm.deleteProjectWatcher(); err != nil {
+	if err := t.deleteProjectWatcher(); err != nil {
 		slog.Warn("error deleting project watcher", "error", err)
 	}
 }
 
-// SetDisableK3sTemplates allows disabling the k3s templates
-func SetDisableK3sTemplates(disable bool) {
-	disableK3sTemplates = disable
+// SetDefaultTemplate allows setting the default template
+func SetDefaultTemplate(name string) {
+	defaultTemplate = name
 }
 
 // processRuntimeProjectsAdd is a callback function invoked when a project is added
-func (tdm *TenancyDatamodel) processRuntimeProjectsAdd(project *nexus.RuntimeprojectRuntimeProject) {
+func (t *TenancyDatamodel) processRuntimeProjectsAdd(project *nexus.RuntimeprojectRuntimeProject) {
 	slog.Debug("project add event received", "project", project.DisplayName())
 	if project.Spec.Deleted {
-		tdm.processRuntimeProjectsUpdate(nil, project)
+		t.processRuntimeProjectsUpdate(nil, project)
 		return
 	}
 
@@ -150,12 +148,16 @@ func (tdm *TenancyDatamodel) processRuntimeProjectsAdd(project *nexus.Runtimepro
 			TimeStamp:       safeUnixTime(),
 		},
 	}); err != nil {
-		slog.Error("error creating watcher for project", "app", appName, "project_name", project.DisplayName(), "project_id", string(project.UID))
+		slog.Error("error creating watcher for project",
+			"app", appName,
+			"project_name", project.DisplayName(),
+			"project_id", string(project.UID))
 		return
 	}
+
 	slog.Debug("created watcher for project", "project_name", project.DisplayName(), "project_id", string(project.UID))
 
-	err := tdm.setupProject(ctx, project)
+	err := t.setupProject(ctx, project)
 	if err != nil {
 		slog.Error("creation of project cluster resources failed", "error", err)
 		updateWatcherStatus(project, activeWatcher.StatusIndicationError, "Error setting up cluster resources for project")
@@ -165,73 +167,88 @@ func (tdm *TenancyDatamodel) processRuntimeProjectsAdd(project *nexus.Runtimepro
 	updateWatcherStatus(project, activeWatcher.StatusIndicationIdle, "Successfully created project")
 }
 
-func (tdm *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.RuntimeprojectRuntimeProject) error {
+func (t *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.RuntimeprojectRuntimeProject) error {
 	projectId := string(project.UID)
 
 	// Create namespace
-	err := tdm.k8s.CreateNamespace(ctx, projectId)
+	err := t.k8s.CreateNamespace(ctx, projectId)
 	if err != nil {
-		slog.Warn(fmt.Sprintf("failed to create namespace for project: %v", err))
+		return fmt.Errorf("failed to create namespace for project: %v", err)
 	} else {
 		slog.Debug("created namespace for project", "namespace", projectId, "project", project.DisplayName())
 	}
 
 	// Create Pod Security Admission secret
-	if err := tdm.k8s.CreateSecret(ctx, projectId, podSecurityAdmissionSecretName, tdm.psaData); err != nil {
-		slog.Warn(fmt.Sprintf("failed to create pod security admission secret in namespace '%s': %v", projectId, err))
+	if err := t.k8s.CreateSecret(ctx, projectId, podSecurityAdmissionSecretName, t.psaData); err != nil {
+		return fmt.Errorf("failed to create pod security admission secret in namespace '%s': %v", projectId, err)
 	} else {
 		slog.Debug("created pod security admission secret", "namespace", projectId, "project", project.DisplayName())
 	}
 
 	// Apply templates
-	for _, template := range tdm.templates {
-		err = tdm.k8s.CreateTemplate(ctx, projectId, template)
+	for _, template := range t.templates {
+		err = t.k8s.CreateTemplate(ctx, projectId, template)
 		if err != nil {
-			slog.Warn(fmt.Sprintf("failed to create '%s' default template: %v", template.GetName(), err))
+			return fmt.Errorf("failed to create '%s' template: %v", template.GetName(), err)
 		} else {
 			slog.Debug("created template", "namespace", projectId, "template", template.GetName(), "project", project.DisplayName())
 		}
 	}
 
-	defaultTemplateName := selectDefaultTemplateName(tdm.templates, disableK3sTemplates)
-
-	if defaultTemplateName == "" {
-		slog.Warn("default template not found", "namespace", projectId, "project", project.DisplayName())
-		return nil
+	// Set the default template for the project.
+	// Selection order:
+	// 1. Use an existing valid default template if already set for the project.
+	// 2. Use the default template specified in the configuration, if available.
+	// 3. Otherwise, use the first template from the available template list.
+	if err := t.setDefaultTemplate(ctx, projectId); err != nil {
+		return fmt.Errorf("failed to set default template for project '%s': %v", project.DisplayName(), err)
+	} else {
+		slog.Debug("labeled default template", "namespace", projectId, "project", project.DisplayName())
 	}
-
-	// Label default template
-	labels := map[string]string{labels.DefaultLabelKey: labels.DefaultLabelVal}
-	if err = tdm.k8s.AddTemplateLabels(ctx, projectId, defaultTemplateName, labels); err != nil {
-		return fmt.Errorf("failed to label default template: %w", err)
-	}
-
-	slog.Debug("labeled default template", "namespace", projectId, "project", project.DisplayName())
 
 	return nil
 }
 
-func selectDefaultTemplateName(templates []*ct.ClusterTemplate, disableK3sTemplates bool) string {
-	var defaultTemplateName string
-Loop:
-	for _, t := range templates {
-		name := t.GetName()
-		if !baselineRegex.MatchString(name) {
-			continue
+func (t *TenancyDatamodel) setDefaultTemplate(ctx context.Context, projectId string) error {
+	// Skip if valid default template is already set for the project
+	if template, err := t.k8s.DefaultTemplate(ctx, projectId); err == nil && template.Name != "" {
+		// Check if the provider type is in supported control plane provider types
+		// Otherwise, proceed to find a suitable template
+		if slices.Contains(providers.ControlPlaneProviders, template.Spec.ControlPlaneProviderType) {
+			slog.Debug("default template already set for project", "namespace", projectId, "template", template.GetName())
+			return nil
 		}
-		switch {
-		case !disableK3sTemplates && strings.Contains(name, provider.DefaultProvider):
-			defaultTemplateName = name
-			break Loop
-		case defaultTemplateName == "":
-			defaultTemplateName = name
+
+		// If the template is with invalid control plane provider type,
+		// remove the default label and proceed to find a suitable template
+		if err := t.k8s.RemoveTemplateLabels(ctx, projectId, template.Name, labels.DefaultLabelKey); err != nil {
+			return fmt.Errorf("failed to remove default label from template '%s' in namespace '%s': %v", template.Name, projectId, err)
 		}
+		slog.Debug("removed default label from invalid template", "namespace", projectId, "template", template.Name)
 	}
-	return defaultTemplateName
+
+	// If no default template is set in the configuration or configured default template is not available,
+	// use the first template in the list
+	if t.defaultTemplate == "" || !t.k8s.HasTemplate(ctx, projectId, t.defaultTemplate) {
+		if len(t.templates) == 0 {
+			return fmt.Errorf("no templates available to set as default for project %s", projectId)
+		}
+		t.defaultTemplate = t.templates[0].GetName()
+		slog.Debug("no default template configured, using first template in the list", "namespace", projectId, "template", t.defaultTemplate)
+	}
+
+	// Apply default label to the default template
+	if err := t.k8s.AddTemplateLabels(ctx, projectId, t.defaultTemplate, map[string]string{
+		labels.DefaultLabelKey: labels.DefaultLabelVal,
+	}); err != nil {
+		return fmt.Errorf("failed to label default template %s in namespace %s: %v", t.defaultTemplate, projectId, err)
+	}
+
+	return nil
 }
 
 // processRuntimeProjectsUpdate is a callback function invoked when a project is deleted
-func (tdm *TenancyDatamodel) processRuntimeProjectsUpdate(_, project *nexus.RuntimeprojectRuntimeProject) {
+func (t *TenancyDatamodel) processRuntimeProjectsUpdate(_, project *nexus.RuntimeprojectRuntimeProject) {
 	slog.Debug("project update event received", "project", project.DisplayName())
 	if !project.Spec.Deleted {
 		return
@@ -243,7 +260,7 @@ func (tdm *TenancyDatamodel) processRuntimeProjectsUpdate(_, project *nexus.Runt
 	ctx, cancel := context.WithTimeout(context.Background(), nexusContextTimeout)
 	defer cancel()
 
-	err := tdm.cleanupProject(ctx, project)
+	err := t.cleanupProject(ctx, project)
 
 	if err != nil {
 		slog.Error("cleanup of project cluster resources failed: %w", "error", err)
@@ -254,23 +271,23 @@ func (tdm *TenancyDatamodel) processRuntimeProjectsUpdate(_, project *nexus.Runt
 	updateWatcherStatus(project, activeWatcher.StatusIndicationIdle, "Successfully cleaned up project")
 }
 
-func (tdm *TenancyDatamodel) cleanupProject(ctx context.Context, project *nexus.RuntimeprojectRuntimeProject) error {
+func (t *TenancyDatamodel) cleanupProject(ctx context.Context, project *nexus.RuntimeprojectRuntimeProject) error {
 	projectId := string(project.UID)
 
 	// Delete all clusters
-	err := tdm.k8s.DeleteClusters(ctx, projectId)
+	err := t.k8s.DeleteClusters(ctx, projectId)
 	if err != nil {
 		return fmt.Errorf("failed to delete clusters: %w", err)
 	}
 
 	// Delete all templates
-	err = tdm.k8s.DeleteTemplates(ctx, projectId)
+	err = t.k8s.DeleteTemplates(ctx, projectId)
 	if err != nil {
 		return fmt.Errorf("failed to delete templates: %w", err)
 	}
 
 	// Delete namespace
-	err = tdm.k8s.DeleteNamespace(ctx, projectId)
+	err = t.k8s.DeleteNamespace(ctx, projectId)
 	if err != nil {
 		return fmt.Errorf("failed to delete project namespace: %w", err)
 	}
