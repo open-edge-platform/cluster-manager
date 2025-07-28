@@ -49,14 +49,14 @@ func (s *Server) PutV2ClustersNameLabels(ctx context.Context, request api.PutV2C
 		}, nil
 	}
 
-	cli, err := k8s.New(k8s.WithDynamicClient(s.k8sclient))
-	if err != nil {
-		message := fmt.Sprintf("failed to create k8s client: %v", err)
+	cli := k8s.New(s.k8sclient)
+	if cli == nil {
+		message := "failed to create k8s client"
 		slog.Error(message)
 		return api.PutV2ClustersNameLabels500JSONResponse{N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{Message: &message}}, nil
 	}
 
-	err = cli.SetClusterLabels(ctx, activeProjectID, clusterName, newUserLabels)
+	err := cli.SetClusterLabels(ctx, activeProjectID, clusterName, newUserLabels)
 
 	switch {
 	case errors.IsBadRequest(err):

@@ -77,7 +77,7 @@ spec:
                     type: object
                 type: object
               controlPlaneProviderType:
-                default: rke2
+                default: k3s
                 enum:
                 - kubeadm
                 - rke2
