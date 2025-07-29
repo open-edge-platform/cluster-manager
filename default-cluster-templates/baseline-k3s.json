@@ -1,6 +1,6 @@
 {
   "name": "baseline-k3s",
-  "version": "v0.0.5",
+  "version": "v0.0.6",
   "kubernetesVersion": "v1.32.4+k3s1",
   "description": "Baseline Cluster Template for k3s",
   "controlplaneprovidertype": "k3s",
@@ -26,6 +26,10 @@
                     "key": "baseline.yaml"
                   }
                 }
+              },
+              {
+                "path": "/var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl",
+                "content": "{{ template \\\"base\\\" . }}\n\n[plugins.\\\"io.containerd.grpc.v1.cri\\\".containerd.runtimes.kata-qemu]\n  runtime_type = \\\"io.containerd.kata-qemu.v2\\\"\n  runtime_path = \\\"/opt/kata/bin/containerd-shim-kata-v2\\\"\n  privileged_without_host_devices = true\n  pod_annotations = [\\\"io.katacontainers.*\\\"]\n\n[plugins.\\\"io.containerd.grpc.v1.cri\\\".containerd.runtimes.kata-qemu.options]\n  ConfigPath = \\\"/opt/kata/share/defaults/kata-containers/configuration-qemu.toml\\\""
               }
             ],
             "agentConfig": {
@@ -53,7 +57,6 @@
               ],
               "kubeControllerManagerArgs": [],
               "kubeSchedulerArgs": [],
-              "clusterDomain": "cluster.edge",
               "disableCloudController": false,
               "disableComponents": [
                 "metrics-server",
