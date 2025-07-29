@@ -121,6 +121,7 @@ func TestGetHostTrustedCompute(t *testing.T) {
 			name: "error getting host",
 			mock: func() {
 				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError).Once()
+				mockClient.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(&inventoryv1.GetResourceResponse{}, assert.AnError).Once()				
 			},
 			expectedErr: assert.AnError,
 		},
@@ -161,8 +162,6 @@ func TestIsImmutable(t *testing.T) {
 			name: "immutable OS type",
 			mock: func() {
 				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(immutableHost, nil).Once()
-				// mockClient.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(
-				// 	&inventoryv1.GetResourceResponse{Resource: &inventoryv1.Resource{Resource: &inventoryv1.Resource_Host{Host: immutableHost}}}, nil).Once()
 			},
 			expectedVal: false, // Always return false for now as we don't support immutable EMT with pre-installed K3s packages yet
 		},
@@ -179,8 +178,6 @@ func TestIsImmutable(t *testing.T) {
 			name: "mutable OS type",
 			mock: func() {
 				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(mutableHost, nil).Once()
-				// mockClient.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(
-				// 	&inventoryv1.GetResourceResponse{Resource: &inventoryv1.Resource{Resource: &inventoryv1.Resource_Host{Host: mutableHost}}}, nil).Once()
 			},
 			expectedVal: false,
 		},
@@ -197,8 +194,6 @@ func TestIsImmutable(t *testing.T) {
 			name: "host instance nil",
 			mock: func() {
 				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(nilInstance, nil).Once()
-				// mockClient.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(
-				// 	&inventoryv1.GetResourceResponse{Resource: &inventoryv1.Resource{Resource: &inventoryv1.Resource_Host{Host: nilInstance}}}, nil).Once()
 			},
 			expectedVal: false,
 			expectedErr: errors.New("host instance is nil"),
@@ -207,8 +202,6 @@ func TestIsImmutable(t *testing.T) {
 			name: "desired OS nil",
 			mock: func() {
 				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(desiredOsNil, nil).Once()
-				// mockClient.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(
-				// 	&inventoryv1.GetResourceResponse{Resource: &inventoryv1.Resource{Resource: &inventoryv1.Resource_Host{Host: desiredOsNil}}}, nil).Once()
 			},
 			expectedVal: false,
 			expectedErr: errors.New("host instance desired os is nil"),
