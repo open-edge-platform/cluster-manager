@@ -117,6 +117,8 @@ func (c *InventoryClient) getHost(ctx context.Context, tenantId, hostUuid string
 
 	host, err := c.client.GetHostByUUID(ctx, tenantId, hostUuid)
 	if err != nil {
+		slog.Warn("failed to get host by uuid, attempting with resource id", "error", err, "tenantId", tenantId, "hostUuid", hostUuid)
+
 		response, err := c.client.Get(ctx, tenantId, hostUuid)
 		if err != nil {
 			slog.Warn("failed to get host by resourceId", "error", err, "tenantId", tenantId, "hostUuid", hostUuid)
@@ -133,6 +135,8 @@ func (c *InventoryClient) getHost(ctx context.Context, tenantId, hostUuid string
 			slog.Warn("host in response resource is nil", "tenantId", tenantId, "hostUuid", hostUuid)
 			return nil, errors.New("host in response resource is nil")
 		}
+
+		slog.Debug("success in getting resourceId", "tenantId", tenantId, "hostUuid", hostUuid)
 	}
 
 	if err := c.validateHostResource(host); err != nil {
