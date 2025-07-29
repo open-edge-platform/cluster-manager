@@ -117,11 +117,11 @@ func (c *InventoryClient) getHost(ctx context.Context, tenantId, hostUuid string
 
 	host, err := c.client.GetHostByUUID(ctx, tenantId, hostUuid)
 	if err != nil {
-		slog.Warn("failed to get host by uuid, attempting with resource id", "error", err, "tenantId", tenantId, "hostUuid", hostUuid)
+		slog.Warn("failed to get host by uuid, attempting with resource id", "error", err, "tenantId", tenantId, "hostId", hostUuid)
 
 		response, err := c.client.Get(ctx, tenantId, hostUuid)
 		if err != nil {
-			slog.Warn("failed to get host by resourceId", "error", err, "tenantId", tenantId, "hostUuid", hostUuid)
+			slog.Warn("failed to get host by resourceId", "error", err, "tenantId", tenantId, "hostId", hostUuid)
 			return nil, err
 		}
 
