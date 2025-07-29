@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	computev1 "github.com/open-edge-platform/infra-core/inventory/v2/pkg/api/compute/v1"
+	inventoryv1 "github.com/open-edge-platform/infra-core/inventory/v2/pkg/api/inventory/v1"
 	osv1 "github.com/open-edge-platform/infra-core/inventory/v2/pkg/api/os/v1"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/inventory"
@@ -154,52 +155,42 @@ func TestIsImmutable(t *testing.T) {
 		{
 			name: "immutable OS type",
 			mock: func() {
-				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(&computev1.HostResource{
-					Instance: &computev1.InstanceResource{
-						DesiredOs: &osv1.OperatingSystemResource{
-							OsType: osv1.OsType_OS_TYPE_IMMUTABLE,
-						},
-					},
-				}, nil).Once()
+				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError).Once()
+				mockClient.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(&inventoryv1.GetResourceResponse{}, nil).Once()
 			},
-			// IsImmutable always return false for now
-			expectedVal: false,
+			expectedVal: true,
 		},
 		{
 			name: "mutable OS type",
 			mock: func() {
-				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(&computev1.HostResource{
-					Instance: &computev1.InstanceResource{
-						DesiredOs: &osv1.OperatingSystemResource{
-							OsType: osv1.OsType_OS_TYPE_MUTABLE,
-						},
-					},
-				}, nil).Once()
+				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError).Once()
+				mockClient.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(&inventoryv1.GetResourceResponse{}, nil).Once()
 			},
 			expectedVal: false,
 		},
 		{
 			name: "host instance nil",
 			mock: func() {
-				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(&computev1.HostResource{}, nil).Once()
+				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError).Once()
+				mockClient.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(&inventoryv1.GetResourceResponse{}, nil).Once()
 			},
-			expectedErr: errors.New("host instance is nil"),
+			expectedErr: errors.New("response resource is nil"),
 			expectedVal: false,
 		},
 		{
 			name: "current OS nil",
 			mock: func() {
-				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(&computev1.HostResource{
-					Instance: &computev1.InstanceResource{},
-				}, nil).Once()
+				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError).Once()
+				mockClient.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(&inventoryv1.GetResourceResponse{}, nil).Once()
 			},
-			expectedErr: errors.New("host instance current os is nil"),
+			expectedErr: errors.New("response resource is nil"),
 			expectedVal: false,
 		},
 		{
 			name: "error fetching host",
 			mock: func() {
 				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError).Once()
+				mockClient.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError).Once()
 			},
 			expectedErr: assert.AnError,
 		},
