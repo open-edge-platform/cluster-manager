@@ -98,7 +98,7 @@ func (c *InventoryClient) IsImmutable(ctx context.Context, tenantId, hostUuid st
 	}
 
 	if host.Instance.DesiredOs == nil {
-		return false, errors.New("host instance current os is nil")
+		return false, errors.New("host instance desired os is nil")
 	}
 
 	// The expectation is when the host OS is immutable, we expect the k3s packages to be bundled as part of the
