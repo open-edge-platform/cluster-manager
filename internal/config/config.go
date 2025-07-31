@@ -29,8 +29,8 @@ type Config struct {
 	// DisableMetrics disables metrics, should be false for production and true in integration without prometheus
 	DisableMetrics bool
 
-	// DisableK3sTemplates disables k3s templates, should be false for production and true in integration without k3s
-	DisableK3sTemplates bool
+	// Default template name to use for new projects
+	DefaultTemplate string
 
 	OidcUrl              string
 	OpaEnabled           bool
@@ -46,11 +46,12 @@ type Config struct {
 // ParseConfig parses the configuration from flags and environment variables
 func ParseConfig() *Config {
 	disableAuth := flag.Bool("disable-auth", false, "(optional) disable rest authentication/authorization")
-	disableMt := flag.Bool("disable-mt", false, "(optional) disable multi-tenancy integration")
+	disableMultitenancy := flag.Bool("disable-multi-tenancy", false, "(optional) disable multi-tenancy integration")
+	// Deprecated: use --disable-multi-tenancy instead
+	disableMt := flag.Bool("disable-mt", false, "(deprecated) disable multi-tenancy integration (use --disable-multi-tenancy)")
 	disableInv := flag.Bool("disable-inventory", false, "(optional) disable inventory integration")
 	disableMetrics := flag.Bool("disable-metrics", false, "(optional) disable prometheus metrics handler")
-	// setting disableK3sTemplates to true for integration tests and avoid UI changes without k3s and false for production
-	disableK3sTemplates := flag.Bool("disable-k3s-templates", false, "(optional) disable k3s templates, should be false for production and true in integration without k3s")
+	defaultTemplate := flag.String("default-template", "", "(optional) default template to use for new projects")
 	logLevel := flag.Int("loglevel", 0, "(optional) log level [trace:-8|debug:-4|info:0|warn:4|error:8]")
 	logFormat := flag.String("logformat", "json", "(optional) log format [json|human]")
 	prefixes := flag.String("system-labels-prefixes", "", "(optional) comma separated list of system labels prefixes; if not provided, sane defaults are used")
@@ -61,10 +62,10 @@ func ParseConfig() *Config {
 
 	cfg := &Config{
 		DisableAuth:         *disableAuth,
-		DisableMultitenancy: *disableMt,
+		DisableMultitenancy: *disableMultitenancy || *disableMt,
 		DisableInventory:    *disableInv,
 		DisableMetrics:      *disableMetrics,
-		DisableK3sTemplates: *disableK3sTemplates,
+		DefaultTemplate:     *defaultTemplate,
 		LogLevel:            *logLevel,
 		LogFormat:           strings.ToLower(*logFormat),
 		ClusterDomain:       *clusterDomain,

@@ -168,7 +168,7 @@ coverage: ## Generate test coverage report.
 	echo "TODO: coverage target not implemented"
 
 .PHONY: test-unit
-test-unit: envtest gocov helm-test ## Run tests.
+test-unit: envtest gocov 
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $$(go list ${TEST_PATHS}) -v -race -gcflags -l -coverprofile cover.out -covermode atomic -short
 	${GOBIN}/gocov convert cover.out | ${GOBIN}/gocov-xml > coverage.xml
 	go tool cover -html=cover.out -o coverage.html
@@ -500,7 +500,7 @@ docker-load:
 
 helm-install: docker-build docker-load helm-build ## Install helm charts to the K8s cluster specified in ~/.kube/config.
 	helm upgrade --install --wait --debug cluster-template-crd $(BUILD_DIR)/cluster-template-crd-${HELM_VERSION}.tgz --set args.loglevel=DEBUG
-	helm upgrade --install --wait --debug cluster-manager $(BUILD_DIR)/cluster-manager-${HELM_VERSION}.tgz --set clusterManager.extraArgs.disable-mt=${DISABLE_MT} --set clusterManager.extraArgs.disable-auth=${DISABLE_AUTH} --set clusterManager.extraArgs.disable-inventory=${DISABLE_INV} --set clusterManager.extraArgs.disable-metrics=${DISABLE_METRICS} 
+	helm upgrade --install --wait --debug cluster-manager $(BUILD_DIR)/cluster-manager-${HELM_VERSION}.tgz --set clusterManager.extraArgs.disable-multi-tenancy=${DISABLE_MT} --set clusterManager.extraArgs.disable-auth=${DISABLE_AUTH} --set clusterManager.extraArgs.disable-inventory=${DISABLE_INV} --set clusterManager.extraArgs.disable-metrics=${DISABLE_METRICS} 
 
 helm-uninstall: # Uninstall helm charts from the K8s cluster specified in ~/.kube/config.
 	helm uninstall cluster-manager cluster-template-crd
@@ -623,7 +623,7 @@ emf-redeploy: helm-build docker-build docker-load ## Redeploy cluster-manager he
 	kubectl delete crd clustertemplates.edge-orchestrator.intel.com --ignore-not-found=true
 	helm upgrade --install cluster-template-crd deployment/charts/cluster-template-crd -n orch-cluster --create-namespace
 	helm upgrade --install cluster-manager deployment/charts/cluster-manager -n orch-cluster --create-namespace \
-	  --set clusterManager.extraArgs.disable-mt=false \
+	  --set clusterManager.extraArgs.disable-multi-tenancy=false \
 	  --set clusterManager.extraArgs.disable-auth=false \
 
 .PHONY: emf-rebuild

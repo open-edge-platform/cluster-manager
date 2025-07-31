@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-package controlplaneprovider
+package providers
 
 import (
 	"context"
@@ -46,15 +46,28 @@ var (
 	connectAgentEnabledIf = "{{ if .connectAgentManifest.path }}true{{ end }}"
 	readOnlyEnabledIf     = "{{ .readOnly }}"
 
+	// TODO: deprecate rke2
+	providerRegistry = map[string]Provider{
+		"kubeadm:docker": kubeadmdocker{},
+		"rke2:docker":    rke2docker{},
+		"rke2:intel":     rke2intel{},
+		"k3s:intel":      k3sintel{},
+		"k3s:docker":     k3sdocker{},
+	}
+
 	ReadOnly = "readOnly"
+
+	// List of officially supported control plane types
+	// TODO: make the provider list configurable
+	ControlPlaneProviders = []string{
+		"k3s",
+	}
+
+	InfraProviders = []string{
+		"docker",
+		"intel",
+	}
 )
-var providerRegistry = map[string]Provider{
-	"kubeadm:docker": kubeadmdocker{},
-	"rke2:docker":    rke2docker{},
-	"rke2:intel":     rke2intel{},
-	"k3s:intel":      k3sintel{},
-	"k3s:docker":     k3sdocker{},
-}
 
 func GetCapiProvider(controlPlaneProvider, infraProvider string) Provider {
 	key := controlPlaneProvider + ":" + infraProvider
