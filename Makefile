@@ -599,11 +599,11 @@ update-cm-version: ## Update Cluster Manager version
 
 .PHONY: update-ct-version
 update-ct-version: ## Update Cluster Template version
-	@echo "Current version: $(shell jq -r '.version' default-cluster-templates/baseline.json)"
+	@echo "Current version: $(shell jq -r '.version' default-cluster-templates/baseline-k3s.json)"
 	@read -p "Enter new version: " new_version; \
-	sed -i "s/^  \"version\":.*/  \"version\": \"$${new_version}\",/" default-cluster-templates/baseline.json; \
-	sed -i "s/^  \"version\":.*/  \"version\": \"$${new_version}\",/" default-cluster-templates/privileged.json; \
-	sed -i "s/^  \"version\":.*/  \"version\": \"$${new_version}\",/" default-cluster-templates/restricted.json
+	sed -i "s/^  \"version\":.*/  \"version\": \"$${new_version}\",/" default-cluster-templates/baseline-k3s.json; \
+	sed -i "s/^  \"version\":.*/  \"version\": \"$${new_version}\",/" default-cluster-templates/privileged-k3s.json; \
+	sed -i "s/^  \"version\":.*/  \"version\": \"$${new_version}\",/" default-cluster-templates/restricted-k3s.json
 
 .PHONY: update-api-version
 update-api-version: ## Update API version
