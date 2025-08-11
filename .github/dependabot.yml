@@ -29,3 +29,18 @@ updates:
     open-pull-requests-limit: 10
     commit-message:
       prefix: "[gha] "
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
+
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: daily
+
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: daily
