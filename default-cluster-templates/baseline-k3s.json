@@ -1,6 +1,6 @@
 {
   "name": "baseline-k3s",
-  "version": "v0.0.7",
+  "version": "v0.0.8",
   "kubernetesVersion": "v1.32.4+k3s1",
   "description": "Baseline Cluster Template for k3s",
   "controlplaneprovidertype": "k3s",
@@ -34,6 +34,10 @@
               {
                 "path": "/etc/rancher/k3s/config.yaml.d/kube-apiserver-arg.yaml",
                 "content": "kube-apiserver-arg:\n- tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384\n- anonymous-auth=false"
+              },
+              {
+                "path": "/etc/rancher/k3s/config.yaml.d/etcd-arg.yaml",
+                "content": "etcd-arg:\n- cipher-suites=[TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384]"
               }
             ],
             "agentConfig": {
