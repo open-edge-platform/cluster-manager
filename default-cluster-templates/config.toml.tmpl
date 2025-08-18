@@ -18,3 +18,12 @@
 
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-qemu.options]
   ConfigPath = "/opt/kata/share/defaults/kata-containers/configuration-qemu.toml"
+
+[plugins."io.containerd.nri.v1.nri"]
+  disable = false
+  disable_connections = false
+  plugin_config_path = "/etc/nri/conf.d"
+  plugin_path = "/opt/nri/plugins"
+  plugin_registration_timeout = "5s"
+  plugin_request_timeout = "2s"
+  socket_path = "/var/run/nri/nri.sock"
