@@ -27,7 +27,7 @@ jobs:
         persist-credentials: false
 
     - name: Bootstrap CI environment
-      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@bf0ca523f17ab9f79ad5f45df760d302b68ac932  # 0.1.39
+      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@7221fef1cf3ce70185cbe8c3f53a85be4e7e7cbd  # 0.1.48
       with:
         gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
 
