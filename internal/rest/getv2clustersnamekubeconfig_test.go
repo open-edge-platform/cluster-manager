@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
@@ -480,4 +481,119 @@ func TestUpdateKubeconfigWithToken(t *testing.T) {
 
 func TestTokenRenewal(t *testing.T) {
 	// to implement
+}
+
+// TestKubeconfigTTLBehavior tests TTL behavior in kubeconfig generation
+// This test will fail initially until we implement TTL configuration
+func TestKubeconfigTTLBehavior(t *testing.T) {
+	tests := []struct {
+		name               string
+		disableCustomTTL   bool
+		kubeconfigTTL      time.Duration
+		tokenNeedsRenewal  bool
+		expectedError      bool
+		expectedTTL        time.Duration
+		tolerance          time.Duration
+	}{
+		{
+			name:              "custom TTL enabled - 2 hours",
+			disableCustomTTL:  false,  // false = enable custom TTL
+			kubeconfigTTL:     2 * time.Hour,
+			tokenNeedsRenewal: true,
+			expectedError:     false,
+			expectedTTL:       2 * time.Hour,
+			tolerance:         1 * time.Minute,
+		},
+		{
+			name:              "custom TTL enabled - 24 hours",
+			disableCustomTTL:  false,  // false = enable custom TTL
+			kubeconfigTTL:     24 * time.Hour,
+			tokenNeedsRenewal: true,
+			expectedError:     false,
+			expectedTTL:       24 * time.Hour,
+			tolerance:         1 * time.Minute,
+		},
+		{
+			name:              "custom TTL disabled - use default",
+			disableCustomTTL:  true,   // true = disable custom TTL
+			kubeconfigTTL:     12 * time.Hour,  // Should be ignored
+			tokenNeedsRenewal: true,
+			expectedError:     false,
+			expectedTTL:       1 * time.Hour,   // Keycloak default
+			tolerance:         5 * time.Minute,
+		},
+		{
+			name:              "token doesn't need renewal",
+			disableCustomTTL:  false,  // false = enable custom TTL
+			kubeconfigTTL:     6 * time.Hour,
+			tokenNeedsRenewal: false,
+			expectedError:     false,
+			expectedTTL:       0, // Original token TTL, not tested here
+			tolerance:         1 * time.Minute,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Skip("TODO: Test will be implemented after TTL configuration is added")
+		})
+	}
+}
+
+// TestTokenRenewalWithVaultAndKeycloak tests the complete token renewal flow
+// This test will fail initially until we implement the full M2M flow
+func TestTokenRenewalWithVaultAndKeycloak(t *testing.T) {
+	tests := []struct {
+		name              string
+		originalTokenTTL  time.Duration
+		vaultClientID     string
+		vaultClientSecret string
+		userRoles         []string
+		requestedTTL      *time.Duration
+		vaultShouldFail   bool
+		expectedError     bool
+	}{
+		{
+			name:              "successful token renewal with vault credentials",
+			originalTokenTTL:  30 * time.Minute, // Needs renewal
+			vaultClientID:     "co-manager-m2m-client",
+			vaultClientSecret: "test-secret",
+			userRoles:         []string{"admin", "cluster-reader"},
+			requestedTTL:      &[]time.Duration{4 * time.Hour}[0],
+			vaultShouldFail:   false,
+			expectedError:     false,
+		},
+		{
+			name:              "vault failure during credential retrieval",
+			originalTokenTTL:  30 * time.Minute,
+			vaultClientID:     "",
+			vaultClientSecret: "",
+			userRoles:         []string{"user"},
+			requestedTTL:      &[]time.Duration{2 * time.Hour}[0],
+			vaultShouldFail:   true,
+			expectedError:     true,
+		},
+		{
+			name:              "token doesn't need renewal",
+			originalTokenTTL:  2 * time.Hour, // Still valid
+			vaultClientID:     "co-manager-m2m-client",
+			vaultClientSecret: "test-secret",
+			userRoles:         []string{"user"},
+			requestedTTL:      &[]time.Duration{6 * time.Hour}[0],
+			vaultShouldFail:   false,
+			expectedError:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Skip("TODO: Test will be implemented after full M2M token renewal flow is implemented")
+		})
+	}
+}
+
+// TestKubeconfigEndToEndWithTTL tests the complete kubeconfig retrieval with TTL
+// This test will fail initially until the full feature is implemented
+func TestKubeconfigEndToEndWithTTL(t *testing.T) {
+	t.Skip("TODO: Test will be implemented after complete TTL feature implementation")
 }
