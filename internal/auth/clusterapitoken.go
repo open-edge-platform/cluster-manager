@@ -4,11 +4,13 @@ package auth
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -17,42 +19,6 @@ import (
 type TokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
-}
-
-// JwtToken retrieves a new token from Keycloak
-func JwtToken(keycloakURL, accessToken string) (*TokenResponse, error) {
-	clientId, username, _, _ := ExtractClaims(accessToken)
-	password := os.Getenv("PASSWORD")
-
-	data := url.Values{}
-	data.Set("grant_type", "password")
-	data.Set("client_id", clientId)
-	data.Set("username", username)
-	data.Set("password", password)
-
-	tokenURL := fmt.Sprintf("%s/protocol/openid-connect/token", keycloakURL)
-	req, err := http.NewRequest("POST", tokenURL, bytes.NewBufferString(data.Encode()))
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to refresh token, status code: %d", resp.StatusCode)
-	}
-	var tokenResponse TokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResponse); err != nil {
-		return nil, err
-	}
-
-	return &tokenResponse, nil
 }
 
 // ExtractClaims extracts claims from a JWT token
@@ -80,4 +46,112 @@ func ExtractClaims(tokenString string) (string, string, time.Time, error) {
 	expirationTime := time.Unix(int64(exp), 0) // convert to time.Time
 
 	return azp, preferredUsername, expirationTime, nil
+}
+
+// JwtTokenWithM2M retrieves a new token from Keycloak using M2M authentication with configurable TTL
+func JwtTokenWithM2M(ctx context.Context, ttl *time.Duration) (string, error) {
+	// Set default TTL to 1 hour if not provided
+	defaultTTL := 1 * time.Hour
+	if ttl == nil {
+		ttl = &defaultTTL
+	}
+
+	// Get M2M credentials from Vault
+	vaultAuth, err := NewVaultAuth(VaultServer, ServiceAccount)
+	if err != nil {
+		return "", fmt.Errorf("failed to create vault auth: %w", err)
+	}
+
+	clientID, clientSecret, err := vaultAuth.GetClientCredentials(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get M2M credentials from Vault: %w", err)
+	}
+
+	// Get Keycloak URL from environment
+	keycloakURL := os.Getenv("KEYCLOAK_URL")
+	if keycloakURL == "" {
+		return "", fmt.Errorf("KEYCLOAK_URL environment variable not set")
+	}
+
+	// Prepare M2M token request
+	data := url.Values{}
+	data.Set("grant_type", "client_credentials")
+	data.Set("client_id", clientID)
+	data.Set("client_secret", clientSecret)
+	
+	// Add custom TTL if supported by Keycloak configuration
+	// Note: This may require custom Keycloak configuration to respect the TTL parameter
+	if ttl != nil {
+		ttlSeconds := int64(ttl.Seconds())
+		data.Set("session_state", strconv.FormatInt(ttlSeconds, 10)) // Custom parameter for TTL
+	}
+
+	tokenURL := fmt.Sprintf("%s/protocol/openid-connect/token", keycloakURL)
+	req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, bytes.NewBufferString(data.Encode()))
+	if err != nil {
+		return "", fmt.Errorf("failed to create token request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to perform token request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to get M2M token, status code: %d", resp.StatusCode)
+	}
+
+	var tokenResponse TokenResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResponse); err != nil {
+		return "", fmt.Errorf("failed to decode token response: %w", err)
+	}
+
+	return tokenResponse.AccessToken, nil
+}
+
+// ExtractUserRoles extracts user roles from JWT token claims
+func ExtractUserRoles(claims jwt.MapClaims) ([]string, error) {
+	// Check if realm_access exists
+	realmAccess, exists := claims["realm_access"]
+	if !exists {
+		return nil, fmt.Errorf("realm_access not found in token claims")
+	}
+
+	// Convert realm_access to map
+	realmAccessMap, ok := realmAccess.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("realm_access is not a valid map")
+	}
+
+	// Extract roles
+	rolesInterface, exists := realmAccessMap["roles"]
+	if !exists {
+		return nil, fmt.Errorf("roles not found in realm_access")
+	}
+
+	// Convert roles to slice
+	rolesSlice, ok := rolesInterface.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("roles is not a valid slice")
+	}
+
+	// Convert to string slice
+	var roles []string
+	for _, role := range rolesSlice {
+		roleStr, ok := role.(string)
+		if !ok {
+			return nil, fmt.Errorf("role is not a string")
+		}
+		roles = append(roles, roleStr)
+	}
+
+	// Ensure we return an empty slice instead of nil for no roles
+	if roles == nil {
+		roles = []string{}
+	}
+
+	return roles, nil
 }

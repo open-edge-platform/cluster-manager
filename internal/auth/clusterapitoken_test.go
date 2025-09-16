@@ -5,6 +5,7 @@ package auth
 import (
 	"testing"
 	"time"
+	"os"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
@@ -182,14 +183,27 @@ func TestJwtTokenWithM2M(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Skip(tt.skipReason)
-			// TODO: Implement when JwtTokenWithM2M function is available
+			// Skip integration tests if external services are not available
+			if testing.Short() {
+				t.Skip("Skipping integration test in short mode")
+			}
+			
+			// Check if required environment variables are set
+			keycloakURL := os.Getenv("KEYCLOAK_URL")
+			if keycloakURL == "" {
+				t.Skip("KEYCLOAK_URL not set, skipping integration test")
+			}
+			
+			// TODO: Implement when external services are properly mocked or available
+			// For now, skip these tests since they require Vault and Keycloak
+			t.Skip("Integration test requires Vault and Keycloak setup")
+			
 			// token, err := JwtTokenWithM2M(context.Background(), tt.ttl)
 			// require.NoError(t, err)
 			// assert.NotEmpty(t, token)
 			
 			// // Validate TTL
-			// ttl, err := ExtractTokenTTL(token)  
+			// ttl, err := helpers.ExtractTokenTTL(token)  
 			// require.NoError(t, err)
 			// tolerance := 1 * time.Minute
 			// diff := ttl - tt.expectedTTL
@@ -269,16 +283,16 @@ func TestExtractUserRoles(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Skip(tt.skipReason)
-			// TODO: Implement when ExtractUserRoles function is available
-			// roles, err := ExtractUserRoles(tt.tokenClaims)
-			// 
-			// if tt.expectedError {
-			//     require.Error(t, err)
-			// } else {
-			//     require.NoError(t, err)
-			//     assert.Equal(t, tt.expectedRoles, roles)
-			// }
+			// Test the actual ExtractUserRoles function
+			roles, err := ExtractUserRoles(tt.tokenClaims)
+			
+			if tt.expectedError {
+				assert.Error(t, err)
+				assert.Nil(t, roles)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedRoles, roles)
+			}
 		})
 	}
 }
