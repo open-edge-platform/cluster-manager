@@ -543,7 +543,7 @@ func TestKubeconfigTTLBehavior(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Skip("TODO: Test will be implemented after TTL configuration is added")
+			t.Skip("TODO: Requires TTL configuration structure to be implemented")
 		})
 	}
 }
@@ -595,7 +595,7 @@ func TestTokenRenewalWithVaultAndKeycloak(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Skip("TODO: Test will be implemented after full M2M token renewal flow is implemented")
+			t.Skip("TODO: Requires complete TTL configuration and deployment setup")
 		})
 	}
 }
@@ -603,5 +603,5 @@ func TestTokenRenewalWithVaultAndKeycloak(t *testing.T) {
 // TestKubeconfigEndToEndWithTTL tests the complete kubeconfig retrieval with TTL
 // This test will fail initially until the full feature is implemented
 func TestKubeconfigEndToEndWithTTL(t *testing.T) {
-	t.Skip("TODO: Test will be implemented after complete TTL feature implementation")
+	t.Skip("TODO: Requires complete TTL configuration and deployment setup")
 }

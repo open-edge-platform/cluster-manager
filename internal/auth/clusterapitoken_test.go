@@ -3,9 +3,9 @@
 package auth
 
 import (
+	"os"
 	"testing"
 	"time"
-	"os"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
@@ -159,25 +159,25 @@ func TestJwtTokenWithM2M(t *testing.T) {
 			name:        "successful M2M token with 1 hour TTL",
 			ttl:         func() *time.Duration { d := 1 * time.Hour; return &d }(),
 			expectedTTL: 1 * time.Hour,
-			skipReason:  "Function will be implemented in next PR",
+			skipReason:  "TODO: Integration test requires Vault and Keycloak setup",
 		},
 		{
-			name:        "successful M2M token with 24 hour TTL", 
+			name:        "successful M2M token with 24 hour TTL",
 			ttl:         func() *time.Duration { d := 24 * time.Hour; return &d }(),
 			expectedTTL: 24 * time.Hour,
-			skipReason:  "Function will be implemented in next PR",
+			skipReason:  "TODO: Integration test requires Vault and Keycloak setup",
 		},
 		{
 			name:        "successful M2M token without TTL (use default)",
 			ttl:         nil,
 			expectedTTL: 1 * time.Hour, // Default TTL
-			skipReason:  "Function will be implemented in next PR",
+			skipReason:  "TODO: Integration test requires Vault and Keycloak setup",
 		},
 		{
 			name:        "M2M token with empty roles",
 			ttl:         func() *time.Duration { d := 2 * time.Hour; return &d }(),
 			expectedTTL: 2 * time.Hour,
-			skipReason:  "Function will be implemented in next PR",
+			skipReason:  "TODO: Integration test requires Vault and Keycloak setup",
 		},
 	}
 
@@ -187,31 +187,31 @@ func TestJwtTokenWithM2M(t *testing.T) {
 			if testing.Short() {
 				t.Skip("Skipping integration test in short mode")
 			}
-			
+
 			// Check if required environment variables are set
 			keycloakURL := os.Getenv("KEYCLOAK_URL")
 			if keycloakURL == "" {
 				t.Skip("KEYCLOAK_URL not set, skipping integration test")
 			}
-			
+
 			// TODO: Implement when external services are properly mocked or available
 			// For now, skip these tests since they require Vault and Keycloak
-			t.Skip("Integration test requires Vault and Keycloak setup")
-			
+			t.Skip("TODO: Integration test requires Vault and Keycloak setup")
+
 			// token, err := JwtTokenWithM2M(context.Background(), tt.ttl)
 			// require.NoError(t, err)
 			// assert.NotEmpty(t, token)
-			
+
 			// // Validate TTL
-			// ttl, err := helpers.ExtractTokenTTL(token)  
+			// ttl, err := helpers.ExtractTokenTTL(token)
 			// require.NoError(t, err)
 			// tolerance := 1 * time.Minute
 			// diff := ttl - tt.expectedTTL
 			// if diff < 0 {
 			//     diff = -diff
 			// }
-			// assert.True(t, diff <= tolerance, 
-			//     "Token TTL %v should be within %v of expected %v", 
+			// assert.True(t, diff <= tolerance,
+			//     "Token TTL %v should be within %v of expected %v",
 			//     ttl, tolerance, tt.expectedTTL)
 		})
 	}
@@ -224,7 +224,6 @@ func TestExtractUserRoles(t *testing.T) {
 		tokenClaims   jwt.MapClaims
 		expectedRoles []string
 		expectedError bool
-		skipReason    string
 	}{
 		{
 			name: "token with multiple roles",
@@ -235,7 +234,6 @@ func TestExtractUserRoles(t *testing.T) {
 			},
 			expectedRoles: []string{"admin", "user", "cluster-reader"},
 			expectedError: false,
-			skipReason:    "Function will be implemented in next PR",
 		},
 		{
 			name: "token with single role",
@@ -246,7 +244,6 @@ func TestExtractUserRoles(t *testing.T) {
 			},
 			expectedRoles: []string{"user"},
 			expectedError: false,
-			skipReason:    "Function will be implemented in next PR",
 		},
 		{
 			name: "token with no roles",
@@ -257,7 +254,6 @@ func TestExtractUserRoles(t *testing.T) {
 			},
 			expectedRoles: []string{},
 			expectedError: false,
-			skipReason:    "Function will be implemented in next PR",
 		},
 		{
 			name: "token without realm_access",
@@ -266,7 +262,6 @@ func TestExtractUserRoles(t *testing.T) {
 			},
 			expectedRoles: nil,
 			expectedError: true,
-			skipReason:    "Function will be implemented in next PR",
 		},
 		{
 			name: "token with invalid roles format",
@@ -277,7 +272,6 @@ func TestExtractUserRoles(t *testing.T) {
 			},
 			expectedRoles: nil,
 			expectedError: true,
-			skipReason:    "Function will be implemented in next PR",
 		},
 	}
 
@@ -285,7 +279,7 @@ func TestExtractUserRoles(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Test the actual ExtractUserRoles function
 			roles, err := ExtractUserRoles(tt.tokenClaims)
-			
+
 			if tt.expectedError {
 				assert.Error(t, err)
 				assert.Nil(t, roles)
@@ -342,7 +336,7 @@ func TestTokenTTLValidation(t *testing.T) {
 			// Test TTL validation logic
 			minTTL := 10 * time.Minute
 			maxTTL := 14 * 24 * time.Hour // 14 days
-			
+
 			isValid := tt.ttl >= minTTL && tt.ttl <= maxTTL
 			assert.Equal(t, tt.expectValid, isValid, tt.description)
 		})
