@@ -466,6 +466,14 @@ func TestUpdateKubeconfigWithToken(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Only mock token renewal for valid tokens (the first test)
+			// Let invalid tokens fail naturally for testing error handling
+			var restoreTokenRenewal func()
+			if tt.name == "successful update" {
+				restoreTokenRenewal = mockTokenRenewal(tt.token)
+				defer restoreTokenRenewal()
+			}
+			
 			updatedConfig, err := updateKubeconfigWithToken(tt.kubeconfig, tt.activeProjectID, tt.clusterName, tt.token)
 
 			if tt.expectedError != "" {

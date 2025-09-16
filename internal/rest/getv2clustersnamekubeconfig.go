@@ -236,8 +236,7 @@ func updateKubeconfigFields(config map[string]interface{}, user, clusterName, se
 }
 
 func tokenRenewal(accessToken string) (string, error) {
-	keycloak := "" // "http://platform-keycloak.orch-platform.svc/realms/master"// s.config.OidcUrl
-
+	// Extract claims from existing token to understand the user context
 	_, _, expireTime, err := auth.ExtractClaims(accessToken)
 	if err != nil {
 		return "", fmt.Errorf("failed to extract claims: %w", err)
@@ -245,18 +244,22 @@ func tokenRenewal(accessToken string) (string, error) {
 
 	timeRemaining := time.Until(expireTime)
 
-	if timeRemaining > 0 {
-		tokenResponse, err := auth.JwtToken(keycloak, accessToken)
-		if err != nil {
-			return "", err
-		}
-		slog.Debug("token renewed", "renewedToken", tokenResponse.AccessToken) // remove
-
-		return tokenResponse.AccessToken, nil
+	// If token has sufficient time remaining, return it as-is
+	if timeRemaining > 10*time.Minute {
+		slog.Debug("token has sufficient time remaining", "timeRemaining", timeRemaining)
+		return accessToken, nil
 	}
-	slog.Debug("token not renewed", "timeRemaining", timeRemaining)
 
-	return accessToken, nil
+	// Token is close to expiry, get a new M2M token
+	// Use default TTL (1 hour) for renewed tokens
+	ctx := context.Background()
+	newToken, err := auth.JwtTokenWithM2M(ctx, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to get new M2M token: %w", err)
+	}
+
+	slog.Debug("token renewed with M2M authentication", "oldTimeRemaining", timeRemaining)
+	return newToken, nil
 }
 
 type kubeConfigData struct {
