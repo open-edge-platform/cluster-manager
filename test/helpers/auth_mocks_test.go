@@ -13,12 +13,12 @@ import (
 
 func TestMockVaultAuth(t *testing.T) {
 	tests := []struct {
-		name           string
-		clientID       string
-		clientSecret   string
-		shouldFail     bool
-		failMessage    string
-		expectedError  bool
+		name          string
+		clientID      string
+		clientSecret  string
+		shouldFail    bool
+		failMessage   string
+		expectedError bool
 	}{
 		{
 			name:          "successful credential retrieval",
@@ -87,7 +87,7 @@ func TestCreateTestJWT(t *testing.T) {
 	// Test TTL extraction
 	ttl, err := ExtractTokenTTL(token)
 	require.NoError(t, err)
-	
+
 	// Should be close to 2 hours (within 1 minute tolerance)
 	expectedTTL := 2 * time.Hour
 	tolerance := 1 * time.Minute
@@ -119,24 +119,24 @@ func TestExtractTokenTTL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			token := CreateTestJWT(tt.expiration, []string{"test-role"})
-			
+
 			ttl, err := ExtractTokenTTL(token)
-			
+
 			if tt.expectedError {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				
+
 				// Calculate expected TTL
 				expectedTTL := time.Until(tt.expiration)
 				tolerance := 1 * time.Minute
-				
+
 				diff := ttl - expectedTTL
 				if diff < 0 {
 					diff = -diff
 				}
-				assert.True(t, diff <= tolerance, 
-					"Extracted TTL %v should be within %v of expected %v", 
+				assert.True(t, diff <= tolerance,
+					"Extracted TTL %v should be within %v of expected %v",
 					ttl, tolerance, expectedTTL)
 			}
 		})
@@ -147,7 +147,7 @@ func TestValidateKubeconfigToken(t *testing.T) {
 	// Create a test kubeconfig with a token
 	exp := time.Now().Add(2 * time.Hour)
 	token := CreateTestJWT(exp, []string{"test-role"})
-	
+
 	kubeconfigYAML := `apiVersion: v1
 kind: Config
 users:
@@ -170,7 +170,7 @@ users:
 		},
 		{
 			name:          "TTL outside tolerance",
-			expectedTTL:   1 * time.Hour,  // Token has 2 hours
+			expectedTTL:   1 * time.Hour, // Token has 2 hours
 			tolerance:     30 * time.Minute,
 			expectedError: true,
 		},
@@ -179,7 +179,7 @@ users:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateKubeconfigToken(kubeconfigYAML, tt.expectedTTL, tt.tolerance)
-			
+
 			if tt.expectedError {
 				require.Error(t, err)
 			} else {

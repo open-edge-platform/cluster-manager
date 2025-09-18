@@ -116,7 +116,10 @@ func (m *MockKeycloakServer) handleTokenRequest(w http.ResponseWriter, r *http.R
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (m *MockKeycloakServer) generateMockJWT(ttl time.Duration) string {
@@ -184,7 +187,7 @@ func ValidateKubeconfigToken(kubeconfigYAML string, expectedTTL time.Duration, t
 	// Extract token from kubeconfig YAML
 	lines := strings.Split(kubeconfigYAML, "\n")
 	var token string
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "token:") {
@@ -210,7 +213,7 @@ func ValidateKubeconfigToken(kubeconfigYAML string, expectedTTL time.Duration, t
 	}
 
 	if diff > tolerance {
-		return fmt.Errorf("token TTL %v differs from expected %v by more than tolerance %v", 
+		return fmt.Errorf("token TTL %v differs from expected %v by more than tolerance %v",
 			actualTTL, expectedTTL, tolerance)
 	}
 

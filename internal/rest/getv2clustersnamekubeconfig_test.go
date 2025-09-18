@@ -473,7 +473,7 @@ func TestUpdateKubeconfigWithToken(t *testing.T) {
 				restoreTokenRenewal = mockTokenRenewal(tt.token)
 				defer restoreTokenRenewal()
 			}
-			
+
 			updatedConfig, err := updateKubeconfigWithToken(tt.kubeconfig, tt.activeProjectID, tt.clusterName, tt.token)
 
 			if tt.expectedError != "" {
@@ -495,17 +495,17 @@ func TestTokenRenewal(t *testing.T) {
 // This test will fail initially until we implement TTL configuration
 func TestKubeconfigTTLBehavior(t *testing.T) {
 	tests := []struct {
-		name               string
-		disableCustomTTL   bool
-		kubeconfigTTL      time.Duration
-		tokenNeedsRenewal  bool
-		expectedError      bool
-		expectedTTL        time.Duration
-		tolerance          time.Duration
+		name              string
+		disableCustomTTL  bool
+		kubeconfigTTL     time.Duration
+		tokenNeedsRenewal bool
+		expectedError     bool
+		expectedTTL       time.Duration
+		tolerance         time.Duration
 	}{
 		{
 			name:              "custom TTL enabled - 2 hours",
-			disableCustomTTL:  false,  // false = enable custom TTL
+			disableCustomTTL:  false, // false = enable custom TTL
 			kubeconfigTTL:     2 * time.Hour,
 			tokenNeedsRenewal: true,
 			expectedError:     false,
@@ -514,7 +514,7 @@ func TestKubeconfigTTLBehavior(t *testing.T) {
 		},
 		{
 			name:              "custom TTL enabled - 24 hours",
-			disableCustomTTL:  false,  // false = enable custom TTL
+			disableCustomTTL:  false, // false = enable custom TTL
 			kubeconfigTTL:     24 * time.Hour,
 			tokenNeedsRenewal: true,
 			expectedError:     false,
@@ -523,16 +523,16 @@ func TestKubeconfigTTLBehavior(t *testing.T) {
 		},
 		{
 			name:              "custom TTL disabled - use default",
-			disableCustomTTL:  true,   // true = disable custom TTL
-			kubeconfigTTL:     12 * time.Hour,  // Should be ignored
+			disableCustomTTL:  true,           // true = disable custom TTL
+			kubeconfigTTL:     12 * time.Hour, // Should be ignored
 			tokenNeedsRenewal: true,
 			expectedError:     false,
-			expectedTTL:       1 * time.Hour,   // Keycloak default
+			expectedTTL:       1 * time.Hour, // Keycloak default
 			tolerance:         5 * time.Minute,
 		},
 		{
 			name:              "token doesn't need renewal",
-			disableCustomTTL:  false,  // false = enable custom TTL
+			disableCustomTTL:  false, // false = enable custom TTL
 			kubeconfigTTL:     6 * time.Hour,
 			tokenNeedsRenewal: false,
 			expectedError:     false,

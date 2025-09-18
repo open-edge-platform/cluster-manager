@@ -78,7 +78,7 @@ func JwtTokenWithM2M(ctx context.Context, ttl *time.Duration) (string, error) {
 	data.Set("grant_type", "client_credentials")
 	data.Set("client_id", clientID)
 	data.Set("client_secret", clientSecret)
-	
+
 	// Add custom TTL if supported by Keycloak configuration
 	// Note: This may require custom Keycloak configuration to respect the TTL parameter
 	if ttl != nil {

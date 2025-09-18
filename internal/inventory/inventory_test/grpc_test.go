@@ -121,7 +121,7 @@ func TestGetHostTrustedCompute(t *testing.T) {
 			name: "error getting host",
 			mock: func() {
 				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError).Once()
-				mockClient.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(&inventoryv1.GetResourceResponse{}, assert.AnError).Once()				
+				mockClient.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(&inventoryv1.GetResourceResponse{}, assert.AnError).Once()
 			},
 			expectedErr: assert.AnError,
 		},
