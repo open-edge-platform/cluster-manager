@@ -20,16 +20,7 @@ const (
 	vaultSecretBaseURL = `/v1/secret/data/` // #nosec
 	m2mVaultClient     = "co-manager-m2m-client-secret"
 	VaultServer        = "http://vault.orch-platform.svc.cluster.local:8200"
-	// vaultServer := "http://localhost:8200" // for local testing
-	ServiceAccount = "cluster-manager"
-	// note: it was necessary to ensure that the Vault role configuration matches the service account and namespace being used.
-	// I have to adjust the Vault role configuration to include the cluster-manager service account (used for CM)
-	// $ vault write auth/kubernetes/role/cluster-manager \
-	// bound_service_account_names="cluster-manager" \
-	// bound_service_account_namespaces="orch-cluster" \
-	// policies="orch-svc" \
-	// ttl="1h"
-	// TODO: need to check if this can be done in the Job script when role is created in the vault server
+	ServiceAccount     = "cluster-manager"
 )
 
 type VaultAuth interface {
@@ -68,7 +59,6 @@ func (v *vaultAuth) getVaultToken(ctx context.Context) (string, error) {
 	}
 
 	tokenData, err := os.ReadFile(vaultK8STokenFile)
-	//	tokenData := []byte(vaultK8STokenFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to read Kubernetes token file: %w", err)
 	}

@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
@@ -488,7 +489,88 @@ func TestUpdateKubeconfigWithToken(t *testing.T) {
 }
 
 func TestTokenRenewal(t *testing.T) {
-	// to implement
+	tests := []struct {
+		name          string
+		tokenExp      time.Time
+		expectedError bool
+		expectRenewal bool
+	}{
+		{
+			name:          "token has sufficient time remaining (20 minutes)",
+			tokenExp:      time.Now().Add(20 * time.Minute),
+			expectedError: false,
+			expectRenewal: false,
+		},
+		{
+			name:          "token has sufficient time remaining (exactly 11 minutes)",
+			tokenExp:      time.Now().Add(11 * time.Minute),
+			expectedError: false,
+			expectRenewal: false,
+		},
+		{
+			name:          "token needs renewal (10 minutes)",
+			tokenExp:      time.Now().Add(10 * time.Minute),
+			expectedError: false,
+			expectRenewal: true,
+		},
+		{
+			name:          "token needs renewal (5 minutes)",
+			tokenExp:      time.Now().Add(5 * time.Minute),
+			expectedError: false,
+			expectRenewal: true,
+		},
+		{
+			name:          "token already expired",
+			tokenExp:      time.Now().Add(-5 * time.Minute),
+			expectedError: false,
+			expectRenewal: true,
+		},
+		{
+			name:          "invalid token format",
+			tokenExp:      time.Time{}, // This will cause ExtractClaims to fail
+			expectedError: true,
+			expectRenewal: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Skip tests that require M2M infrastructure when they would fail
+			if tt.expectRenewal {
+				t.Skip("TODO: Requires M2M infrastructure (Vault, Keycloak, K8s service account). Use integration tests for full flow.")
+			}
+
+			// Create a test token (except for invalid token test)
+			var accessToken string
+			if tt.name != "invalid token format" {
+				token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+					"azp":                "test-client-id",
+					"preferred_username": "test-username",
+					"exp":                tt.tokenExp.Unix(),
+				})
+				var err error
+				accessToken, err = token.SignedString([]byte("secret"))
+				require.NoError(t, err)
+			} else {
+				accessToken = "invalid-token"
+			}
+
+			result, err := tokenRenewal(accessToken)
+
+			if tt.expectedError {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.NotEmpty(t, result)
+
+			// For tokens with sufficient time, the original token should be returned
+			if !tt.expectRenewal {
+				assert.Equal(t, accessToken, result, "Original token should be returned when sufficient time remains")
+			}
+		})
+	}
 }
 
 // TestKubeconfigTTLBehavior tests TTL behavior in kubeconfig generation

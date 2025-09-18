@@ -24,7 +24,6 @@ type TokenResponse struct {
 // ExtractClaims extracts claims from a JWT token
 func ExtractClaims(tokenString string) (string, string, time.Time, error) {
 	// Parse the token without verifying the signature to extract the claims
-	// but since the token has passed the auth check, we can trust the claims - Confirm
 	token, _, err := new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
 	if err != nil {
 		return "", "", time.Time{}, fmt.Errorf("failed to parse token: %w", err)
@@ -50,13 +49,12 @@ func ExtractClaims(tokenString string) (string, string, time.Time, error) {
 
 // JwtTokenWithM2M retrieves a new token from Keycloak using M2M authentication with configurable TTL
 func JwtTokenWithM2M(ctx context.Context, ttl *time.Duration) (string, error) {
-	// Set default TTL to 1 hour if not provided
 	defaultTTL := 1 * time.Hour
 	if ttl == nil {
 		ttl = &defaultTTL
 	}
 
-	// Get M2M credentials from Vault
+	// Get M2M credentials
 	vaultAuth, err := NewVaultAuth(VaultServer, ServiceAccount)
 	if err != nil {
 		return "", fmt.Errorf("failed to create vault auth: %w", err)
@@ -67,7 +65,6 @@ func JwtTokenWithM2M(ctx context.Context, ttl *time.Duration) (string, error) {
 		return "", fmt.Errorf("failed to get M2M credentials from Vault: %w", err)
 	}
 
-	// Get Keycloak URL from environment
 	keycloakURL := os.Getenv("KEYCLOAK_URL")
 	if keycloakURL == "" {
 		return "", fmt.Errorf("KEYCLOAK_URL environment variable not set")
@@ -80,7 +77,6 @@ func JwtTokenWithM2M(ctx context.Context, ttl *time.Duration) (string, error) {
 	data.Set("client_secret", clientSecret)
 
 	// Add custom TTL if supported by Keycloak configuration
-	// Note: This may require custom Keycloak configuration to respect the TTL parameter
 	if ttl != nil {
 		ttlSeconds := int64(ttl.Seconds())
 		data.Set("session_state", strconv.FormatInt(ttlSeconds, 10)) // Custom parameter for TTL
@@ -114,31 +110,26 @@ func JwtTokenWithM2M(ctx context.Context, ttl *time.Duration) (string, error) {
 
 // ExtractUserRoles extracts user roles from JWT token claims
 func ExtractUserRoles(claims jwt.MapClaims) ([]string, error) {
-	// Check if realm_access exists
 	realmAccess, exists := claims["realm_access"]
 	if !exists {
 		return nil, fmt.Errorf("realm_access not found in token claims")
 	}
 
-	// Convert realm_access to map
 	realmAccessMap, ok := realmAccess.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("realm_access is not a valid map")
 	}
 
-	// Extract roles
 	rolesInterface, exists := realmAccessMap["roles"]
 	if !exists {
 		return nil, fmt.Errorf("roles not found in realm_access")
 	}
 
-	// Convert roles to slice
 	rolesSlice, ok := rolesInterface.([]interface{})
 	if !ok {
 		return nil, fmt.Errorf("roles is not a valid slice")
 	}
 
-	// Convert to string slice
 	var roles []string
 	for _, role := range rolesSlice {
 		roleStr, ok := role.(string)
@@ -148,7 +139,7 @@ func ExtractUserRoles(claims jwt.MapClaims) ([]string, error) {
 		roles = append(roles, roleStr)
 	}
 
-	// Ensure we return an empty slice instead of nil for no roles
+	// return an empty slice instead of nil for no roles
 	if roles == nil {
 		roles = []string{}
 	}

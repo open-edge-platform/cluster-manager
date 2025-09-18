@@ -104,9 +104,5 @@ func initializeAuth(config *config.Config) {
 			slog.Error("failed to fetch client credentials from Vault", "error", err)
 			os.Exit(4)
 		}
-		// Credentials retrieved successfully - do not log sensitive values
-		slog.Info("Successfully retrieved client credentials from Vault")
-	} else {
-		slog.Info("Authentication disabled, skipping Vault initialization")
 	}
 }
