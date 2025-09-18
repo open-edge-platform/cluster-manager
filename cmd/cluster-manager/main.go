@@ -59,21 +59,24 @@ func main() {
 		os.Exit(3)
 	}
 
-	// Initialize VaultAuth and fetch client credentials
-	vaultAuth, err := auth.NewVaultAuth(auth.VaultServer, auth.ServiceAccount)
-	if err != nil {
-		slog.Error("failed to initialize VaultAuth", "error", err)
-		os.Exit(4)
-	}
+	// Initialize VaultAuth and fetch client credentials only when authentication is enabled
+	if !config.DisableAuth {
+		vaultAuth, err := auth.NewVaultAuth(auth.VaultServer, auth.ServiceAccount)
+		if err != nil {
+			slog.Error("failed to initialize VaultAuth", "error", err)
+			os.Exit(4)
+		}
 
-	clientID, clientSecret, err := vaultAuth.GetClientCredentials(context.Background())
-	if err != nil {
-		slog.Error("failed to fetch client credentials from Vault", "error", err)
-		os.Exit(4)
+		_, _, err = vaultAuth.GetClientCredentials(context.Background())
+		if err != nil {
+			slog.Error("failed to fetch client credentials from Vault", "error", err)
+			os.Exit(4)
+		}
+		// Credentials retrieved successfully - do not log sensitive values
+		slog.Info("Successfully retrieved client credentials from Vault")
+	} else {
+		slog.Info("Authentication disabled, skipping Vault initialization")
 	}
-	// testing the client credentials
-	slog.Info("Successfully retrieved client credentials from Vault", "client_id", clientID)
-	slog.Info("Successfully retrieved client credentials from Vault", "client_secret", clientSecret)
 
 	auth, err := rest.GetAuthenticator(config)
 	if err != nil {
