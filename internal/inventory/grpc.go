@@ -194,10 +194,9 @@ func (c *InventoryClient) WatchHosts(hostEvents chan<- events.Event) {
 					slog.Warn("failed to validate host resource", "error", err)
 					continue
 				}
-				slog.Info("TODO: REMOVE ME: Received host event", "eventKind", event.Event.EventKind.String(), "hostId", host.ResourceId, "hostName", host.Name, "hostState", host.CurrentState.String())
 				// delete the cluster assigned to deauth host if one exists
 				if host.CurrentState == computev1.HostState_HOST_STATE_UNTRUSTED {
-					slog.Info("TODO REMOVE ME: Host is deauthenticating, deleting assigned cluster if one exists", "hostId", host.ResourceId, "tenantId", host.TenantId)
+					slog.Info("host is deauthenticating, performing cleanup", "hostId", host.ResourceId, "tenantId", host.TenantId)
 					// get the name of cluster assigned to the host
 					machine, err := c.k8sclient.GetMachineByHostID(context.TODO(), host.TenantId, host.ResourceId)
 					if err != nil {
