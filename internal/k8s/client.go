@@ -220,6 +220,15 @@ func (c *Client) DeleteClusters(ctx context.Context, namespace string) error {
 	return c.Dyn.Resource(clusterResourceSchema).Namespace(namespace).DeleteCollection(ctx, deleteOptions, metav1.ListOptions{})
 }
 
+func (c *Client) DeleteCluster(ctx context.Context, namespace string, clusterName string) error {
+	deletePolicy := metav1.DeletePropagationForeground
+	deleteOptions := metav1.DeleteOptions{
+		PropagationPolicy: &deletePolicy,
+	}
+
+	return c.Dyn.Resource(clusterResourceSchema).Namespace(namespace).Delete(ctx, clusterName, deleteOptions)
+}
+
 // DeleteTemplates deletes all templates in the given namespace
 func (c *Client) DeleteTemplates(ctx context.Context, namespace string) error {
 	deletePolicy := metav1.DeletePropagationForeground

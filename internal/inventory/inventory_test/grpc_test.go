@@ -7,16 +7,20 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 
 	computev1 "github.com/open-edge-platform/infra-core/inventory/v2/pkg/api/compute/v1"
 	inventoryv1 "github.com/open-edge-platform/infra-core/inventory/v2/pkg/api/inventory/v1"
 	osv1 "github.com/open-edge-platform/infra-core/inventory/v2/pkg/api/os/v1"
 
+	"github.com/open-edge-platform/cluster-manager/v2/internal/events"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/inventory"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	mocks "github.com/open-edge-platform/cluster-manager/v2/internal/mocks/client"
 	"github.com/open-edge-platform/infra-core/inventory/v2/pkg/client"
 )
@@ -121,7 +125,7 @@ func TestGetHostTrustedCompute(t *testing.T) {
 			name: "error getting host",
 			mock: func() {
 				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError).Once()
-				mockClient.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(&inventoryv1.GetResourceResponse{}, assert.AnError).Once()				
+				mockClient.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(&inventoryv1.GetResourceResponse{}, assert.AnError).Once()
 			},
 			expectedErr: assert.AnError,
 		},
@@ -270,6 +274,146 @@ func TestJsonStringToMap(t *testing.T) {
 			result, err := inventory.JsonStringToMap(tc.jsonStr)
 			require.NoError(t, err)
 			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestWatchHosts_DeleteClusterOnDeauthorizedHost(t *testing.T) {
+	mockClient := mocks.NewMockTenantAwareInventoryClient(t)
+	mockK8sClient := k8s.NewMockK8sWrapperClient(t)
+
+	inventory.GetInventoryClientFunc = func(ctx context.Context, cfg client.InventoryClientConfig) (client.TenantAwareInventoryClient, error) {
+		return mockClient, nil
+	}
+
+	cases := []struct {
+		name                string
+		hostState           computev1.HostState
+		machine             *capi.Machine
+		getMachineError     error
+		deleteClusterError  error
+		expectDeleteCluster bool
+		expectWarning       bool
+	}{
+		{
+			name:      "deauthorized host with assigned cluster - successful deletion",
+			hostState: computev1.HostState_HOST_STATE_UNTRUSTED,
+			machine: &capi.Machine{
+				Spec: capi.MachineSpec{
+					ClusterName: "test-cluster",
+				},
+			},
+			expectDeleteCluster: true,
+		},
+		{
+			name:      "deauthorized host with no assigned cluster",
+			hostState: computev1.HostState_HOST_STATE_UNTRUSTED,
+			machine: &capi.Machine{
+				Spec: capi.MachineSpec{
+					ClusterName: "", // No cluster assigned
+				},
+			},
+			expectDeleteCluster: false,
+		},
+		{
+			name:                "deauthorized host - machine not found",
+			hostState:           computev1.HostState_HOST_STATE_UNTRUSTED,
+			getMachineError:     errors.New("machine not found"),
+			expectDeleteCluster: false,
+			expectWarning:       true,
+		},
+		{
+			name:      "deauthorized host - cluster deletion fails",
+			hostState: computev1.HostState_HOST_STATE_UNTRUSTED,
+			machine: &capi.Machine{
+				Spec: capi.MachineSpec{
+					ClusterName: "test-cluster",
+				},
+			},
+			deleteClusterError:  errors.New("failed to delete cluster"),
+			expectDeleteCluster: true,
+			expectWarning:       true,
+		},
+		{
+			name:                "authorized host - no cluster deletion",
+			hostState:           computev1.HostState_HOST_STATE_ONBOARDED,
+			expectDeleteCluster: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create test host event
+			testHost := &computev1.HostResource{
+				ResourceId:   "host-12345678",                        // Valid format: host-[0-9a-f]{8}
+				TenantId:     "123e4567-e89b-12d3-a456-426614174000", // Valid UUID
+				Name:         "test-host",
+				CurrentState: tc.hostState,
+			}
+
+			// Set up mocks based on test case
+			if tc.hostState == computev1.HostState_HOST_STATE_UNTRUSTED {
+				if tc.getMachineError != nil {
+					mockK8sClient.On("GetMachineByHostID", mock.Anything, testHost.TenantId, testHost.ResourceId).
+						Return(capi.Machine{}, tc.getMachineError).Once()
+				} else if tc.machine != nil {
+					mockK8sClient.On("GetMachineByHostID", mock.Anything, testHost.TenantId, testHost.ResourceId).
+						Return(*tc.machine, nil).Once()
+
+					if tc.expectDeleteCluster && tc.machine.Spec.ClusterName != "" {
+						if tc.deleteClusterError != nil {
+							mockK8sClient.On("DeleteCluster", mock.Anything, testHost.TenantId, tc.machine.Spec.ClusterName).
+								Return(tc.deleteClusterError).Once()
+						} else {
+							mockK8sClient.On("DeleteCluster", mock.Anything, testHost.TenantId, tc.machine.Spec.ClusterName).
+								Return(nil).Once()
+						}
+					}
+				}
+			}
+
+			// Create inventory client with mocked k8s client
+			invClient := inventory.NewTestInventoryClient(mockK8sClient, mockClient)
+
+			// Create a channel to capture host events
+			hostEvents := make(chan events.Event, 1)
+
+			// Create the watch event that would come from the inventory service
+			watchEvent := &client.WatchEvents{
+				Event: &inventoryv1.SubscribeEventsResponse{
+					EventKind: inventoryv1.SubscribeEventsResponse_EVENT_KIND_UPDATED, // Or CREATED
+					Resource: &inventoryv1.Resource{
+						Resource: &inventoryv1.Resource_Host{
+							Host: testHost,
+						},
+					},
+				},
+			}
+
+			// Simulate the event being received
+			go func() {
+				invClient.InjectEvent(watchEvent)
+				invClient.CloseEvents() // Close to stop the watch loop
+			}()
+
+			// Start watching hosts
+			invClient.WatchHosts(hostEvents)
+
+			// Give some time for the goroutine to process
+			time.Sleep(100 * time.Millisecond)
+
+			// Verify all expectations were met
+			mockK8sClient.AssertExpectations(t)
+
+			// If we expect a regular event (not just deletion), check it was sent
+			if tc.hostState != computev1.HostState_HOST_STATE_UNTRUSTED {
+				select {
+				case event := <-hostEvents:
+					assert.NotNil(t, event)
+				case <-time.After(100 * time.Millisecond):
+					t.Error("Expected to receive a host event")
+				}
+			}
 		})
 	}
 }

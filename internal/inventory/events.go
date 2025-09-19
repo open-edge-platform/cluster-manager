@@ -41,7 +41,7 @@ func (e HostEventBase) validate() error {
 type HostUpdated struct {
 	HostEventBase
 	Labels map[string]string
-	K8scli *k8s.Client
+	K8scli k8s.K8sWrapperClient
 }
 
 // HostCreated is an event triggered when a host is created in the Inventory
