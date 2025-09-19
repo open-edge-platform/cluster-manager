@@ -76,11 +76,8 @@ func JwtTokenWithM2M(ctx context.Context, ttl *time.Duration) (string, error) {
 	data.Set("client_id", clientID)
 	data.Set("client_secret", clientSecret)
 
-	// Add custom TTL if supported by Keycloak configuration
-	if ttl != nil {
-		ttlSeconds := int64(ttl.Seconds())
-		data.Set("session_state", strconv.FormatInt(ttlSeconds, 10)) // Custom parameter for TTL
-	}
+	ttlSeconds := int64(ttl.Seconds())
+	data.Set("session_state", strconv.FormatInt(ttlSeconds, 10)) // Custom parameter for TTL
 
 	tokenURL := fmt.Sprintf("%s/protocol/openid-connect/token", keycloakURL)
 	req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, bytes.NewBufferString(data.Encode()))
