@@ -220,6 +220,7 @@ func (c *Client) DeleteClusters(ctx context.Context, namespace string) error {
 	return c.Dyn.Resource(clusterResourceSchema).Namespace(namespace).DeleteCollection(ctx, deleteOptions, metav1.ListOptions{})
 }
 
+// DeleteCluster deletes a cluster with the given name in the given namespace
 func (c *Client) DeleteCluster(ctx context.Context, namespace string, clusterName string) error {
 	deletePolicy := metav1.DeletePropagationForeground
 	deleteOptions := metav1.DeleteOptions{
