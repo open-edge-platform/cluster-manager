@@ -19,6 +19,7 @@ import (
 )
 
 var updateKubeconfigWithTokenFunc = updateKubeconfigWithToken
+//nolint:unused // will be used in the next PR
 var tokenRenewalFunc = tokenRenewal
 
 // (GET /v2/clusters/{name}/kubeconfigs)
@@ -235,7 +236,7 @@ func updateKubeconfigFields(config map[string]interface{}, user, clusterName, se
 		},
 	}
 }
-
+//nolint:unused // will be used in the next PR
 func tokenRenewal(accessToken string) (string, error) {
 	ctx := context.Background()
 	newToken, err := auth.JwtTokenWithM2M(ctx, nil)

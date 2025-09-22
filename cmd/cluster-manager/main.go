@@ -89,7 +89,7 @@ func initializeK8sClient() *k8s.Client {
 	}
 	return k8sclient
 }
-
+//nolint:unused // will be used in the next PR
 func initializeAuth(config *config.Config) {
 	// Initialize VaultAuth and fetch client credentials only when authentication is enabled
 	if !config.DisableAuth {
