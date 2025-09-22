@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"time"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
@@ -236,29 +235,13 @@ func updateKubeconfigFields(config map[string]interface{}, user, clusterName, se
 }
 
 func tokenRenewal(accessToken string) (string, error) {
-	// Extract claims from existing token to understand the user context
-	_, _, expireTime, err := auth.ExtractClaims(accessToken)
-	if err != nil {
-		return "", fmt.Errorf("failed to extract claims: %w", err)
-	}
-
-	timeRemaining := time.Until(expireTime)
-
-	// If token has sufficient time remaining, return it as-is
-	if timeRemaining > 10*time.Minute {
-		slog.Debug("token has sufficient time remaining", "timeRemaining", timeRemaining)
-		return accessToken, nil
-	}
-
-	// Token is close to expiry, get a new M2M token
-	// Use default TTL (1 hour) for renewed tokens
 	ctx := context.Background()
 	newToken, err := auth.JwtTokenWithM2M(ctx, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to get new M2M token: %w", err)
 	}
 
-	slog.Debug("token renewed with M2M authentication", "oldTimeRemaining", timeRemaining)
+	slog.Debug("generated fresh token with M2M authentication for consistent TTL")
 	return newToken, nil
 }
 

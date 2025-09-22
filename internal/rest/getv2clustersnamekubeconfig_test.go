@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
@@ -460,7 +459,7 @@ func TestUpdateKubeconfigWithToken(t *testing.T) {
 			activeProjectID: "655a6892-4280-4c37-97b1-31161ac0b99e",
 			clusterName:     "example-cluster",
 			token:           "new-token",
-			expectedError:   "failed to extract claims: failed to parse token: token is malformed: token contains an invalid number of segments",
+			expectedError:   "failed to get new M2M token:",
 			expectedConfig:  "",
 		},
 	}
@@ -491,71 +490,32 @@ func TestUpdateKubeconfigWithToken(t *testing.T) {
 func TestTokenRenewal(t *testing.T) {
 	tests := []struct {
 		name          string
-		tokenExp      time.Time
+		tokenInput    string
 		expectedError bool
-		expectRenewal bool
+		description   string
 	}{
 		{
-			name:          "token has sufficient time remaining (20 minutes)",
-			tokenExp:      time.Now().Add(20 * time.Minute),
+			name:          "valid token input - always generates fresh token",
+			tokenInput:    "valid-token-placeholder",
 			expectedError: false,
-			expectRenewal: false,
+			description:   "Function should always generate fresh token regardless of input token expiration",
 		},
 		{
-			name:          "token has sufficient time remaining (exactly 11 minutes)",
-			tokenExp:      time.Now().Add(11 * time.Minute),
+			name:          "invalid token input - still generates fresh token",
+			tokenInput:    "invalid-token",
 			expectedError: false,
-			expectRenewal: false,
-		},
-		{
-			name:          "token needs renewal (10 minutes)",
-			tokenExp:      time.Now().Add(10 * time.Minute),
-			expectedError: false,
-			expectRenewal: true,
-		},
-		{
-			name:          "token needs renewal (5 minutes)",
-			tokenExp:      time.Now().Add(5 * time.Minute),
-			expectedError: false,
-			expectRenewal: true,
-		},
-		{
-			name:          "token already expired",
-			tokenExp:      time.Now().Add(-5 * time.Minute),
-			expectedError: false,
-			expectRenewal: true,
-		},
-		{
-			name:          "invalid token format",
-			tokenExp:      time.Time{}, // This will cause ExtractClaims to fail
-			expectedError: true,
-			expectRenewal: false,
+			description:   "Function should generate fresh token even with invalid input (input token is not used)",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Skip tests that require M2M infrastructure when they would fail
-			if tt.expectRenewal {
-				t.Skip("TODO: Requires M2M infrastructure (Vault, Keycloak, K8s service account). Use integration tests for full flow.")
-			}
+			// Skip tests that require M2M infrastructure
+			t.Skip("TODO: Requires M2M infrastructure (Vault, Keycloak, K8s service account). Use integration tests for full flow.")
 
-			// Create a test token (except for invalid token test)
-			var accessToken string
-			if tt.name != "invalid token format" {
-				token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-					"azp":                "test-client-id",
-					"preferred_username": "test-username",
-					"exp":                tt.tokenExp.Unix(),
-				})
-				var err error
-				accessToken, err = token.SignedString([]byte("secret"))
-				require.NoError(t, err)
-			} else {
-				accessToken = "invalid-token"
-			}
-
-			result, err := tokenRenewal(accessToken)
+			// Note: Since we always generate fresh tokens now, the input token doesn't matter
+			// The function will always call auth.JwtTokenWithM2M() regardless of input
+			result, err := tokenRenewal(tt.tokenInput)
 
 			if tt.expectedError {
 				assert.Error(t, err)
@@ -564,11 +524,8 @@ func TestTokenRenewal(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.NotEmpty(t, result)
-
-			// For tokens with sufficient time, the original token should be returned
-			if !tt.expectRenewal {
-				assert.Equal(t, accessToken, result, "Original token should be returned when sufficient time remains")
-			}
+			// With the new implementation, we always get a fresh token, never the original
+			assert.NotEqual(t, tt.tokenInput, result, "Should always generate fresh token, never return original")
 		})
 	}
 }
