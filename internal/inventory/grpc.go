@@ -204,6 +204,8 @@ func (c *InventoryClient) WatchHosts(hostEvents chan<- events.Event) {
 						continue
 					}
 					if machine.Spec.ClusterName != "" {
+						// TODO: for multi-node, if cluster replicas > 1, remove IntelMachineBinding and decrement replicas
+						// delete the cluster
 						slog.Info("deauthenticating host, deleting assigned cluster if one exists", "hostId", host.ResourceId, "tenantId", host.TenantId, "cluster", machine.Spec.ClusterName)
 						if err := c.k8sclient.DeleteCluster(context.TODO(), host.TenantId, machine.Spec.ClusterName); err != nil {
 							slog.Warn("failed to delete cluster", "error", err, "cluster", machine.Spec.ClusterName, "tenantId", host.TenantId)
