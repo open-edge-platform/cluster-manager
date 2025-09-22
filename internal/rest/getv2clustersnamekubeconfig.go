@@ -111,10 +111,12 @@ func (s *Server) getClusterKubeconfig(ctx context.Context, namespace, clusterNam
 
 func updateKubeconfigWithToken(kubeconfig kubeconfigParameters, namespace, clusterName, authHeader string) (string, error) {
 	token := auth.GetAccessToken(authHeader)
-	newAccessToken, err := tokenRenewalFunc(token)
-	if err != nil {
-		return "", err
-	}
+	// enable in feature flags on next PR
+	newAccessToken := token
+	// newAccessToken, err := tokenRenewalFunc(token)
+	// if err != nil {
+	// 	return "", err
+	// }
 	caData, domain, userName := kubeconfig.serverCA, kubeconfig.clusterDomain, kubeconfig.userName
 
 	config, err := unmarshalKubeconfig(kubeconfig.kubeConfigDecode)

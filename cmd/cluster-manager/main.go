@@ -36,7 +36,7 @@ func main() {
 	initializeMultitenancy(config)
 
 	k8sclient := initializeK8sClient()
-	initializeAuth(config)
+	//initializeAuth(config) // TODO: updated on feature flags pr
 
 	auth, err := rest.GetAuthenticator(config)
 	if err != nil {
