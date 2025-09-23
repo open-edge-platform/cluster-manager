@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+var JwtTokenWithM2MFunc = auth.JwtTokenWithM2M
 var updateKubeconfigWithTokenFunc = updateKubeconfigWithToken
 var tokenRenewalFunc = func(token string, disableAuth bool, disableCustomTTL bool, ttl *time.Duration) (string, error) {
 	return tokenRenewal(token, disableAuth, disableCustomTTL, ttl)
@@ -255,7 +256,7 @@ func tokenRenewal(accessToken string, disableAuth bool, disableCustomTTL bool, t
 		return accessToken, nil
 	}	
 	ctx := context.Background()
-	newToken, err := auth.JwtTokenWithM2M(ctx, ttl)
+	newToken, err := JwtTokenWithM2MFunc(ctx, ttl)
 	if err != nil {
 		return "", fmt.Errorf("failed to get new M2M token: %w", err)
 	}
