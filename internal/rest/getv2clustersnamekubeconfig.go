@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
@@ -19,7 +20,9 @@ import (
 )
 
 var updateKubeconfigWithTokenFunc = updateKubeconfigWithToken
-var tokenRenewalFunc = tokenRenewal
+var tokenRenewalFunc = func(token string, disableAuth bool, disableCustomTTL bool, ttl *time.Duration) (string, error) {
+	return tokenRenewal(token, disableAuth, disableCustomTTL, ttl)
+}
 
 // (GET /v2/clusters/{name}/kubeconfigs)
 func (s *Server) GetV2ClustersNameKubeconfigs(ctx context.Context, request api.GetV2ClustersNameKubeconfigsRequestObject) (api.GetV2ClustersNameKubeconfigsResponseObject, error) {
@@ -45,7 +48,18 @@ func (s *Server) GetV2ClustersNameKubeconfigs(ctx context.Context, request api.G
 		}, nil
 	}
 
-	clusterKubeconfigUpdated, err := updateKubeconfigWithTokenFunc(clusterKubeconfig, namespace, request.Name, request.Params.Authorization)
+	// Determine TTL for kubeconfig JWT based on configuration
+	var kubeconfigTTL *time.Duration
+	if !s.config.DisableCustomTTL {
+		if s.config.DefaultKubeconfigTTL > 0 {
+			kubeconfigTTL = &s.config.DefaultKubeconfigTTL
+		} else {
+			slog.Debug("DefaultKubeconfigTTL is not set or zero, using Keycloak defaults")
+			kubeconfigTTL = nil
+		}
+	}
+
+	clusterKubeconfigUpdated, err := updateKubeconfigWithTokenFunc(clusterKubeconfig, namespace, request.Name, request.Params.Authorization, s.config.DisableAuth, s.config.DisableCustomTTL, kubeconfigTTL)
 	if err != nil {
 		slog.Error("failed to update kubeconfig with token", "error", err)
 		return api.GetV2ClustersNameKubeconfigs500JSONResponse{
@@ -109,9 +123,9 @@ func (s *Server) getClusterKubeconfig(ctx context.Context, namespace, clusterNam
 // server external:
 // server: https://connect-gateway.<domain>:443/kubernetes/<project-id>-<cluster-name>
 
-func updateKubeconfigWithToken(kubeconfig kubeconfigParameters, namespace, clusterName, authHeader string) (string, error) {
+func updateKubeconfigWithToken(kubeconfig kubeconfigParameters, namespace, clusterName, authHeader string, disableAuth bool, disableCustomTTL bool, ttl *time.Duration) (string, error) {
 	token := auth.GetAccessToken(authHeader)
-	newAccessToken, err := tokenRenewalFunc(token)
+	newAccessToken, err := tokenRenewal(token, disableAuth, disableCustomTTL, ttl)
 	if err != nil {
 		return "", err
 	}
@@ -234,9 +248,14 @@ func updateKubeconfigFields(config map[string]interface{}, user, clusterName, se
 	}
 }
 
-func tokenRenewal(accessToken string) (string, error) {
+func tokenRenewal(accessToken string, disableAuth bool, disableCustomTTL bool, ttl *time.Duration) (string, error) {
+	// If authentication is disabled == no vault access, just return the original token
+	if disableAuth || disableCustomTTL {
+		slog.Debug("authentication or custom TTL disabled, skipping token renewal")
+		return accessToken, nil
+	}	
 	ctx := context.Background()
-	newToken, err := auth.JwtTokenWithM2M(ctx, nil)
+	newToken, err := auth.JwtTokenWithM2M(ctx, ttl)
 	if err != nil {
 		return "", fmt.Errorf("failed to get new M2M token: %w", err)
 	}
