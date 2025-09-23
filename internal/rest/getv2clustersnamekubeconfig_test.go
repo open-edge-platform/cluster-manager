@@ -5,6 +5,7 @@ package rest
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -123,7 +124,15 @@ func mockK8sClient(t *testing.T, clusterName, kubeconfigValue string, setupFunc 
 func createRequestAndRecorder(_ *testing.T, method, url, activeProjectID, authHeader string) (*http.Request, *httptest.ResponseRecorder) {
 	req := httptest.NewRequest(method, url, nil)
 	req.Header.Set("Activeprojectid", activeProjectID)
-	req.Header.Set("Authorization", "Bearer "+jwtToken)
+	// prepend Bearer and fallback jwt only if authHeader empty (enables dynamic TTL test tokens)
+	token := authHeader
+	if token == "" {
+		token = jwtToken
+	}
+	if !strings.HasPrefix(token, "Bearer ") {
+		token = "Bearer " + token
+	}
+	req.Header.Set("Authorization", token)	
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	return req, rr
@@ -672,8 +681,92 @@ func TestTokenRenewalWithVaultAndKeycloak(t *testing.T) {
 	}
 }
 
-// TestKubeconfigEndToEndWithTTL tests the complete kubeconfig retrieval with TTL
-// This test will fail initially until the full feature is implemented
+// TestKubeconfigEndToEndWithTTL tests the handler path to ensure a kubeconfig is returned with a token
+// whose expiry (TTL) matches the configured custom TTL (when enabled) or a default TTL (when custom TTL is disabled).
+// It goes through the HTTP handler, server config, token issuance hook, and kubeconfig update.
 func TestKubeconfigEndToEndWithTTL(t *testing.T) {
-	t.Skip("TODO: Requires complete TTL configuration and deployment setup")
+	testCases := []struct {
+		name             string
+		disableCustomTTL bool
+		configuredTTL    time.Duration
+		initialTokenTTL  time.Duration
+		expectedTTL      time.Duration
+		renews           bool
+	}{
+		{
+			name:             "custom TTL enabled - renew to 2h",
+			disableCustomTTL: false,
+			configuredTTL:    2 * time.Hour,
+			initialTokenTTL:  10 * time.Minute,
+			expectedTTL:      2 * time.Hour,
+			renews:           true,
+		},
+		{
+			name:             "custom TTL disabled - keep original 1h",
+			disableCustomTTL: true,
+			configuredTTL:    6 * time.Hour, // ignored
+			initialTokenTTL:  1 * time.Hour,
+			expectedTTL:      1 * time.Hour,
+			renews:           false,
+		},
+	}
+
+	tolerance := 2 * time.Minute
+	clusterName := "example-cluster"
+	activeProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Build initial Authorization token with specified TTL
+			initialExp := time.Now().Add(tc.initialTokenTTL)
+			initialToken := helpers.CreateTestJWT(initialExp, []string{"initial-role"})
+
+			original := JwtTokenWithM2MFunc
+			defer func() { JwtTokenWithM2MFunc = original }()
+
+			if tc.renews {
+				JwtTokenWithM2MFunc = func(ctx context.Context, ttl *time.Duration) (string, error) {
+					if ttl == nil || *ttl != tc.configuredTTL {
+						return "", fmt.Errorf("unexpected ttl passed (got %v want %v)", ttl, tc.configuredTTL)
+					}
+					exp := time.Now().Add(*ttl)
+					return helpers.CreateTestJWT(exp, []string{"renewed-role"}), nil
+				}
+			} else {
+				JwtTokenWithM2MFunc = func(ctx context.Context, ttl *time.Duration) (string, error) {
+					return "", fmt.Errorf("JwtTokenWithM2MFunc should not be called when disableCustomTTL=%v", tc.disableCustomTTL)
+				}
+			}
+
+			serverConfig := config.Config{
+				ClusterDomain:        "kind.internal",
+				Username:             "admin",
+				DisableAuth:          false,
+				DisableCustomTTL:     tc.disableCustomTTL,
+				DefaultKubeconfigTTL: tc.configuredTTL,
+			}
+
+			encodedKubeconfig := base64.StdEncoding.EncodeToString([]byte(exampleKubeconfig))
+			mockedk8sclient, _, _ := mockK8sClient(t, clusterName, encodedKubeconfig, nil)
+			server := NewServer(mockedk8sclient)
+			server.config = &serverConfig
+
+			req, rr := createRequestAndRecorder(t, "GET", fmt.Sprintf("/v2/clusters/%s/kubeconfigs", clusterName), activeProjectID, initialToken)
+			configureHandlerAndServe(t, server, rr, req)
+
+			require.Equal(t, http.StatusOK, rr.Code, "expected successful response")
+
+			var resp struct {
+				Kubeconfig string `json:"kubeconfig"`
+			}
+			if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+				t.Fatalf("failed to unmarshal response: %v", err)
+			}
+			require.NotEmpty(t, resp.Kubeconfig, "kubeconfig should not be empty")
+
+			if err := helpers.ValidateKubeconfigToken(resp.Kubeconfig, tc.expectedTTL, tolerance); err != nil {
+				t.Fatalf("TTL validation failed: %v", err)
+			}
+		})
+	}
 }
