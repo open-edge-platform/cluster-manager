@@ -33,7 +33,7 @@ type InventoryClient struct {
 	client    client.TenantAwareInventoryClient
 	events    chan *client.WatchEvents
 	term      chan bool
-	k8sclient *k8s.Client
+	k8sclient k8s.K8sWrapperClient
 }
 
 // clientInstance is the singleton instance of the inventory client
@@ -135,7 +135,6 @@ func (c *InventoryClient) getHost(ctx context.Context, tenantId, hostUuid string
 			slog.Warn("host in response resource is nil", "tenantId", tenantId, "hostUuid", hostUuid)
 			return nil, errors.New("host in response resource is nil")
 		}
-
 		slog.Debug("success in getting resourceId", "tenantId", tenantId, "hostUuid", hostUuid)
 	}
 
@@ -195,7 +194,27 @@ func (c *InventoryClient) WatchHosts(hostEvents chan<- events.Event) {
 					slog.Warn("failed to validate host resource", "error", err)
 					continue
 				}
-
+				// delete the cluster assigned to deauth host if one exists
+				if host.CurrentState == computev1.HostState_HOST_STATE_UNTRUSTED {
+					slog.Info("host is deauthenticating, performing cleanup", "hostId", host.ResourceId, "tenantId", host.TenantId)
+					// get the name of cluster assigned to the host
+					machine, err := c.k8sclient.GetMachineByHostID(context.TODO(), host.TenantId, host.ResourceId)
+					if err != nil {
+						slog.Warn("failed to get machine by host id", "error", err, "hostId", host.ResourceId, "tenantId", host.TenantId)
+						continue
+					}
+					if machine.Spec.ClusterName != "" {
+						// TODO: for multi-node, if cluster replicas > 1, remove IntelMachineBinding and decrement replicas
+						// delete the cluster
+						slog.Info("deauthenticating host, deleting assigned cluster if one exists", "hostId", host.ResourceId, "tenantId", host.TenantId, "cluster", machine.Spec.ClusterName)
+						if err := c.k8sclient.DeleteCluster(context.TODO(), host.TenantId, machine.Spec.ClusterName); err != nil {
+							slog.Warn("failed to delete cluster", "error", err, "cluster", machine.Spec.ClusterName, "tenantId", host.TenantId)
+							continue
+						}
+						slog.Info("deleted cluster assigned to deauthenticating host", "hostId", host.ResourceId, "tenantId", host.TenantId, "cluster", machine.Spec.ClusterName)
+					}
+					continue
+				}
 				switch event.Event.EventKind {
 				case inventoryv1.SubscribeEventsResponse_EVENT_KIND_CREATED:
 					slog.Debug("host created event", "name", host.Name, "hostid", host.ResourceId)
