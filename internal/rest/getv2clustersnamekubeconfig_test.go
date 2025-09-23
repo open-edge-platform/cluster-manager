@@ -459,7 +459,7 @@ func TestUpdateKubeconfigWithToken(t *testing.T) {
 			activeProjectID: "655a6892-4280-4c37-97b1-31161ac0b99e",
 			clusterName:     "example-cluster",
 			token:           "new-token",
-			expectedError:   "unmarshal kubeconfig: yaml: unmarshal errors", // TODO: updated error message on feature flags pr
+			expectedError:   "failed to get new M2M token:",
 			expectedConfig:  "",
 		},
 	}

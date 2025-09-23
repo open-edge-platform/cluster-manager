@@ -19,7 +19,6 @@ import (
 )
 
 var updateKubeconfigWithTokenFunc = updateKubeconfigWithToken
-//nolint:unused // will be used in the next PR
 var tokenRenewalFunc = tokenRenewal
 
 // (GET /v2/clusters/{name}/kubeconfigs)
@@ -112,12 +111,10 @@ func (s *Server) getClusterKubeconfig(ctx context.Context, namespace, clusterNam
 
 func updateKubeconfigWithToken(kubeconfig kubeconfigParameters, namespace, clusterName, authHeader string) (string, error) {
 	token := auth.GetAccessToken(authHeader)
-	// enable in feature flags on next PR
-	newAccessToken := token
-	// newAccessToken, err := tokenRenewalFunc(token)
-	// if err != nil {
-	// 	return "", err
-	// }
+	newAccessToken, err := tokenRenewalFunc(token)
+	if err != nil {
+		return "", err
+	}
 	caData, domain, userName := kubeconfig.serverCA, kubeconfig.clusterDomain, kubeconfig.userName
 
 	config, err := unmarshalKubeconfig(kubeconfig.kubeConfigDecode)
@@ -236,7 +233,7 @@ func updateKubeconfigFields(config map[string]interface{}, user, clusterName, se
 		},
 	}
 }
-//nolint:unused // will be used in the next PR
+
 func tokenRenewal(accessToken string) (string, error) {
 	ctx := context.Background()
 	newToken, err := auth.JwtTokenWithM2M(ctx, nil)
