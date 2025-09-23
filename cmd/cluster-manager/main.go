@@ -4,10 +4,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
 
+	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
@@ -30,32 +32,11 @@ func main() {
 	slog.Info("Cluster Manager configuration ", "config", config)
 
 	logger.InitializeLogger(config)
+	initializeSystemLabels(config)
+	initializeMultitenancy(config)
 
-	if len(config.SystemLabelsPrefixes) > 0 {
-		slog.Info(fmt.Sprintf("overriding system labels prefixes with %v", config.SystemLabelsPrefixes))
-		labels.OverrideSystemPrefixes(config.SystemLabelsPrefixes)
-	}
-
-	multitenancy.SetDefaultTemplate(config.DefaultTemplate)
-
-	if !config.DisableMultitenancy {
-		// TODO? may need to be initialized after server as all resource handling is done in the server
-		tdm, err := multitenancy.NewDatamodelClient()
-		if err != nil {
-			slog.Error("failed to initialize tenancy datamodel client", "error", err)
-			os.Exit(2)
-		}
-		if err = tdm.Start(); err != nil {
-			slog.Error("failed to start tenancy datamodel client", "error", err)
-			os.Exit(2)
-		}
-	}
-
-	k8sclient := k8s.New().WithInClusterConfig()
-	if k8sclient == nil {
-		slog.Error("failed to initialize k8s clientset")
-		os.Exit(3)
-	}
+	k8sclient := initializeK8sClient()
+	//initializeAuth(config) // TODO: updated on feature flags pr
 
 	auth, err := rest.GetAuthenticator(config)
 	if err != nil {
@@ -73,5 +54,55 @@ func main() {
 	if err := s.Serve(); err != nil {
 		slog.Error("server failed", "error", err)
 		os.Exit(5)
+	}
+}
+
+func initializeSystemLabels(config *config.Config) {
+	if len(config.SystemLabelsPrefixes) > 0 {
+		slog.Info(fmt.Sprintf("overriding system labels prefixes with %v", config.SystemLabelsPrefixes))
+		labels.OverrideSystemPrefixes(config.SystemLabelsPrefixes)
+	}
+}
+
+func initializeMultitenancy(config *config.Config) {
+	multitenancy.SetDefaultTemplate(config.DefaultTemplate)
+
+	if !config.DisableMultitenancy {
+		// TODO? may need to be initialized after server as all resource handling is done in the server
+		tdm, err := multitenancy.NewDatamodelClient()
+		if err != nil {
+			slog.Error("failed to initialize tenancy datamodel client", "error", err)
+			os.Exit(2)
+		}
+		if err = tdm.Start(); err != nil {
+			slog.Error("failed to start tenancy datamodel client", "error", err)
+			os.Exit(2)
+		}
+	}
+}
+
+func initializeK8sClient() *k8s.Client {
+	k8sclient := k8s.New().WithInClusterConfig()
+	if k8sclient == nil {
+		slog.Error("failed to initialize k8s clientset")
+		os.Exit(3)
+	}
+	return k8sclient
+}
+//nolint:unused // will be used in the next PR
+func initializeAuth(config *config.Config) {
+	// Initialize VaultAuth and fetch client credentials only when authentication is enabled
+	if !config.DisableAuth {
+		vaultAuth, err := auth.NewVaultAuth(auth.VaultServer, auth.ServiceAccount)
+		if err != nil {
+			slog.Error("failed to initialize VaultAuth", "error", err)
+			os.Exit(4)
+		}
+
+		_, _, err = vaultAuth.GetClientCredentials(context.Background())
+		if err != nil {
+			slog.Error("failed to fetch client credentials from Vault", "error", err)
+			os.Exit(4)
+		}
 	}
 }

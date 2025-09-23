@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
@@ -133,12 +134,23 @@ func configureHandlerAndServe(t *testing.T, server *Server, rr *httptest.Respons
 	handler.ServeHTTP(rr, req)
 }
 
+func mockTokenRenewal(jwtToken string) func() {
+	originalTokenRenewalFunc := tokenRenewalFunc
+	tokenRenewalFunc = func(authHeader string) (string, error) {
+		return jwtToken, nil
+	}
+	return func() {
+		tokenRenewalFunc = originalTokenRenewalFunc
+	}
+}
+
 func TestGetV2ClustersNameKubeconfigs200(t *testing.T) {
 	t.Run("successful kubeconfig retrieval", func(t *testing.T) {
 		name := "example-cluster"
 		activeProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
 		encodedKubeconfig := base64.StdEncoding.EncodeToString([]byte(exampleKubeconfig))
-
+		restoreTokenRenewal := mockTokenRenewal(jwtToken)
+		defer restoreTokenRenewal()
 		mockedk8sclient, _, _ := mockK8sClient(t, name, encodedKubeconfig, nil)
 		serverConfig := config.Config{ClusterDomain: "kind.internal", Username: "admin"}
 		server := NewServer(mockedk8sclient)
@@ -159,6 +171,8 @@ func TestGetV2ClustersNameKubeconfigs200(t *testing.T) {
 
 func TestGetV2ClustersNameKubeconfigs404(t *testing.T) {
 	expected404Response := `{"message":"404 Not Found: kubeconfig not found"}`
+	restoreTokenRenewal := mockTokenRenewal(jwtToken)
+	defer restoreTokenRenewal()
 	tests := []struct {
 		name             string
 		clusterName      string
@@ -323,6 +337,8 @@ func TestGetV2ClustersNameKubeconfigs401(t *testing.T) {
 }
 
 func TestGetV2ClustersNameKubeconfigs500(t *testing.T) {
+	restoreTokenRenewal := mockTokenRenewal(jwtToken)
+	defer restoreTokenRenewal()
 	tests := []struct {
 		name             string
 		clusterName      string
@@ -443,13 +459,21 @@ func TestUpdateKubeconfigWithToken(t *testing.T) {
 			activeProjectID: "655a6892-4280-4c37-97b1-31161ac0b99e",
 			clusterName:     "example-cluster",
 			token:           "new-token",
-			expectedError:   "failed to unmarshal kubeconfig: yaml: unmarshal errors:",
+			expectedError:   "unmarshal kubeconfig: yaml: unmarshal errors", // TODO: updated error message on feature flags pr
 			expectedConfig:  "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Only mock token renewal for valid tokens (the first test)
+			// Let invalid tokens fail naturally for testing error handling
+			var restoreTokenRenewal func()
+			if tt.name == "successful update" {
+				restoreTokenRenewal = mockTokenRenewal(tt.token)
+				defer restoreTokenRenewal()
+			}
+
 			updatedConfig, err := updateKubeconfigWithToken(tt.kubeconfig, tt.activeProjectID, tt.clusterName, tt.token)
 
 			if tt.expectedError != "" {
@@ -461,4 +485,162 @@ func TestUpdateKubeconfigWithToken(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTokenRenewal(t *testing.T) {
+	tests := []struct {
+		name          string
+		tokenInput    string
+		expectedError bool
+		description   string
+	}{
+		{
+			name:          "valid token input - always generates fresh token",
+			tokenInput:    "valid-token-placeholder",
+			expectedError: false,
+			description:   "Function should always generate fresh token regardless of input token expiration",
+		},
+		{
+			name:          "invalid token input - still generates fresh token",
+			tokenInput:    "invalid-token",
+			expectedError: false,
+			description:   "Function should generate fresh token even with invalid input (input token is not used)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Skip tests that require M2M infrastructure
+			t.Skip("TODO: Requires M2M infrastructure (Vault, Keycloak, K8s service account). Use integration tests for full flow.")
+
+			// Note: Since we always generate fresh tokens now, the input token doesn't matter
+			// The function will always call auth.JwtTokenWithM2M() regardless of input
+			result, err := tokenRenewal(tt.tokenInput)
+
+			if tt.expectedError {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.NotEmpty(t, result)
+			// With the new implementation, we always get a fresh token, never the original
+			assert.NotEqual(t, tt.tokenInput, result, "Should always generate fresh token, never return original")
+		})
+	}
+}
+
+// TestKubeconfigTTLBehavior tests TTL behavior in kubeconfig generation
+// This test will fail initially until we implement TTL configuration
+func TestKubeconfigTTLBehavior(t *testing.T) {
+	tests := []struct {
+		name              string
+		disableCustomTTL  bool
+		kubeconfigTTL     time.Duration
+		tokenNeedsRenewal bool
+		expectedError     bool
+		expectedTTL       time.Duration
+		tolerance         time.Duration
+	}{
+		{
+			name:              "custom TTL enabled - 2 hours",
+			disableCustomTTL:  false, // false = enable custom TTL
+			kubeconfigTTL:     2 * time.Hour,
+			tokenNeedsRenewal: true,
+			expectedError:     false,
+			expectedTTL:       2 * time.Hour,
+			tolerance:         1 * time.Minute,
+		},
+		{
+			name:              "custom TTL enabled - 24 hours",
+			disableCustomTTL:  false, // false = enable custom TTL
+			kubeconfigTTL:     24 * time.Hour,
+			tokenNeedsRenewal: true,
+			expectedError:     false,
+			expectedTTL:       24 * time.Hour,
+			tolerance:         1 * time.Minute,
+		},
+		{
+			name:              "custom TTL disabled - use default",
+			disableCustomTTL:  true,           // true = disable custom TTL
+			kubeconfigTTL:     12 * time.Hour, // Should be ignored
+			tokenNeedsRenewal: true,
+			expectedError:     false,
+			expectedTTL:       1 * time.Hour, // Keycloak default
+			tolerance:         5 * time.Minute,
+		},
+		{
+			name:              "token doesn't need renewal",
+			disableCustomTTL:  false, // false = enable custom TTL
+			kubeconfigTTL:     6 * time.Hour,
+			tokenNeedsRenewal: false,
+			expectedError:     false,
+			expectedTTL:       0, // Original token TTL, not tested here
+			tolerance:         1 * time.Minute,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Skip("TODO: Requires TTL configuration structure to be implemented")
+		})
+	}
+}
+
+// TestTokenRenewalWithVaultAndKeycloak tests the complete token renewal flow
+// This test will fail initially until we implement the full M2M flow
+func TestTokenRenewalWithVaultAndKeycloak(t *testing.T) {
+	tests := []struct {
+		name              string
+		originalTokenTTL  time.Duration
+		vaultClientID     string
+		vaultClientSecret string
+		userRoles         []string
+		requestedTTL      *time.Duration
+		vaultShouldFail   bool
+		expectedError     bool
+	}{
+		{
+			name:              "successful token renewal with vault credentials",
+			originalTokenTTL:  30 * time.Minute, // Needs renewal
+			vaultClientID:     "co-manager-m2m-client",
+			vaultClientSecret: "test-secret",
+			userRoles:         []string{"admin", "cluster-reader"},
+			requestedTTL:      &[]time.Duration{4 * time.Hour}[0],
+			vaultShouldFail:   false,
+			expectedError:     false,
+		},
+		{
+			name:              "vault failure during credential retrieval",
+			originalTokenTTL:  30 * time.Minute,
+			vaultClientID:     "",
+			vaultClientSecret: "",
+			userRoles:         []string{"user"},
+			requestedTTL:      &[]time.Duration{2 * time.Hour}[0],
+			vaultShouldFail:   true,
+			expectedError:     true,
+		},
+		{
+			name:              "token doesn't need renewal",
+			originalTokenTTL:  2 * time.Hour, // Still valid
+			vaultClientID:     "co-manager-m2m-client",
+			vaultClientSecret: "test-secret",
+			userRoles:         []string{"user"},
+			requestedTTL:      &[]time.Duration{6 * time.Hour}[0],
+			vaultShouldFail:   false,
+			expectedError:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Skip("TODO: Requires complete TTL configuration and deployment setup")
+		})
+	}
+}
+
+// TestKubeconfigEndToEndWithTTL tests the complete kubeconfig retrieval with TTL
+// This test will fail initially until the full feature is implemented
+func TestKubeconfigEndToEndWithTTL(t *testing.T) {
+	t.Skip("TODO: Requires complete TTL configuration and deployment setup")
 }

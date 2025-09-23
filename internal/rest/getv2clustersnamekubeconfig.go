@@ -19,6 +19,8 @@ import (
 )
 
 var updateKubeconfigWithTokenFunc = updateKubeconfigWithToken
+//nolint:unused // will be used in the next PR
+var tokenRenewalFunc = tokenRenewal
 
 // (GET /v2/clusters/{name}/kubeconfigs)
 func (s *Server) GetV2ClustersNameKubeconfigs(ctx context.Context, request api.GetV2ClustersNameKubeconfigsRequestObject) (api.GetV2ClustersNameKubeconfigsResponseObject, error) {
@@ -26,6 +28,7 @@ func (s *Server) GetV2ClustersNameKubeconfigs(ctx context.Context, request api.G
 
 	authHeader := request.Params.Authorization
 	if !strings.HasPrefix(authHeader, auth.BearerPrefix) {
+		slog.Error("invalid Authorization header", "authHeader", authHeader)
 		return api.GetV2ClustersNameKubeconfigs401JSONResponse{
 			N401UnauthorizedJSONResponse: api.N401UnauthorizedJSONResponse{
 				Message: ptr("Unauthorized: invalid Authorization header"),
@@ -109,6 +112,12 @@ func (s *Server) getClusterKubeconfig(ctx context.Context, namespace, clusterNam
 
 func updateKubeconfigWithToken(kubeconfig kubeconfigParameters, namespace, clusterName, authHeader string) (string, error) {
 	token := auth.GetAccessToken(authHeader)
+	// enable in feature flags on next PR
+	newAccessToken := token
+	// newAccessToken, err := tokenRenewalFunc(token)
+	// if err != nil {
+	// 	return "", err
+	// }
 	caData, domain, userName := kubeconfig.serverCA, kubeconfig.clusterDomain, kubeconfig.userName
 
 	config, err := unmarshalKubeconfig(kubeconfig.kubeConfigDecode)
@@ -131,7 +140,7 @@ func updateKubeconfigWithToken(kubeconfig kubeconfigParameters, namespace, clust
 	serverAddress := fmt.Sprintf("https://connect-gateway.%s:443%s%s", domain, middleUrl, endSegment)
 	slog.Debug("serverAddress", "decoded", serverAddress)
 
-	updateKubeconfigFields(config, clusterName+"-"+userName, clusterName, serverAddress, caData, token)
+	updateKubeconfigFields(config, clusterName+"-"+userName, clusterName, serverAddress, caData, newAccessToken)
 
 	updatedKubeconfig, err := yaml.Marshal(config)
 	if err != nil {
@@ -226,6 +235,17 @@ func updateKubeconfigFields(config map[string]interface{}, user, clusterName, se
 			},
 		},
 	}
+}
+//nolint:unused // will be used in the next PR
+func tokenRenewal(accessToken string) (string, error) {
+	ctx := context.Background()
+	newToken, err := auth.JwtTokenWithM2M(ctx, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to get new M2M token: %w", err)
+	}
+
+	slog.Debug("generated fresh token with M2M authentication for consistent TTL")
+	return newToken, nil
 }
 
 type kubeConfigData struct {
