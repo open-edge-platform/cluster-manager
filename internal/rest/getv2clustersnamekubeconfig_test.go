@@ -132,7 +132,7 @@ func createRequestAndRecorder(_ *testing.T, method, url, activeProjectID, authHe
 	if !strings.HasPrefix(token, "Bearer ") {
 		token = "Bearer " + token
 	}
-	req.Header.Set("Authorization", token)	
+	req.Header.Set("Authorization", token)
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	return req, rr
@@ -498,61 +498,103 @@ func TestUpdateKubeconfigWithToken(t *testing.T) {
 }
 
 func TestTokenRenewal(t *testing.T) {
-	// It verifies the behavior of tokenRenewal under different conditions:
-	// When DisableAuth or DisableCustomTTL is true (should return the original token)
-	// When both are false (should call the mock and return a new token)
-	// When the mock returns an error (should propagate the error)
+	// Table-driven to consolidate scenarios & make future additions simpler.
+	type tc struct {
+		name             string
+		disableAuth      bool
+		disableCustomTTL bool
+		ttl              *time.Duration
+		expectSame       bool
+		expectErr        bool
+		expectCalled     bool
+		expectedTTL      *time.Duration // only validated when expectCalled && !expectErr
+		newTokenTTL      time.Duration  // TTL for generated mock token when renewing
+		mockError        error
+	}
+
+	twoHours := 2 * time.Hour
+	cases := []tc{
+		{
+			name:             "skip renewal when DisableAuth",
+			disableAuth:      true,
+			disableCustomTTL: false,
+			ttl:              nil,
+			expectSame:       true,
+			expectErr:        false,
+			expectCalled:     false,
+		},
+		{
+			name:             "skip renewal when DisableCustomTTL",
+			disableAuth:      false,
+			disableCustomTTL: true,
+			ttl:              nil,
+			expectSame:       true,
+			expectErr:        false,
+			expectCalled:     false,
+		},
+		{
+			name:             "renew when both enabled",
+			disableAuth:      false,
+			disableCustomTTL: false,
+			ttl:              &twoHours,
+			expectedTTL:      &twoHours,
+			newTokenTTL:      2 * time.Hour,
+			expectSame:       false,
+			expectErr:        false,
+			expectCalled:     true,
+		},
+		{
+			name:             "error when M2M fails",
+			disableAuth:      false,
+			disableCustomTTL: false,
+			ttl:              nil,
+			mockError:        fmt.Errorf("M2M error"),
+			expectSame:       false,
+			expectErr:        true,
+			expectCalled:     true,
+		},
+	}
 
 	originalJwtTokenWithM2MFunc := JwtTokenWithM2MFunc
 	defer func() { JwtTokenWithM2MFunc = originalJwtTokenWithM2MFunc }()
 
-	t.Run("returns original token when DisableAuth is true", func(t *testing.T) {
-		JwtTokenWithM2MFunc = func(ctx context.Context, ttl *time.Duration) (string, error) {
-			exp := time.Now().Add(1 * time.Hour)
-			token := helpers.CreateTestJWT(exp, []string{"test-role"})
-			return token, nil
-		}
-		token := "original-token"
-		result, err := tokenRenewal(token, true, false, nil)
-		require.NoError(t, err)
-		assert.Equal(t, token, result)
-	})
+	originalToken := "original-token"
 
-	t.Run("returns original token when DisableCustomTTL is true", func(t *testing.T) {
-		JwtTokenWithM2MFunc = func(ctx context.Context, ttl *time.Duration) (string, error) {
-			exp := time.Now().Add(1 * time.Hour)
-			token := helpers.CreateTestJWT(exp, []string{"test-role"})
-			return token, nil
-		}
-		token := "original-token"
-		result, err := tokenRenewal(token, false, true, nil)
-		require.NoError(t, err)
-		assert.Equal(t, token, result)
-	})
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			called := false
+			JwtTokenWithM2MFunc = func(ctx context.Context, ttl *time.Duration) (string, error) {
+				called = true
+				if c.mockError != nil {
+					return "", c.mockError
+				}
+				// Validate TTL pointer if we expect a call & provided expectedTTL
+				if c.expectedTTL != nil {
+					if ttl == nil || *ttl != *c.expectedTTL {
+						return "", fmt.Errorf("unexpected ttl: got %v want %v", ttl, *c.expectedTTL)
+					}
+				}
+				exp := time.Now().Add(c.newTokenTTL)
+				return helpers.CreateTestJWT(exp, []string{"test-role"}), nil
+			}
 
-	t.Run("returns new token when both DisableAuth and DisableCustomTTL are false", func(t *testing.T) {
-		JwtTokenWithM2MFunc = func(ctx context.Context, ttl *time.Duration) (string, error) {
-			exp := time.Now().Add(2 * time.Hour)
-			token := helpers.CreateTestJWT(exp, []string{"test-role"})
-			return token, nil
-		}
-		token := "original-token"
-		result, err := tokenRenewal(token, false, false, func() *time.Duration { d := 2 * time.Hour; return &d }())
-		require.NoError(t, err)
-		// Should return the new token
-		assert.NotEqual(t, token, result)
-	})
+			result, err := tokenRenewal(originalToken, c.disableAuth, c.disableCustomTTL, c.ttl)
 
-	t.Run("returns error if JwtTokenWithM2M fails", func(t *testing.T) {
-		JwtTokenWithM2MFunc = func(ctx context.Context, ttl *time.Duration) (string, error) {
-			return "", fmt.Errorf("M2M error")
-		}
-		token := "original-token"
-		result, err := tokenRenewal(token, false, false, nil)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to get new M2M token")
-		assert.Empty(t, result)
-	})
+			assert.Equal(t, c.expectCalled, called, "JwtTokenWithM2MFunc call expectation mismatch")
+
+			if c.expectErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "failed to get new M2M token")
+				return
+			}
+			require.NoError(t, err)
+			if c.expectSame {
+				assert.Equal(t, originalToken, result)
+			} else {
+				assert.NotEqual(t, originalToken, result)
+			}
+		})
+	}
 }
 
 // TestKubeconfigTTLBehavior tests TTL behavior in kubeconfig generation
