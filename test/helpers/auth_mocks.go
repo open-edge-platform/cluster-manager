@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"time"
 
@@ -99,9 +100,13 @@ func (m *MockKeycloakServer) handleTokenRequest(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// Extract TTL from request if provided
+	// Determine requested TTL. Priority: session_state (custom) > expires_in > default
 	requestedTTL := m.TokenTTL
-	if ttlStr := r.FormValue("expires_in"); ttlStr != "" {
+	if ss := r.FormValue("session_state"); ss != "" {
+		if secs, err := strconv.ParseInt(ss, 10, 64); err == nil {
+			requestedTTL = time.Duration(secs) * time.Second
+		}
+	} else if ttlStr := r.FormValue("expires_in"); ttlStr != "" {
 		if ttlSeconds, err := time.ParseDuration(ttlStr + "s"); err == nil {
 			requestedTTL = ttlSeconds
 		}

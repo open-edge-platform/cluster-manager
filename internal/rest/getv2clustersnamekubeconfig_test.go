@@ -9,24 +9,25 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
-	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
-	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
-	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
-	"github.com/open-edge-platform/cluster-manager/v2/test/helpers"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	intauth "github.com/open-edge-platform/cluster-manager/v2/internal/auth"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
+	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
+	"github.com/open-edge-platform/cluster-manager/v2/test/helpers"
 )
 
 var exampleKubeconfig = `apiVersion: v1
@@ -498,8 +499,7 @@ func TestUpdateKubeconfigWithToken(t *testing.T) {
 }
 
 func TestTokenRenewal(t *testing.T) {
-	// Table-driven to consolidate scenarios & make future additions simpler.
-	type tc struct {
+	type tokenRenewalTest struct {
 		name             string
 		disableAuth      bool
 		disableCustomTTL bool
@@ -513,7 +513,7 @@ func TestTokenRenewal(t *testing.T) {
 	}
 
 	twoHours := 2 * time.Hour
-	cases := []tc{
+	cases := []tokenRenewalTest{
 		{
 			name:             "skip renewal when DisableAuth",
 			disableAuth:      true,
@@ -543,6 +543,18 @@ func TestTokenRenewal(t *testing.T) {
 			expectErr:        false,
 			expectCalled:     true,
 		},
+		// even if the original token TTL is long, we still renew.
+		{
+			name:             "renew even if original token TTL long",
+			disableAuth:      false,
+			disableCustomTTL: false,
+			ttl:              &twoHours,
+			expectedTTL:      &twoHours,
+			newTokenTTL:      2 * time.Hour,
+			expectSame:       false,
+			expectErr:        false,
+			expectCalled:     true,
+		},
 		{
 			name:             "error when M2M fails",
 			disableAuth:      false,
@@ -558,7 +570,8 @@ func TestTokenRenewal(t *testing.T) {
 	originalJwtTokenWithM2MFunc := JwtTokenWithM2MFunc
 	defer func() { JwtTokenWithM2MFunc = originalJwtTokenWithM2MFunc }()
 
-	originalToken := "original-token"
+	// valid, unexpired token for renewal scenarios (45m future expiry)
+	originalToken := helpers.CreateTestJWT(time.Now().Add(45*time.Minute), []string{"orig-role"})
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -568,7 +581,6 @@ func TestTokenRenewal(t *testing.T) {
 				if c.mockError != nil {
 					return "", c.mockError
 				}
-				// Validate TTL pointer if we expect a call & provided expectedTTL
 				if c.expectedTTL != nil {
 					if ttl == nil || *ttl != *c.expectedTTL {
 						return "", fmt.Errorf("unexpected ttl: got %v want %v", ttl, *c.expectedTTL)
@@ -600,49 +612,44 @@ func TestTokenRenewal(t *testing.T) {
 // TestKubeconfigTTLBehavior tests TTL behavior in kubeconfig generation
 func TestKubeconfigTTLBehavior(t *testing.T) {
 	tests := []struct {
-		name              string
-		disableCustomTTL  bool
-		kubeconfigTTL     time.Duration
-		tokenNeedsRenewal bool
-		expectedError     bool
-		expectedTTL       time.Duration
-		tolerance         time.Duration
+		name             string
+		disableCustomTTL bool
+		kubeconfigTTL    time.Duration
+		expectedError    bool
+		expectedTTL      time.Duration
+		tolerance        time.Duration
 	}{
 		{
-			name:              "custom TTL enabled - 2 hours",
-			disableCustomTTL:  false, // false = enable custom TTL
-			kubeconfigTTL:     2 * time.Hour,
-			tokenNeedsRenewal: true,
-			expectedError:     false,
-			expectedTTL:       2 * time.Hour,
-			tolerance:         1 * time.Minute,
+			name:             "custom TTL enabled - 2 hours",
+			disableCustomTTL: false, // false = enable custom TTL
+			kubeconfigTTL:    2 * time.Hour,
+			expectedError:    false,
+			expectedTTL:      2 * time.Hour,
+			tolerance:        1 * time.Minute,
 		},
 		{
-			name:              "custom TTL enabled - 24 hours",
-			disableCustomTTL:  false, // false = enable custom TTL
-			kubeconfigTTL:     24 * time.Hour,
-			tokenNeedsRenewal: true,
-			expectedError:     false,
-			expectedTTL:       24 * time.Hour,
-			tolerance:         1 * time.Minute,
+			name:             "custom TTL enabled - 24 hours",
+			disableCustomTTL: false, // false = enable custom TTL
+			kubeconfigTTL:    24 * time.Hour,
+			expectedError:    false,
+			expectedTTL:      24 * time.Hour,
+			tolerance:        1 * time.Minute,
 		},
 		{
-			name:              "custom TTL disabled - use default",
-			disableCustomTTL:  true,           // true = disable custom TTL
-			kubeconfigTTL:     12 * time.Hour, // Should be ignored
-			tokenNeedsRenewal: true,
-			expectedError:     false,
-			expectedTTL:       1 * time.Hour, // Keycloak default
-			tolerance:         5 * time.Minute,
+			name:             "custom TTL disabled - use default",
+			disableCustomTTL: true,           // true = disable custom TTL
+			kubeconfigTTL:    12 * time.Hour, // Should be ignored
+			expectedError:    false,
+			expectedTTL:      1 * time.Hour, // Keycloak default
+			tolerance:        5 * time.Minute,
 		},
 		{
-			name:              "token doesn't need renewal",
-			disableCustomTTL:  false, // false = enable custom TTL
-			kubeconfigTTL:     6 * time.Hour,
-			tokenNeedsRenewal: false,
-			expectedError:     false,
-			expectedTTL:       6 * time.Hour, // even if token doesn't need renewal, config TTL is still set
-			tolerance:         1 * time.Minute,
+			name:             "always renew: configured TTL applied regardless of original token",
+			disableCustomTTL: false, // false = enable custom TTL
+			kubeconfigTTL:    6 * time.Hour,
+			expectedError:    false,
+			expectedTTL:      6 * time.Hour,
+			tolerance:        1 * time.Minute,
 		},
 	}
 
@@ -672,7 +679,6 @@ func TestKubeconfigTTLBehavior(t *testing.T) {
 }
 
 // TestTokenRenewalWithVaultAndKeycloak tests the complete token renewal flow
-// This test will fail initially until we implement the full M2M flow
 func TestTokenRenewalWithVaultAndKeycloak(t *testing.T) {
 	tests := []struct {
 		name              string
@@ -686,7 +692,7 @@ func TestTokenRenewalWithVaultAndKeycloak(t *testing.T) {
 	}{
 		{
 			name:              "successful token renewal with vault credentials",
-			originalTokenTTL:  30 * time.Minute, // Needs renewal
+			originalTokenTTL:  30 * time.Minute, // needs renewal
 			vaultClientID:     "co-manager-m2m-client",
 			vaultClientSecret: "test-secret",
 			userRoles:         []string{"admin", "cluster-reader"},
@@ -705,8 +711,8 @@ func TestTokenRenewalWithVaultAndKeycloak(t *testing.T) {
 			expectedError:     true,
 		},
 		{
-			name:              "token doesn't need renewal",
-			originalTokenTTL:  2 * time.Hour, // Still valid
+			name:              "always renew even if original token still valid",
+			originalTokenTTL:  2 * time.Hour, // still valid but should be renewed (policy: always renew)
 			vaultClientID:     "co-manager-m2m-client",
 			vaultClientSecret: "test-secret",
 			userRoles:         []string{"user"},
@@ -717,19 +723,72 @@ func TestTokenRenewalWithVaultAndKeycloak(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			t.Skip("TODO: Requires complete TTL configuration and deployment setup")
+			origExp := time.Now().Add(tt.originalTokenTTL)
+			originalToken := helpers.CreateTestJWT(origExp, tt.userRoles)
+
+			mockVault := helpers.NewMockVaultAuth(tt.vaultClientID, tt.vaultClientSecret)
+			if tt.vaultShouldFail {
+				mockVault.SetFailure(true, "forced failure")
+			}
+
+			mockKC := helpers.NewMockKeycloakServer()
+			defer mockKC.Close()
+
+			// inject mocks
+			originalNewVaultAuthFunc := intauth.NewVaultAuthFunc
+			intauth.NewVaultAuthFunc = func(vs, sa string) (intauth.VaultAuth, error) { return mockVault, nil }
+			defer func() { intauth.NewVaultAuthFunc = originalNewVaultAuthFunc }()
+
+			originalJwtTokenWithM2MFunc := JwtTokenWithM2MFunc
+			JwtTokenWithM2MFunc = func(ctx context.Context, ttl *time.Duration) (string, error) {
+				_ = os.Setenv("KEYCLOAK_URL", mockKC.URL())
+				return intauth.JwtTokenWithM2M(ctx, ttl)
+			}
+			defer func() { JwtTokenWithM2MFunc = originalJwtTokenWithM2MFunc }()
+
+			// Execute renewal
+			newToken, err := tokenRenewal(originalToken, false, false, tt.requestedTTL)
+			if tt.expectedError {
+				require.Error(t, err, "expected an error but got none")
+				return
+			}
+			require.NoError(t, err)
+			require.NotEmpty(t, newToken)
+
+			// explicitly assert renewal occurred when no error expected (policy: always renew)
+			if newToken == originalToken {
+				// Using Fatalf to stop further TTL checks which would mislead
+				if !tt.expectedError {
+					t.Fatalf("expected renewed token to differ from original under always-renew policy")
+				}
+			}
+
+			// if token didn't require renewal (original longer than requested threshold) we may receive original token
+			// validate resulting token TTL >= min(originalRemaining, requestedTTL)
+			_, _, exp, errClaims := intauth.ExtractClaims(newToken)
+			require.NoError(t, errClaims)
+			remaining := time.Until(exp)
+			if tt.requestedTTL != nil {
+				// allow 2m scheduling drift
+				minExpected := *tt.requestedTTL
+				if remaining+2*time.Minute < minExpected {
+					t.Fatalf("renewed token TTL too short: got %v want >= %v", remaining, minExpected)
+				}
+			}
 		})
 	}
 }
 
-// TestKubeconfigEndToEndWithTTL tests the handler path to ensure a kubeconfig is returned with a token
-// whose expiry (TTL) matches the configured custom TTL (when enabled) or a default TTL (when custom TTL is disabled).
-// It goes through the HTTP handler, server config, token issuance hook, and kubeconfig update.
+// TestKubeconfigEndToEndWithTTL verifies the handler returns a kubeconfig whose token TTL is the
+// configured custom TTL when auth & custom TTL are enabled, or the original TTL when renewal is
+// skipped (auth disabled or custom TTL disabled), validating the renewal decision
 func TestKubeconfigEndToEndWithTTL(t *testing.T) {
 	testCases := []struct {
 		name             string
 		disableCustomTTL bool
+		disableAuth      bool
 		configuredTTL    time.Duration
 		initialTokenTTL  time.Duration
 		expectedTTL      time.Duration
@@ -738,6 +797,7 @@ func TestKubeconfigEndToEndWithTTL(t *testing.T) {
 		{
 			name:             "custom TTL enabled - renew to 2h",
 			disableCustomTTL: false,
+			disableAuth:      false,
 			configuredTTL:    2 * time.Hour,
 			initialTokenTTL:  10 * time.Minute,
 			expectedTTL:      2 * time.Hour,
@@ -746,9 +806,19 @@ func TestKubeconfigEndToEndWithTTL(t *testing.T) {
 		{
 			name:             "custom TTL disabled - keep original 1h",
 			disableCustomTTL: true,
+			disableAuth:      false,
 			configuredTTL:    6 * time.Hour, // ignored
 			initialTokenTTL:  1 * time.Hour,
 			expectedTTL:      1 * time.Hour,
+			renews:           false,
+		},
+		{
+			name:             "auth disabled - original token retained",
+			disableCustomTTL: false, // would normally trigger renewal
+			disableAuth:      true,  // forces skip
+			configuredTTL:    3 * time.Hour,
+			initialTokenTTL:  45 * time.Minute,
+			expectedTTL:      45 * time.Minute, // should remain original because renewal skipped
 			renews:           false,
 		},
 	}
@@ -783,7 +853,7 @@ func TestKubeconfigEndToEndWithTTL(t *testing.T) {
 			serverConfig := config.Config{
 				ClusterDomain:        "kind.internal",
 				Username:             "admin",
-				DisableAuth:          false,
+				DisableAuth:          tc.disableAuth,
 				DisableCustomTTL:     tc.disableCustomTTL,
 				DefaultKubeconfigTTL: tc.configuredTTL,
 			}
@@ -810,5 +880,155 @@ func TestKubeconfigEndToEndWithTTL(t *testing.T) {
 				t.Fatalf("TTL validation failed: %v", err)
 			}
 		})
+	}
+}
+
+// TestKubeconfigEndToEndWithTTLM2MFailure ensures the handler returns 500 when renewal (M2M) fails
+func TestKubeconfigEndToEndWithTTLM2MFailure(t *testing.T) {
+	clusterName := "example-cluster"
+	activeProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
+	// Initial token (will attempt renewal)
+	initialExp := time.Now().Add(30 * time.Minute)
+	initialToken := helpers.CreateTestJWT(initialExp, []string{"role"})
+
+	// mock renewal to return error
+	original := JwtTokenWithM2MFunc
+	JwtTokenWithM2MFunc = func(ctx context.Context, ttl *time.Duration) (string, error) {
+		return "", fmt.Errorf("simulated m2m failure")
+	}
+	defer func() { JwtTokenWithM2MFunc = original }()
+
+	serverConfig := config.Config{
+		ClusterDomain:        "kind.internal",
+		Username:             "admin",
+		DisableAuth:          false,
+		DisableCustomTTL:     false,
+		DefaultKubeconfigTTL: 2 * time.Hour,
+	}
+
+	encodedKubeconfig := base64.StdEncoding.EncodeToString([]byte(exampleKubeconfig))
+	mockedk8sclient, _, _ := mockK8sClient(t, clusterName, encodedKubeconfig, nil)
+	server := NewServer(mockedk8sclient)
+	server.config = &serverConfig
+
+	req, rr := createRequestAndRecorder(t, "GET", fmt.Sprintf("/v2/clusters/%s/kubeconfigs", clusterName), activeProjectID, initialToken)
+	configureHandlerAndServe(t, server, rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500 status when m2m fails, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "failed to process kubeconfig") {
+		t.Fatalf("expected failure message in body, got %s", rr.Body.String())
+	}
+}
+
+// TestKubeconfigEndToEndRenewalCallExpectations verifies whether renewal is called or skipped under different flags
+func TestKubeconfigEndToEndRenewalCallExpectations(t *testing.T) {
+	type testCase struct {
+		name             string
+		disableAuth      bool
+		disableCustomTTL bool
+		expectCalled     bool
+	}
+	cases := []testCase{
+		{name: "renewal called when both enabled", disableAuth: false, disableCustomTTL: false, expectCalled: true},
+		{name: "renewal skipped when auth disabled", disableAuth: true, disableCustomTTL: false, expectCalled: false},
+		{name: "renewal skipped when custom TTL disabled", disableAuth: false, disableCustomTTL: true, expectCalled: false},
+	}
+
+	clusterName := "example-cluster"
+	activeProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			initialExp := time.Now().Add(15 * time.Minute)
+			initialToken := helpers.CreateTestJWT(initialExp, []string{"role"})
+
+			called := false
+			original := JwtTokenWithM2MFunc
+			JwtTokenWithM2MFunc = func(ctx context.Context, ttl *time.Duration) (string, error) {
+				called = true
+				if ttl == nil && !tc.disableCustomTTL && !tc.disableAuth {
+					return "", fmt.Errorf("expected ttl pointer when custom TTL enabled")
+				}
+				exp := time.Now().Add(1 * time.Hour)
+				return helpers.CreateTestJWT(exp, []string{"renewed"}), nil
+			}
+			defer func() { JwtTokenWithM2MFunc = original }()
+
+			serverConfig := config.Config{
+				ClusterDomain:        "kind.internal",
+				Username:             "admin",
+				DisableAuth:          tc.disableAuth,
+				DisableCustomTTL:     tc.disableCustomTTL,
+				DefaultKubeconfigTTL: 1 * time.Hour,
+			}
+			encodedKubeconfig := base64.StdEncoding.EncodeToString([]byte(exampleKubeconfig))
+			mockedk8sclient, _, _ := mockK8sClient(t, clusterName, encodedKubeconfig, nil)
+			server := NewServer(mockedk8sclient)
+			server.config = &serverConfig
+
+			req, rr := createRequestAndRecorder(t, "GET", fmt.Sprintf("/v2/clusters/%s/kubeconfigs", clusterName), activeProjectID, initialToken)
+			configureHandlerAndServe(t, server, rr, req)
+			if rr.Code != http.StatusOK {
+				t.Fatalf("expected 200 OK got %d body=%s", rr.Code, rr.Body.String())
+			}
+			if called != tc.expectCalled {
+				t.Fatalf("renewal call mismatch: got called=%v expect=%v", called, tc.expectCalled)
+			}
+		})
+	}
+}
+
+// TestExpiredOriginalTokenRenewal verifies that an already-expired
+// incoming bearer token is rejected (401) and NOT renewed.
+func TestExpiredOriginalTokenRenewal(t *testing.T) {
+	clusterName := "example-cluster"
+	activeProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
+	configuredTTL := 2 * time.Hour // still configured, but should not be used for expired token
+
+	// prepare an already-expired token
+	expiredExp := time.Now().Add(-30 * time.Minute)
+	expiredToken := helpers.CreateTestJWT(expiredExp, []string{"stale-role"})
+
+	// track unexpected renewal attempts
+	called := false
+	original := JwtTokenWithM2MFunc
+	JwtTokenWithM2MFunc = func(ctx context.Context, ttl *time.Duration) (string, error) {
+		called = true
+		return "", fmt.Errorf("should not be called for expired token")
+	}
+	defer func() { JwtTokenWithM2MFunc = original }()
+
+	serverConfig := config.Config{
+		ClusterDomain:        "kind.internal",
+		Username:             "admin",
+		DisableAuth:          false,
+		DisableCustomTTL:     false,
+		DefaultKubeconfigTTL: configuredTTL,
+	}
+
+	encodedKubeconfig := base64.StdEncoding.EncodeToString([]byte(exampleKubeconfig))
+	mockedk8sclient, _, _ := mockK8sClient(t, clusterName, encodedKubeconfig, nil)
+	server := NewServer(mockedk8sclient)
+	server.config = &serverConfig
+
+	req, rr := createRequestAndRecorder(t, "GET", fmt.Sprintf("/v2/clusters/%s/kubeconfigs", clusterName), activeProjectID, expiredToken)
+	configureHandlerAndServe(t, server, rr, req)
+
+	if rr.Code != http.StatusUnauthorized { // 401
+		t.Fatalf("expected 401 Unauthorized, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	if called {
+		t.Fatalf("unexpected renewal attempt for expired token")
+	}
+
+	var resp struct {
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal 401 response: %v", err)
+	}
+	if !strings.Contains(strings.ToLower(resp.Message), "token expired") {
+		t.Fatalf("expected 'token expired' in message, got %q", resp.Message)
 	}
 }

@@ -21,6 +21,10 @@ type TokenResponse struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+// NewVaultAuthFunc allows tests to inject a mock VaultAuth implementation.
+// In production it points to NewVaultAuth.
+var NewVaultAuthFunc = NewVaultAuth
+
 // ExtractClaims extracts claims from a JWT token
 func ExtractClaims(tokenString string) (string, string, time.Time, error) {
 	// Parse the token without verifying the signature to extract the claims
@@ -55,7 +59,7 @@ func JwtTokenWithM2M(ctx context.Context, ttl *time.Duration) (string, error) {
 	}
 
 	// Get M2M credentials
-	vaultAuth, err := NewVaultAuth(VaultServer, ServiceAccount)
+	vaultAuth, err := NewVaultAuthFunc(VaultServer, ServiceAccount)
 	if err != nil {
 		return "", fmt.Errorf("failed to create vault auth: %w", err)
 	}
@@ -77,7 +81,9 @@ func JwtTokenWithM2M(ctx context.Context, ttl *time.Duration) (string, error) {
 	data.Set("client_secret", clientSecret)
 
 	ttlSeconds := int64(ttl.Seconds())
-	data.Set("session_state", strconv.FormatInt(ttlSeconds, 10)) // Custom parameter for TTL
+	// Pass the desired TTL seconds using a custom parameter understood by our Keycloak configuration / mock.
+	// The mock Keycloak in tests also inspects this field (session_state) to set the exp claim.
+	data.Set("session_state", strconv.FormatInt(ttlSeconds, 10))
 
 	tokenURL := fmt.Sprintf("%s/protocol/openid-connect/token", keycloakURL)
 	req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, bytes.NewBufferString(data.Encode()))

@@ -62,6 +62,12 @@ func (s *Server) GetV2ClustersNameKubeconfigs(ctx context.Context, request api.G
 
 	clusterKubeconfigUpdated, err := updateKubeconfigWithTokenFunc(clusterKubeconfig, namespace, request.Name, request.Params.Authorization, s.config.DisableAuth, s.config.DisableCustomTTL, kubeconfigTTL)
 	if err != nil {
+		if strings.Contains(err.Error(), "token expired") || strings.Contains(err.Error(), "token not renewable") {
+			slog.Warn("authorization token rejected", "reason", err.Error())
+			return api.GetV2ClustersNameKubeconfigs401JSONResponse{
+				N401UnauthorizedJSONResponse: api.N401UnauthorizedJSONResponse{Message: ptr("Unauthorized: token expired")},
+			}, nil
+		}
 		slog.Error("failed to update kubeconfig with token", "error", err)
 		return api.GetV2ClustersNameKubeconfigs500JSONResponse{
 			N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{
@@ -250,18 +256,28 @@ func updateKubeconfigFields(config map[string]interface{}, user, clusterName, se
 }
 
 func tokenRenewal(accessToken string, disableAuth bool, disableCustomTTL bool, ttl *time.Duration) (string, error) {
-	// If authentication is disabled == no vault access, just return the original token
+	// security hardening: do NOT renew already expired tokens. Require client to present a still-valid token.
+	// if auth disabled or custom TTL disabled, simply return the original token unchanged.
 	if disableAuth || disableCustomTTL {
 		slog.Debug("authentication or custom TTL disabled, skipping token renewal")
 		return accessToken, nil
-	}	
+	}
+
+	// parse claims (without signature verification – existing ExtractClaims behavior) to inspect exp.
+	_, _, exp, err := auth.ExtractClaims(accessToken)
+	if err != nil {
+		return "", fmt.Errorf("token not renewable: %w", err)
+	}
+	if time.Now().After(exp) {
+		return "", fmt.Errorf("token expired at %s", exp.UTC().Format(time.RFC3339))
+	}
+
 	ctx := context.Background()
 	newToken, err := JwtTokenWithM2MFunc(ctx, ttl)
 	if err != nil {
 		return "", fmt.Errorf("failed to get new M2M token: %w", err)
 	}
-
-	slog.Debug("generated fresh token with M2M authentication for consistent TTL")
+	slog.Debug("generated fresh token with M2M authentication (renew before expiry mode)")
 	return newToken, nil
 }
 
