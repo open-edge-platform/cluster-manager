@@ -21,9 +21,7 @@ import (
 
 var JwtTokenWithM2MFunc = auth.JwtTokenWithM2M
 var updateKubeconfigWithTokenFunc = updateKubeconfigWithToken
-var tokenRenewalFunc = func(token string, disableAuth bool, disableCustomTTL bool, ttl *time.Duration) (string, error) {
-	return tokenRenewal(token, disableAuth, disableCustomTTL, ttl)
-}
+var tokenRenewalFunc = tokenRenewal
 
 // (GET /v2/clusters/{name}/kubeconfigs)
 func (s *Server) GetV2ClustersNameKubeconfigs(ctx context.Context, request api.GetV2ClustersNameKubeconfigsRequestObject) (api.GetV2ClustersNameKubeconfigsResponseObject, error) {
@@ -132,7 +130,7 @@ func (s *Server) getClusterKubeconfig(ctx context.Context, namespace, clusterNam
 
 func updateKubeconfigWithToken(kubeconfig kubeconfigParameters, namespace, clusterName, authHeader string, disableAuth bool, disableCustomTTL bool, ttl *time.Duration) (string, error) {
 	token := auth.GetAccessToken(authHeader)
-	newAccessToken, err := tokenRenewal(token, disableAuth, disableCustomTTL, ttl)
+	newAccessToken, err := tokenRenewalFunc(token, disableAuth, disableCustomTTL, ttl)
 	if err != nil {
 		return "", err
 	}

@@ -70,18 +70,18 @@ func ParseConfig() *Config {
 	flag.Parse()
 
 	cfg := &Config{
-		DisableAuth:            *disableAuth,
-		DisableMultitenancy:    *disableMultitenancy || *disableMt,
-		DisableInventory:       *disableInv,
-		DisableMetrics:         *disableMetrics,
-		DefaultTemplate:        *defaultTemplate,
-		DefaultKubeconfigTTL:   time.Duration(*kubeconfigTTLHours * float64(time.Hour)),
-		DisableCustomTTL:       *disableCustomTTL,
-		LogLevel:               *logLevel,
-		LogFormat:              strings.ToLower(*logFormat),
-		ClusterDomain:          *clusterDomain,
-		Username:               *userName,
-		InventoryAddress:       *inventoryAddress,
+		DisableAuth:          *disableAuth,
+		DisableMultitenancy:  *disableMultitenancy || *disableMt,
+		DisableInventory:     *disableInv,
+		DisableMetrics:       *disableMetrics,
+		DefaultTemplate:      *defaultTemplate,
+		DefaultKubeconfigTTL: time.Duration(*kubeconfigTTLHours * float64(time.Hour)),
+		DisableCustomTTL:     *disableCustomTTL,
+		LogLevel:             *logLevel,
+		LogFormat:            strings.ToLower(*logFormat),
+		ClusterDomain:        *clusterDomain,
+		Username:             *userName,
+		InventoryAddress:     *inventoryAddress,
 	}
 
 	if *prefixes != "" {

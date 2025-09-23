@@ -121,7 +121,11 @@ func (m *MockKeycloakServer) handleTokenRequest(w http.ResponseWriter, r *http.R
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// In test helper: best effort error reporting; handler path will surface HTTP 500 to caller.
+		http.Error(w, fmt.Sprintf("failed to encode mock token response: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
 
 func (m *MockKeycloakServer) generateMockJWT(ttl time.Duration) string {

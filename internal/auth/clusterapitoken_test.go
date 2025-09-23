@@ -275,7 +275,7 @@ type mockVaultAuth struct {
 	err error
 }
 
-func (m *mockVaultAuth) GetClientCredentials(ctx context.Context) (string, string, error) { //nolint:revive,unused
+func (m *mockVaultAuth) GetClientCredentials(ctx context.Context) (string, string, error) {
 	if m.err != nil {
 		return "", "", m.err
 	}
