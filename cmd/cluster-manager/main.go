@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
@@ -36,7 +37,20 @@ func main() {
 	initializeMultitenancy(config)
 
 	k8sclient := initializeK8sClient()
-	initializeAuth(config)
+	clientID := initializeAuth(config)
+
+	// Enforce per-client access token TTL once at startup (best-effort, non-fatal)
+	if !config.DisableAuth && !config.DisableCustomTTL {
+		// obtain an admin token using existing M2M flow (same as kubeconfig issuance)
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		token, err := auth.JwtTokenWithM2M(ctx, &config.DefaultKubeconfigTTL)
+		cancel()
+		if err != nil {
+			slog.Warn("skip TTL enforcement: failed to obtain admin token", "error", err)
+		} else {
+			auth.EnforceClientAccessTokenTTL(context.Background(), config.OidcUrl, "", clientID, config.DefaultKubeconfigTTL, token, slog.Default())
+		}
+	}
 
 	auth, err := rest.GetAuthenticator(config)
 	if err != nil {
@@ -90,7 +104,7 @@ func initializeK8sClient() *k8s.Client {
 	return k8sclient
 }
 
-func initializeAuth(config *config.Config) {
+func initializeAuth(config *config.Config) string {
 	// Initialize VaultAuth and fetch client credentials only when authentication is enabled
 	if !config.DisableAuth {
 		vaultAuth, err := auth.NewVaultAuth(auth.VaultServer, auth.ServiceAccount)
@@ -99,10 +113,12 @@ func initializeAuth(config *config.Config) {
 			os.Exit(4)
 		}
 
-		_, _, err = vaultAuth.GetClientCredentials(context.Background())
+		clientID, _, err := vaultAuth.GetClientCredentials(context.Background())
 		if err != nil {
 			slog.Error("failed to fetch client credentials from Vault", "error", err)
 			os.Exit(4)
 		}
+		return clientID
 	}
+	return ""
 }
