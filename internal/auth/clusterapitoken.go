@@ -7,10 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -103,7 +105,14 @@ func JwtTokenWithM2M(ctx context.Context, ttl *time.Duration) (string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to get M2M token, status code: %d", resp.StatusCode)
+		// capture response body for diagnostics (limit to 512 chars)
+		var bodyBuf bytes.Buffer
+		_, _ = io.Copy(&bodyBuf, io.LimitReader(resp.Body, 4096))
+		body := strings.TrimSpace(bodyBuf.String())
+		if len(body) > 512 {
+			body = body[:512] + "..."
+		}
+		return "", fmt.Errorf("failed to get M2M token, status code: %d body: %s", resp.StatusCode, body)
 	}
 
 	var tokenResponse TokenResponse
