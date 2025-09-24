@@ -70,8 +70,11 @@ func JwtTokenWithM2M(ctx context.Context, ttl *time.Duration) (string, error) {
 	}
 
 	keycloakURL := os.Getenv("KEYCLOAK_URL")
+	if keycloakURL == "" { // fallback: reuse OIDC server URL if KEYCLOAK_URL not explicitly provided
+		keycloakURL = os.Getenv(OidcUrlEnvVar)
+	}
 	if keycloakURL == "" {
-		return "", fmt.Errorf("KEYCLOAK_URL environment variable not set")
+		return "", fmt.Errorf("KEYCLOAK_URL (or %s) environment variable not set", OidcUrlEnvVar)
 	}
 
 	// Prepare M2M token request
