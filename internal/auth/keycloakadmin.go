@@ -74,6 +74,49 @@ func EnforceClientAccessTokenTTL(ctx context.Context, oidcURL string, realm stri
 	logger.Info("keycloak client TTL updated", "client", clientID, "old", current, "new", desiredStr)
 }
 
+// ClearClientAccessTokenTTL removes the per-client access token lifespan override so the client
+// inherits the realm default again. Best-effort / idempotent: if the attribute is already absent
+// it simply logs and returns. All errors are logged and suppressed.
+func ClearClientAccessTokenTTL(ctx context.Context, oidcURL string, realm string, clientID string, adminToken string, logger *slog.Logger) {
+	if clientID == "" {
+		logger.Warn("skip TTL clear: empty clientID")
+		return
+	}
+	base, derivedRealm, err := deriveBaseAndRealm(oidcURL)
+	if err != nil {
+		logger.Warn("cannot derive base/realm for clear", "error", err)
+		return
+	}
+	if realm == "" {
+		realm = derivedRealm
+	}
+	uuid, err := kcLookupClientUUID(ctx, base, realm, clientID, adminToken)
+	if err != nil {
+		logger.Warn("ttl clear failed (lookup)", "error", err, "client", clientID)
+		return
+	}
+	cl, err := kcGetClient(ctx, base, realm, uuid, adminToken)
+	if err != nil {
+		logger.Warn("ttl clear failed (get)", "error", err, "client", clientID)
+		return
+	}
+	if cl.Attributes == nil {
+		logger.Info("client TTL already inherits realm (no attributes map)", "client", clientID)
+		return
+	}
+	old, present := cl.Attributes["access.token.lifespan"]
+	if !present {
+		logger.Info("client TTL already inherits realm (no override present)", "client", clientID)
+		return
+	}
+	delete(cl.Attributes, "access.token.lifespan")
+	if err := kcUpdateClient(ctx, base, realm, uuid, adminToken, cl); err != nil {
+		logger.Warn("ttl clear failed (update)", "error", err, "client", clientID)
+		return
+	}
+	logger.Info("keycloak client TTL override cleared", "client", clientID, "old", old)
+}
+
 // deriveBaseAndRealm extracts base host (scheme://host[:port]) and realm name from a standard Keycloak OIDC issuer URL.
 func deriveBaseAndRealm(oidc string) (string, string, error) {
 	if oidc == "" {

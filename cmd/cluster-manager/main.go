@@ -39,16 +39,21 @@ func main() {
 	k8sclient := initializeK8sClient()
 	clientID := initializeAuth(config)
 
-	// Enforce per-client access token TTL once at startup (best-effort, non-fatal)
-	if !config.DisableAuth && !config.DisableCustomTTL {
-		// obtain an admin token using existing M2M flow (same as kubeconfig issuance)
+	// TTL management (best-effort):
+	// - If custom TTL enabled: enforce desired override.
+	// - If custom TTL disabled: clear any existing override so client inherits realm default.
+	if !config.DisableAuth {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		token, err := auth.JwtTokenWithM2M(ctx, &config.DefaultKubeconfigTTL)
 		cancel()
 		if err != nil {
-			slog.Warn("skip TTL enforcement: failed to obtain admin token", "error", err)
+			slog.Warn("skip TTL management: failed to obtain admin token", "error", err)
 		} else {
-			auth.EnforceClientAccessTokenTTL(context.Background(), config.OidcUrl, "", clientID, config.DefaultKubeconfigTTL, token, slog.Default())
+			if !config.DisableCustomTTL {
+				auth.EnforceClientAccessTokenTTL(context.Background(), config.OidcUrl, "", clientID, config.DefaultKubeconfigTTL, token, slog.Default())
+			} else {
+				auth.ClearClientAccessTokenTTL(context.Background(), config.OidcUrl, "", clientID, token, slog.Default())
+			}
 		}
 	}
 
