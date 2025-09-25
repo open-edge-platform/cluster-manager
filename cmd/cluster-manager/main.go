@@ -39,20 +39,19 @@ func main() {
 	k8sclient := initializeK8sClient()
 	clientID := initializeAuth(config)
 
-	// TTL management (best-effort):
-	// - If custom TTL enabled: enforce desired override.
-	// - If custom TTL disabled: clear any existing override so client inherits realm default.
+	// if custom TTL enabled: override the existed keycloak access token lifespan
+	// if custom TTL disabled: clear any existing override so client inherits realm default
 	if !config.DisableAuth {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		token, err := auth.JwtTokenWithM2M(ctx, &config.DefaultKubeconfigTTL)
 		cancel()
 		if err != nil {
-			slog.Warn("skip TTL management: failed to obtain admin token", "error", err)
+			slog.Debug("failed to obtain admin token", "error", err)
 		} else {
-			if !config.DisableCustomTTL {
-				auth.EnforceClientAccessTokenTTL(context.Background(), config.OidcUrl, "", clientID, config.DefaultKubeconfigTTL, token, slog.Default())
-			} else {
+			if config.DisableCustomTTL {
 				auth.ClearClientAccessTokenTTL(context.Background(), config.OidcUrl, "", clientID, token, slog.Default())
+			} else {
+				auth.EnforceClientAccessTokenTTL(context.Background(), config.OidcUrl, "", clientID, config.DefaultKubeconfigTTL, token, slog.Default())
 			}
 		}
 	}
@@ -114,16 +113,16 @@ func initializeAuth(config *config.Config) string {
 	if !config.DisableAuth {
 		vaultAuth, err := auth.NewVaultAuth(auth.VaultServer, auth.ServiceAccount)
 		if err != nil {
-			slog.Error("failed to initialize VaultAuth", "error", err)
+			slog.Error("failed to initialize vaultAuth", "error", err)
 			os.Exit(4)
 		}
 
-		clientID, _, err := vaultAuth.GetClientCredentials(context.Background())
+		clientId, _, err := vaultAuth.GetClientCredentials(context.Background())
 		if err != nil {
 			slog.Error("failed to fetch client credentials from Vault", "error", err)
 			os.Exit(4)
 		}
-		return clientID
+		return clientId
 	}
 	return ""
 }

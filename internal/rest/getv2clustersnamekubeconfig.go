@@ -276,24 +276,23 @@ func tokenRenewal(accessToken string, disableAuth bool, disableCustomTTL bool, t
 		return "", fmt.Errorf("failed to get new M2M token: %w", err)
 	}
 
-	// Validate the renewed token minimally: ensure it carries a preferred_username (or at least azp) claim.
-	// If missing, fallback to original token to avoid issuing a kubeconfig that will certainly fail at the gateway layer.
+	// allows service tokens based on groups + roles
 	newAzp, newUser, newExp, claimErr := auth.ExtractClaims(newToken)
 	if claimErr != nil {
 		slog.Warn("failed to parse renewed token claims; falling back to original token", "error", claimErr)
+
 		return accessToken, nil
 	}
-	// NOTE: We no longer require preferred_username for renewed M2M tokens since policy now
-	// allows service tokens based on groups + roles. Missing preferred_username alone is not
-	// grounds for fallback anymore.
 
 	remainingOriginal := time.Until(exp)
 	requestedTTL := "<nil>"
 	if ttl != nil {
 		requestedTTL = ttl.String()
 	}
+
 	renewedLifetime := time.Until(newExp)
-	slog.Info("kubeconfig token renewed", "original_remaining", remainingOriginal, "requested_ttl", requestedTTL, "renewed_lifetime", renewedLifetime, "user", newUser, "azp", newAzp)
+	slog.Debug("kubeconfig token renewed", "original_remaining", remainingOriginal, "requested_ttl", requestedTTL, "renewed_lifetime", renewedLifetime, "user", newUser, "azp", newAzp)
+
 	return newToken, nil
 }
 

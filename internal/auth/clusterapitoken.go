@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -72,7 +73,7 @@ func JwtTokenWithM2M(ctx context.Context, ttl *time.Duration) (string, error) {
 	}
 
 	keycloakURL := os.Getenv("KEYCLOAK_URL")
-	if keycloakURL == "" { // fallback: reuse OIDC server URL if KEYCLOAK_URL not explicitly provided
+	if keycloakURL == "" { // use OIDC server when KEYCLOAK_URL isn't available
 		keycloakURL = os.Getenv(OidcUrlEnvVar)
 	}
 	if keycloakURL == "" {
@@ -105,14 +106,10 @@ func JwtTokenWithM2M(ctx context.Context, ttl *time.Duration) (string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		// capture response body for diagnostics (limit to 512 chars)
-		var bodyBuf bytes.Buffer
-		_, _ = io.Copy(&bodyBuf, io.LimitReader(resp.Body, 4096))
-		body := strings.TrimSpace(bodyBuf.String())
-		if len(body) > 512 {
-			body = body[:512] + "..."
-		}
-		return "", fmt.Errorf("failed to get M2M token, status code: %d body: %s", resp.StatusCode, body)
+		bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		body := strings.TrimSpace(string(bodyBytes))
+		slog.Error("M2M token request failed", "status", resp.StatusCode, "body", body, "url", resp.Request.URL.Redacted())
+		return "", fmt.Errorf("failed to get M2M token, status code: %d", resp.StatusCode)
 	}
 
 	var tokenResponse TokenResponse

@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -24,9 +23,9 @@ const (
 	VaultServer        = "http://vault.orch-platform.svc.cluster.local:8200"
 	ServiceAccount     = "cluster-manager"
 
-	// Environment variable overrides (optional)
+	// optional environment variable overrides for testing/development
 	envVaultAddr        = "VAULT_ADDR"
-	envVaultAuthPath    = "VAULT_K8S_AUTH_PATH"   // e.g. /v1/auth/kubernetes/login or auth/kubernetes/login
+	envVaultAuthPath    = "VAULT_K8S_AUTH_PATH"   // in case of non-standard mount path, e.g. /v1/auth/kubernetes/login or auth/kubernetes/login
 	envVaultServiceAcct = "VAULT_SERVICE_ACCOUNT" // overrides ServiceAccount when set
 )
 
@@ -44,10 +43,11 @@ type vaultAuth struct {
 }
 
 func NewVaultAuth(vaultServer string, serviceAccount string) (VaultAuth, error) {
-	// Allow environment overrides for flexibility in different deployments
+	// for flexibility in different deployments
 	if env := os.Getenv(envVaultAddr); env != "" {
 		vaultServer = env
 	}
+
 	if svc := os.Getenv(envVaultServiceAcct); svc != "" {
 		serviceAccount = svc
 	}
@@ -72,22 +72,25 @@ func (v *vaultAuth) httpsVaultURL(path string) string {
 	return v.vaultServer + path
 }
 
-// normalizeLoginPath ensures the login path starts with / and includes /v1/ prefix if user omitted it.
+// normalizeLoginPath ensures the login path starts with / and includes /v1/ prefix if omitted
 func normalizeLoginPath(p string) string {
 	p = strings.TrimSpace(p)
 	if p == "" {
 		return vaultK8SLoginURL
 	}
+
 	if !strings.HasPrefix(p, "/") {
 		p = "/" + p
 	}
-	// If user provided something like /auth/kubernetes/login (without /v1), prepend /v1
+
+	// in case of something like /auth/kubernetes/login (without /v1), prepend /v1
 	if !strings.HasPrefix(p, "/v1/") {
-		// but avoid duplicating if they already wrote /v1
-		if strings.HasPrefix(p, "/auth/") { // typical shorter form
+		// avoid duplication if there is /v1
+		if strings.HasPrefix(p, "/auth/") {
 			p = "/v1" + p
 		}
 	}
+
 	return p
 }
 
@@ -117,15 +120,17 @@ func (v *vaultAuth) getVaultToken(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("failed to marshal login request: %w", err)
 	}
 
-	// Use configurable login path (default: vaultK8SLoginURL)
+	// use configurable login path
 	loginEndpoint := v.loginPath
-	if loginEndpoint == "" { // fallback safety
+	if loginEndpoint == "" { // fallback to default
 		loginEndpoint = vaultK8SLoginURL
 	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, v.httpsVaultURL(loginEndpoint), bytes.NewReader(reqBody))
 	if err != nil {
 		return "", fmt.Errorf("failed to create login request: %w", err)
 	}
+
 	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := v.httpClient.Do(req)
@@ -135,13 +140,7 @@ func (v *vaultAuth) getVaultToken(ctx context.Context) (string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		// Read body (best-effort) for improved diagnostics; limit size
-		bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		snippet := strings.TrimSpace(string(bodyBytes))
-		if len(snippet) > 300 {
-			snippet = snippet[:300] + "..."
-		}
-		return "", fmt.Errorf("vault login request failed with status code %d body='%s'", resp.StatusCode, snippet)
+		return "", fmt.Errorf("vault login request failed with status code %d", resp.StatusCode)
 	}
 
 	var loginResp struct {

@@ -100,15 +100,11 @@ func (m *MockKeycloakServer) handleTokenRequest(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// Determine requested TTL. Priority: session_state (custom) > expires_in > default
+	// Determine requested TTL
 	requestedTTL := m.TokenTTL
 	if ss := r.FormValue("session_state"); ss != "" {
 		if secs, err := strconv.ParseInt(ss, 10, 64); err == nil {
 			requestedTTL = time.Duration(secs) * time.Second
-		}
-	} else if ttlStr := r.FormValue("expires_in"); ttlStr != "" {
-		if ttlSeconds, err := time.ParseDuration(ttlStr + "s"); err == nil {
-			requestedTTL = ttlSeconds
 		}
 	}
 
@@ -122,7 +118,6 @@ func (m *MockKeycloakServer) handleTokenRequest(w http.ResponseWriter, r *http.R
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		// In test helper: best effort error reporting; handler path will surface HTTP 500 to caller.
 		http.Error(w, fmt.Sprintf("failed to encode mock token response: %v", err), http.StatusInternalServerError)
 		return
 	}
