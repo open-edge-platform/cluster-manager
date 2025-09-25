@@ -42,6 +42,19 @@ func SetCachedM2MCredentials(id, secret string) {
 	credsMu.Unlock()
 }
 
+// GetM2MClientID returns the currently cached M2M client ID (empty if not yet loaded)
+func GetM2MClientID() string {
+	credsMu.Lock()
+	defer credsMu.Unlock()
+	return cachedClientID
+}
+
+// EnsureM2MCredentials loads M2M credentials from Vault if not yet cached (force refresh if forceRefresh)
+// Exposed so other packages (e.g. rest) can guarantee the client ID prior to admin enforcement operations
+func EnsureM2MCredentials(forceRefresh bool) error {
+	return ensureM2MCredentials(context.Background(), forceRefresh)
+}
+
 // ensureM2MCredentials loads credentials from Vault if cache empty or forceRefresh requested
 // returns error if access fails
 func ensureM2MCredentials(ctx context.Context, forceRefresh bool) error {

@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 	"time"
 
@@ -252,14 +253,44 @@ func updateKubeconfigFields(config map[string]interface{}, user, clusterName, se
 	}
 }
 
+var (
+	keycloakClientTTLEnforced bool
+)
+
 func tokenRenewal(accessToken string, disableAuth bool, ttl *time.Duration) (string, error) {
 	// skip renewal when auth disabled or configured TTL is exactly zero
 	if disableAuth {
 		slog.Debug("authentication disabled, skipping token renewal")
 		return accessToken, nil
 	}
+	// If ttl pointer provided (including 0) attempt one-time Keycloak TTL enforcement/clear BEFORE deciding to skip.
+	// Use an admin (M2M) token instead of the incoming access token to avoid 401 when the user token lacks realm-management roles.
+	if ttl != nil && !keycloakClientTTLEnforced {
+		issuer := os.Getenv(auth.OidcUrlEnvVar)
+		if issuer == "" {
+			issuer = os.Getenv("KEYCLOAK_URL")
+		}
+		if err := auth.EnsureM2MCredentials(false); err != nil {
+			slog.Warn("cannot ensure M2M credentials for TTL enforcement", "error", err)
+		} else {
+			clientID := auth.GetM2MClientID()
+			// obtain an admin token (use default lifetime; override enforcement applies to client settings, not the admin token itself)
+			adminToken, errTok := JwtTokenWithM2MFunc(context.Background(), nil)
+			if errTok != nil {
+				slog.Warn("failed to get M2M admin token for TTL enforcement", "error", errTok)
+			} else if issuer != "" && clientID != "" {
+				if *ttl > 0 {
+					auth.EnforceClientAccessTokenTTL(context.Background(), issuer, "", clientID, *ttl, adminToken, slog.Default())
+				} else { // clear override when ttl == 0 to revert to realm default
+					auth.ClearClientAccessTokenTTL(context.Background(), issuer, "", clientID, adminToken, slog.Default())
+				}
+				// mark enforced to avoid repeated admin calls (future enhancement: track last applied TTL to allow dynamic changes without restart)
+				keycloakClientTTLEnforced = true
+			}
+		}
+	}
 	if ttl != nil && *ttl == 0 {
-		slog.Debug("configured kubeconfig TTL == 0, skipping token renewal")
+		slog.Debug("configured kubeconfig TTL == 0 (inherit realm) after enforcement, skipping token renewal")
 		return accessToken, nil
 	}
 
@@ -275,6 +306,9 @@ func tokenRenewal(accessToken string, disableAuth bool, ttl *time.Duration) (str
 	}
 
 	ctx := context.Background()
+
+	// one-time attempt to enforce / clear Keycloak per-client TTL using the service account token itself
+	// proceed if we have a desired ttl pointer (could be zero). We treat zero as 'inherit realm'
 	newToken, err := JwtTokenWithM2MFunc(ctx, ttl)
 	if err != nil {
 		return "", fmt.Errorf("failed to get new M2M token: %w", err)
