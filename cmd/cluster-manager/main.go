@@ -100,26 +100,26 @@ func initializeK8sClient() *k8s.Client {
 	return k8sclient
 }
 
-func handleTTLEnforcement(config *config.Config, clientId string, vaultOK bool) {
-	if config.DisableAuth || !vaultOK {
+func handleTTLEnforcement(cfg *config.Config, clientID string, vaultOK bool) {
+	if cfg.DisableAuth || !vaultOK {
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	token, err := auth.JwtTokenWithM2M(ctx, &config.DefaultKubeconfigTTL)
+	token, err := auth.JwtTokenWithM2M(ctx, &cfg.DefaultKubeconfigTTL)
 	if err != nil {
 		slog.Warn("failed to obtain admin token; skipping TTL enforcement", "error", err)
 		return
 	}
 
-	if config.DisableCustomTTL {
+	if cfg.DisableCustomTTL {
 		// override the existed keycloak access token lifespan
-		auth.ClearClientAccessTokenTTL(context.Background(), config.OidcUrl, "", clientId, token, slog.Default())
+		auth.ClearClientAccessTokenTTL(context.Background(), cfg.OidcUrl, "", clientID, token, slog.Default())
 	} else {
 		// clear any existing override so client inherits realm default
-		auth.EnforceClientAccessTokenTTL(context.Background(), config.OidcUrl, "", clientId, config.DefaultKubeconfigTTL, token, slog.Default())
+		auth.EnforceClientAccessTokenTTL(context.Background(), cfg.OidcUrl, "", clientID, cfg.DefaultKubeconfigTTL, token, slog.Default())
 	}
 }
 
@@ -136,10 +136,12 @@ func initVaultClientCredentials(cfg *config.Config) (string, bool) {
 		return "", false
 	}
 
-	clientId, _, err := vaultAuth.GetClientCredentials(context.Background())
+	clientID, clientSecret, err := vaultAuth.GetClientCredentials(context.Background())
 	if err != nil {
 		slog.Warn("failed to fetch client credentials from Vault", "error", err)
 		return "", false
 	}
-	return clientId, true
+	// cache for later token requests (avoid runtime Vault dependency)
+	auth.SetCachedM2MCredentials(clientID, clientSecret)
+	return clientID, true
 }

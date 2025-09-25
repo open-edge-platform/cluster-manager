@@ -23,9 +23,19 @@ type TokenResponse struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-// NewVaultAuthFunc allows tests to inject a mock VaultAuth implementation.
-// In production it points to NewVaultAuth.
+// NewVaultAuthFunc allows tests to inject a mock VaultAuth implementation
 var NewVaultAuthFunc = NewVaultAuth
+
+// cached M2M client credentials (populated at startup to avoid Vault lookups per token request)
+var cachedClientID string
+var cachedClientSecret string
+
+// etCachedM2MCredentials allows the main package (or tests) to preload client credentials so that
+// JwtTokenWithM2M does not need to contact Vault on each invocation. Safe for concurrent reads after set
+func SetCachedM2MCredentials(id, secret string) {
+	cachedClientID = id
+	cachedClientSecret = secret
+}
 
 // ExtractClaims extracts claims from a JWT token
 func ExtractClaims(tokenString string) (string, string, time.Time, error) {
@@ -62,15 +72,22 @@ func JwtTokenWithM2M(ctx context.Context, ttl *time.Duration) (string, error) {
 	}
 	slog.Debug("using M2M token TTL", "seconds", int(ttl.Seconds()))
 
-	// Get M2M credentials
-	vaultAuth, err := NewVaultAuthFunc(VaultServer, ServiceAccount)
-	if err != nil {
-		return "", fmt.Errorf("failed to create vault auth: %w", err)
-	}
-
-	clientID, clientSecret, err := vaultAuth.GetClientCredentials(ctx)
-	if err != nil {
-		return "", fmt.Errorf("failed to get M2M credentials from Vault: %w", err)
+	// get M2M credentials (prefer cached, fallback to Vault)
+	clientID := cachedClientID
+	clientSecret := cachedClientSecret
+	if clientID == "" || clientSecret == "" { // not cached yet or incomplete
+		vaultAuth, err := NewVaultAuthFunc(VaultServer, ServiceAccount)
+		if err != nil {
+			return "", fmt.Errorf("failed to create vault auth: %w", err)
+		}
+		var errCred error
+		clientID, clientSecret, errCred = vaultAuth.GetClientCredentials(ctx)
+		if errCred != nil {
+			return "", fmt.Errorf("failed to get M2M credentials from Vault: %w", errCred)
+		}
+		// cache for subsequent calls (best effort, no locking needed for simple assignment)
+		cachedClientID = clientID
+		cachedClientSecret = clientSecret
 	}
 
 	keycloakURL := os.Getenv("KEYCLOAK_URL")
