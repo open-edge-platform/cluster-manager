@@ -265,7 +265,7 @@ func tokenRenewal(accessToken string, disableAuth bool, disableCustomTTL bool, t
 	if err != nil {
 		return "", fmt.Errorf("token not renewable: %w", err)
 	}
-	
+
 	// this avoid renew an expired token
 	if time.Now().After(exp) {
 		return "", fmt.Errorf("token expired at %s", exp.UTC().Format(time.RFC3339))

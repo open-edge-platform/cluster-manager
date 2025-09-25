@@ -55,10 +55,12 @@ func ExtractClaims(tokenString string) (string, string, time.Time, error) {
 
 // JwtTokenWithM2M retrieves a new token from Keycloak using M2M authentication with configurable TTL
 func JwtTokenWithM2M(ctx context.Context, ttl *time.Duration) (string, error) {
-	defaultTTL := 1 * time.Hour
+	// nil means caller did not specify a TTL; we apply a default (1h) for observability logging only.
 	if ttl == nil {
-		ttl = &defaultTTL
+		oneHour := time.Hour
+		ttl = &oneHour
 	}
+	slog.Debug("using M2M token TTL", "seconds", int(ttl.Seconds()))
 
 	// Get M2M credentials
 	vaultAuth, err := NewVaultAuthFunc(VaultServer, ServiceAccount)

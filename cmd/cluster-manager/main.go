@@ -37,26 +37,8 @@ func main() {
 	initializeMultitenancy(config)
 
 	k8sclient := initializeK8sClient()
-	clientID := initializeAuth(config)
 
-	// if custom TTL enabled: override the existed keycloak access token lifespan
-	// if custom TTL disabled: clear any existing override so client inherits realm default
-	if !config.DisableAuth {
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		token, err := auth.JwtTokenWithM2M(ctx, &config.DefaultKubeconfigTTL)
-		cancel()
-		if err != nil {
-			slog.Debug("failed to obtain admin token", "error", err)
-		} else {
-			if config.DisableCustomTTL {
-				auth.ClearClientAccessTokenTTL(context.Background(), config.OidcUrl, "", clientID, token, slog.Default())
-			} else {
-				auth.EnforceClientAccessTokenTTL(context.Background(), config.OidcUrl, "", clientID, config.DefaultKubeconfigTTL, token, slog.Default())
-			}
-		}
-	}
-
-	auth, err := rest.GetAuthenticator(config)
+	authenticator, err := rest.GetAuthenticator(config)
 	if err != nil {
 		slog.Error("failed to get authenticator", "error", err)
 		os.Exit(4)
@@ -68,11 +50,21 @@ func main() {
 		os.Exit(7)
 	}
 
-	s := rest.NewServer(k8sclient.Dyn, rest.WithAuth(auth), rest.WithConfig(config), rest.WithInventory(inv))
+	// retrieve client credentials from Vault
+	clientId, vaultOK := initVaultClientCredentials(config)
+	if !vaultOK {
+		slog.Warn("Vault unavailable: disabling kubeconfig token renewal and custom TTL enforcement")
+		config.DisableCustomTTL = true
+	}
+	// handle TTL enforcement
+	handleTTLEnforcement(config, clientId, vaultOK)
+
+	s := rest.NewServer(k8sclient.Dyn, rest.WithAuth(authenticator), rest.WithConfig(config), rest.WithInventory(inv))
 	if err := s.Serve(); err != nil {
 		slog.Error("server failed", "error", err)
 		os.Exit(5)
 	}
+
 }
 
 func initializeSystemLabels(config *config.Config) {
@@ -108,21 +100,46 @@ func initializeK8sClient() *k8s.Client {
 	return k8sclient
 }
 
-func initializeAuth(config *config.Config) string {
-	// Initialize VaultAuth and fetch client credentials only when authentication is enabled
-	if !config.DisableAuth {
-		vaultAuth, err := auth.NewVaultAuth(auth.VaultServer, auth.ServiceAccount)
-		if err != nil {
-			slog.Error("failed to initialize vaultAuth", "error", err)
-			os.Exit(4)
-		}
-
-		clientId, _, err := vaultAuth.GetClientCredentials(context.Background())
-		if err != nil {
-			slog.Error("failed to fetch client credentials from Vault", "error", err)
-			os.Exit(4)
-		}
-		return clientId
+func handleTTLEnforcement(config *config.Config, clientId string, vaultOK bool) {
+	if config.DisableAuth || !vaultOK {
+		return
 	}
-	return ""
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	token, err := auth.JwtTokenWithM2M(ctx, &config.DefaultKubeconfigTTL)
+	if err != nil {
+		slog.Warn("failed to obtain admin token; skipping TTL enforcement", "error", err)
+		return
+	}
+
+	if config.DisableCustomTTL {
+		// override the existed keycloak access token lifespan
+		auth.ClearClientAccessTokenTTL(context.Background(), config.OidcUrl, "", clientId, token, slog.Default())
+	} else {
+		// clear any existing override so client inherits realm default
+		auth.EnforceClientAccessTokenTTL(context.Background(), config.OidcUrl, "", clientId, config.DefaultKubeconfigTTL, token, slog.Default())
+	}
+}
+
+// initVaultClientCredentials fetches Keycloak client credentials from Vault if auth is enabled
+// on failure (non-fatal) token renewal and custom TTL enforcement are disabled
+func initVaultClientCredentials(cfg *config.Config) (string, bool) {
+	if cfg.DisableAuth {
+		return "", false
+	}
+
+	vaultAuth, err := auth.NewVaultAuth(auth.VaultServer, auth.ServiceAccount)
+	if err != nil {
+		slog.Warn("vault init failed", "error", err)
+		return "", false
+	}
+
+	clientId, _, err := vaultAuth.GetClientCredentials(context.Background())
+	if err != nil {
+		slog.Warn("failed to fetch client credentials from Vault", "error", err)
+		return "", false
+	}
+	return clientId, true
 }
