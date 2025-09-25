@@ -33,9 +33,6 @@ type Config struct {
 	// Default template name to use for new projects
 	DefaultTemplate string
 
-	// DisableCustomTTL disables custom TTL configuration, uses Keycloak defaults when true
-	DisableCustomTTL bool
-
 	// DefaultKubeconfigTTL specifies the default TTL for kubeconfig JWT tokens
 	DefaultKubeconfigTTL time.Duration
 
@@ -65,8 +62,7 @@ func ParseConfig() *Config {
 	clusterDomain := flag.String("clusterdomain", "kind.internal", "(optional) cluster domain")
 	userName := flag.String("username", "admin", "(optional) user")
 	inventoryAddress := flag.String("inventory-endpoint", "mi-inventory:50051", "(optional) inventory address")
-	kubeconfigTTLHours := flag.Float64("kubeconfig-ttl-hours", 1.0, "(optional) default TTL for kubeconfig JWTs in hours")
-	disableCustomTTL := flag.Bool("disable-custom-ttl", false, "(optional) disable custom TTL for kubeconfig JWTs")
+	kubeconfigTTLHours := flag.Float64("kubeconfig-ttl-hours", 1.0, "(optional) default TTL for kubeconfig JWTs in hours (0 = skip renewal)")
 	flag.Parse()
 
 	cfg := &Config{
@@ -76,7 +72,6 @@ func ParseConfig() *Config {
 		DisableMetrics:       *disableMetrics,
 		DefaultTemplate:      *defaultTemplate,
 		DefaultKubeconfigTTL: time.Duration(*kubeconfigTTLHours * float64(time.Hour)),
-		DisableCustomTTL:     *disableCustomTTL,
 		LogLevel:             *logLevel,
 		LogFormat:            strings.ToLower(*logFormat),
 		ClusterDomain:        *clusterDomain,
@@ -138,9 +133,10 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("inventory address is required to enable inventory integration")
 	}
 
-	if c.DefaultKubeconfigTTL <= 0 {
-		slog.Error("kubeconfig TTL must be positive", "provided", c.DefaultKubeconfigTTL)
-		return fmt.Errorf("kubeconfig TTL must be positive, got %v", c.DefaultKubeconfigTTL)
+	// allow 0 to mean: do not renew (pass-through existing token); negative still invalid
+	if c.DefaultKubeconfigTTL < 0 {
+		slog.Error("kubeconfig TTL must be >= 0", "provided", c.DefaultKubeconfigTTL)
+		return fmt.Errorf("kubeconfig TTL must be >= 0, got %v", c.DefaultKubeconfigTTL)
 	}
 
 	return nil

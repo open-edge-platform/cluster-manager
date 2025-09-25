@@ -48,17 +48,16 @@ func (s *Server) GetV2ClustersNameKubeconfigs(ctx context.Context, request api.G
 	}
 
 	// Determine TTL for kubeconfig JWT based on configuration
+	//    > 0: request a renewed token with specified TTL
+	//   == 0: skip renewal (pass-through existing token)
 	var kubeconfigTTL *time.Duration
-	if !s.config.DisableCustomTTL {
-		if s.config.DefaultKubeconfigTTL > 0 {
-			kubeconfigTTL = &s.config.DefaultKubeconfigTTL
-		} else {
-			slog.Debug("DefaultKubeconfigTTL is not set or zero, using Keycloak defaults")
-			kubeconfigTTL = nil
-		}
+	// always set pointer (including zero) so tokenRenewal can distinguish between "no config provided" (nil) and 0 meaning skip
+	if s.config != nil {
+		tmp := s.config.DefaultKubeconfigTTL
+		kubeconfigTTL = &tmp
 	}
 
-	clusterKubeconfigUpdated, err := updateKubeconfigWithTokenFunc(clusterKubeconfig, namespace, request.Name, request.Params.Authorization, s.config.DisableAuth, s.config.DisableCustomTTL, kubeconfigTTL)
+	clusterKubeconfigUpdated, err := updateKubeconfigWithTokenFunc(clusterKubeconfig, namespace, request.Name, request.Params.Authorization, s.config.DisableAuth, kubeconfigTTL)
 	if err != nil {
 		if strings.Contains(err.Error(), "token expired") || strings.Contains(err.Error(), "token not renewable") {
 			slog.Warn("authorization token rejected", "reason", err.Error())
@@ -128,9 +127,9 @@ func (s *Server) getClusterKubeconfig(ctx context.Context, namespace, clusterNam
 // server external:
 // server: https://connect-gateway.<domain>:443/kubernetes/<project-id>-<cluster-name>
 
-func updateKubeconfigWithToken(kubeconfig kubeconfigParameters, namespace, clusterName, authHeader string, disableAuth bool, disableCustomTTL bool, ttl *time.Duration) (string, error) {
+func updateKubeconfigWithToken(kubeconfig kubeconfigParameters, namespace, clusterName, authHeader string, disableAuth bool, ttl *time.Duration) (string, error) {
 	token := auth.GetAccessToken(authHeader)
-	newAccessToken, err := tokenRenewalFunc(token, disableAuth, disableCustomTTL, ttl)
+	newAccessToken, err := tokenRenewalFunc(token, disableAuth, ttl)
 	if err != nil {
 		return "", err
 	}
@@ -253,10 +252,14 @@ func updateKubeconfigFields(config map[string]interface{}, user, clusterName, se
 	}
 }
 
-func tokenRenewal(accessToken string, disableAuth bool, disableCustomTTL bool, ttl *time.Duration) (string, error) {
-	// skip renewal when auth is disabled or custom TTL feature is disabled
-	if disableAuth || disableCustomTTL {
-		slog.Debug("authentication or custom TTL disabled, skipping token renewal")
+func tokenRenewal(accessToken string, disableAuth bool, ttl *time.Duration) (string, error) {
+	// skip renewal when auth disabled or configured TTL is exactly zero
+	if disableAuth {
+		slog.Debug("authentication disabled, skipping token renewal")
+		return accessToken, nil
+	}
+	if ttl != nil && *ttl == 0 {
+		slog.Debug("configured kubeconfig TTL == 0, skipping token renewal")
 		return accessToken, nil
 	}
 

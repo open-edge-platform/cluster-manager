@@ -87,4 +87,3 @@ func initializeK8sClient() *k8s.Client {
 	}
 	return k8sclient
 }
-

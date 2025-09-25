@@ -134,7 +134,7 @@ func JwtTokenWithM2M(ctx context.Context, ttl *time.Duration) (string, error) {
 
 	// attempt credential refresh & retry once
 	accessToken, retryable, err := doM2MTokenRequest(client, req)
-	if err != nil && retryable {		
+	if err != nil && retryable {
 		if errRef := ensureM2MCredentials(ctx, true); errRef == nil {
 			credsMu.Lock()
 			clientID, clientSecret = cachedClientID, cachedClientSecret
