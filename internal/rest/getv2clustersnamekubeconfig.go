@@ -254,8 +254,7 @@ func updateKubeconfigFields(config map[string]interface{}, user, clusterName, se
 }
 
 func tokenRenewal(accessToken string, disableAuth bool, disableCustomTTL bool, ttl *time.Duration) (string, error) {
-	// security hardening: do NOT renew already expired tokens. Require client to present a still-valid token.
-	// if auth disabled or custom TTL disabled, simply return the original token unchanged.
+	// skip renewal when auth is disabled or custom TTL feature is disabled
 	if disableAuth || disableCustomTTL {
 		slog.Debug("authentication or custom TTL disabled, skipping token renewal")
 		return accessToken, nil
@@ -266,6 +265,8 @@ func tokenRenewal(accessToken string, disableAuth bool, disableCustomTTL bool, t
 	if err != nil {
 		return "", fmt.Errorf("token not renewable: %w", err)
 	}
+	
+	// this avoid renew an expired token
 	if time.Now().After(exp) {
 		return "", fmt.Errorf("token expired at %s", exp.UTC().Format(time.RFC3339))
 	}

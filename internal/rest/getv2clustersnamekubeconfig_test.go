@@ -744,6 +744,10 @@ func TestTokenRenewalWithVaultAndKeycloak(t *testing.T) {
 			originalJwtTokenWithM2MFunc := JwtTokenWithM2MFunc
 			JwtTokenWithM2MFunc = func(ctx context.Context, ttl *time.Duration) (string, error) {
 				_ = os.Setenv("KEYCLOAK_URL", mockKC.URL())
+				// ensure mock server issues tokens matching requested TTL when provided
+				if ttl != nil {
+					mockKC.SetTokenTTL(*ttl)
+				}
 				return intauth.JwtTokenWithM2M(ctx, ttl)
 			}
 			defer func() { JwtTokenWithM2MFunc = originalJwtTokenWithM2MFunc }()

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"time"
 
@@ -100,16 +99,8 @@ func (m *MockKeycloakServer) handleTokenRequest(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// Determine requested TTL
-	requestedTTL := m.TokenTTL
-	if ss := r.FormValue("session_state"); ss != "" {
-		if secs, err := strconv.ParseInt(ss, 10, 64); err == nil {
-			requestedTTL = time.Duration(secs) * time.Second
-		}
-	}
-
 	// Generate a mock JWT token with the requested TTL
-	token := m.generateMockJWT(requestedTTL)
+	token := m.generateMockJWT(m.TokenTTL)
 
 	response := auth.TokenResponse{
 		AccessToken:  token,

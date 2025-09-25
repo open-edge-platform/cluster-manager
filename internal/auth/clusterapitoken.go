@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -85,11 +84,6 @@ func JwtTokenWithM2M(ctx context.Context, ttl *time.Duration) (string, error) {
 	data.Set("grant_type", "client_credentials")
 	data.Set("client_id", clientID)
 	data.Set("client_secret", clientSecret)
-
-	ttlSeconds := int64(ttl.Seconds())
-	// Pass the desired TTL seconds using a custom parameter understood by our Keycloak configuration / mock.
-	// The mock Keycloak in tests also inspects this field (session_state) to set the exp claim.
-	data.Set("session_state", strconv.FormatInt(ttlSeconds, 10))
 
 	tokenURL := fmt.Sprintf("%s/protocol/openid-connect/token", keycloakURL)
 	req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, bytes.NewBufferString(data.Encode()))

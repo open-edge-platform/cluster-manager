@@ -4,12 +4,10 @@ package auth
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"strconv"
 	"testing"
 	"time"
 
@@ -171,22 +169,6 @@ func TestJwtTokenWithM2M(t *testing.T) {
 	twoHours := 2 * time.Hour
 	day := 24 * time.Hour
 
-	successHandler := func(w http.ResponseWriter, r *http.Request) {
-		_ = r.ParseForm()
-		ss := r.Form.Get("session_state")
-		secs, _ := strconv.ParseInt(ss, 10, 64)
-		if secs == 0 {
-			secs = int64(oneHour.Seconds())
-		}
-		exp := time.Now().Add(time.Duration(secs) * time.Second).Unix()
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"exp": exp,
-			"azp": "test-client",
-		})
-		s, _ := token.SignedString([]byte("secret"))
-		_ = json.NewEncoder(w).Encode(TokenResponse{AccessToken: s})
-	}
-
 	non200Handler := func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte("boom"))
@@ -197,9 +179,9 @@ func TestJwtTokenWithM2M(t *testing.T) {
 	}
 
 	testcases := []tests{
-		{name: "default ttl", ttl: nil, expectedTTL: oneHour, tolerance: 90 * time.Second, keycloakFn: successHandler},
-		{name: "custom 2h ttl", ttl: &twoHours, expectedTTL: twoHours, tolerance: 90 * time.Second, keycloakFn: successHandler},
-		{name: "custom 24h ttl", ttl: &day, expectedTTL: day, tolerance: 2 * time.Minute, keycloakFn: successHandler},
+		{name: "default ttl", ttl: nil, expectedTTL: oneHour, tolerance: 90 * time.Second},
+		{name: "custom 2h ttl", ttl: &twoHours, expectedTTL: twoHours, tolerance: 90 * time.Second},
+		{name: "custom 24h ttl", ttl: &day, expectedTTL: day, tolerance: 2 * time.Minute},
 		{name: "missing KEYCLOAK_URL", ttl: &twoHours, unsetEnv: true, expectErr: "KEYCLOAK_URL"},
 		{name: "vault credential failure", ttl: &twoHours, vaultErr: fmt.Errorf("vault down"), expectErr: "failed to get M2M credentials"},
 		{name: "keycloak non-200", ttl: &twoHours, keycloakFn: non200Handler, expectErr: "status code"},
@@ -228,8 +210,25 @@ func TestJwtTokenWithM2M(t *testing.T) {
 			}()
 
 			var server *httptest.Server
-			if !tc.unsetEnv && tc.keycloakFn != nil {
-				server = httptest.NewServer(http.HandlerFunc(tc.keycloakFn))
+			if !tc.unsetEnv {
+				h := tc.keycloakFn
+				if h == nil {
+					h = func(w http.ResponseWriter, r *http.Request) {
+						requested := oneHour
+						if tc.ttl != nil {
+							requested = *tc.ttl
+						}
+						exp := time.Now().Add(requested).Unix()
+						token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+							"exp": exp,
+							"azp": "test-client",
+						})
+						s, _ := token.SignedString([]byte("secret"))
+						w.Header().Set("Content-Type", "application/json")
+						_, _ = w.Write([]byte(fmt.Sprintf("{\"access_token\":\"%s\"}", s)))
+					}
+				}
+				server = httptest.NewServer(http.HandlerFunc(h))
 				defer server.Close()
 				_ = os.Setenv("KEYCLOAK_URL", server.URL)
 			} else if tc.unsetEnv {
