@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -13,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -29,12 +31,45 @@ var NewVaultAuthFunc = NewVaultAuth
 // cached M2M client credentials (populated at startup to avoid Vault lookups per token request)
 var cachedClientID string
 var cachedClientSecret string
+var credsMu sync.Mutex
 
-// etCachedM2MCredentials allows the main package (or tests) to preload client credentials so that
+// SetCachedM2MCredentials allows the main package (or tests) to preload client credentials so that
 // JwtTokenWithM2M does not need to contact Vault on each invocation. Safe for concurrent reads after set
 func SetCachedM2MCredentials(id, secret string) {
+	credsMu.Lock()
 	cachedClientID = id
 	cachedClientSecret = secret
+	credsMu.Unlock()
+}
+
+// ensureM2MCredentials loads credentials from Vault if cache empty or forceRefresh requested
+// returns error if access fails
+func ensureM2MCredentials(ctx context.Context, forceRefresh bool) error {
+	credsMu.Lock()
+	idEmpty := cachedClientID == "" || cachedClientSecret == ""
+	credsMu.Unlock()
+
+	if !forceRefresh && !idEmpty {
+		return nil
+	}
+
+	vaultAuth, err := NewVaultAuthFunc(VaultServer, ServiceAccount)
+	if err != nil {
+		return fmt.Errorf("failed to create vault auth: %w", err)
+	}
+
+	id, secret, err := vaultAuth.GetClientCredentials(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch M2M credentials from Vault: %w", err)
+	}
+
+	SetCachedM2MCredentials(id, secret)
+	if forceRefresh {
+		slog.Warn("token failure - M2M credentials refreshed from Vault")
+	} else {
+		slog.Debug("loaded M2M credentials from Vault)")
+	}
+	return nil
 }
 
 // ExtractClaims extracts claims from a JWT token
@@ -65,40 +100,24 @@ func ExtractClaims(tokenString string) (string, string, time.Time, error) {
 
 // JwtTokenWithM2M retrieves a new token from Keycloak using M2M authentication with configurable TTL
 func JwtTokenWithM2M(ctx context.Context, ttl *time.Duration) (string, error) {
-	// nil means caller did not specify a TTL; we apply a default (1h) for observability logging only.
-	if ttl == nil {
-		oneHour := time.Hour
-		ttl = &oneHour
+	if err := ensureM2MCredentials(ctx, false); err != nil {
+		return "", err
 	}
-	slog.Debug("using M2M token TTL", "seconds", int(ttl.Seconds()))
 
-	// get M2M credentials (prefer cached, fallback to Vault)
-	clientID := cachedClientID
-	clientSecret := cachedClientSecret
-	if clientID == "" || clientSecret == "" { // not cached yet or incomplete
-		vaultAuth, err := NewVaultAuthFunc(VaultServer, ServiceAccount)
-		if err != nil {
-			return "", fmt.Errorf("failed to create vault auth: %w", err)
-		}
-		var errCred error
-		clientID, clientSecret, errCred = vaultAuth.GetClientCredentials(ctx)
-		if errCred != nil {
-			return "", fmt.Errorf("failed to get M2M credentials from Vault: %w", errCred)
-		}
-		// cache for subsequent calls (best effort, no locking needed for simple assignment)
-		cachedClientID = clientID
-		cachedClientSecret = clientSecret
-	}
+	credsMu.Lock()
+	clientID, clientSecret := cachedClientID, cachedClientSecret
+	credsMu.Unlock()
 
 	keycloakURL := os.Getenv("KEYCLOAK_URL")
 	if keycloakURL == "" { // use OIDC server when KEYCLOAK_URL isn't available
 		keycloakURL = os.Getenv(OidcUrlEnvVar)
 	}
+
 	if keycloakURL == "" {
 		return "", fmt.Errorf("KEYCLOAK_URL (or %s) environment variable not set", OidcUrlEnvVar)
 	}
 
-	// Prepare M2M token request
+	// prepare for M2M token request
 	data := url.Values{}
 	data.Set("grant_type", "client_credentials")
 	data.Set("client_id", clientID)
@@ -112,22 +131,91 @@ func JwtTokenWithM2M(ctx context.Context, ttl *time.Duration) (string, error) {
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	client := &http.Client{Timeout: 10 * time.Second}
+
+	// attempt credential refresh & retry once
+	accessToken, retryable, err := doM2MTokenRequest(client, req)
+	if err != nil && retryable {		
+		if errRef := ensureM2MCredentials(ctx, true); errRef == nil {
+			credsMu.Lock()
+			clientID, clientSecret = cachedClientID, cachedClientSecret
+			credsMu.Unlock()
+
+			data.Set("client_id", clientID)
+			data.Set("client_secret", clientSecret)
+
+			req2, r2err := http.NewRequestWithContext(ctx, "POST", tokenURL, bytes.NewBufferString(data.Encode()))
+			if r2err != nil {
+				return "", fmt.Errorf("failed to create retry token request: %w", r2err)
+			}
+
+			req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			client = &http.Client{Timeout: 10 * time.Second}
+
+			return doFinalTokenRequest(client, req2)
+		}
+	}
+
+	return accessToken, err
+}
+
+// doM2MTokenRequest performs the token request, returning (token, retryable, error)
+func doM2MTokenRequest(client *http.Client, req *http.Request) (string, bool, error) {
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to perform token request: %w", err)
+		return "", false, fmt.Errorf("failed to perform token request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		body := strings.TrimSpace(string(bodyBytes))
-		slog.Error("M2M token request failed", "status", resp.StatusCode, "body", body, "url", resp.Request.URL.Redacted())
-		return "", fmt.Errorf("failed to get M2M token, status code: %d", resp.StatusCode)
+		// retryable is true if credentials aree invalid or rotated
+		retryable := resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusBadRequest && (strings.Contains(strings.ToLower(body), "invalid_client") || strings.Contains(strings.ToLower(body), "unauthorized"))
+		if retryable {
+			slog.Warn("M2M token request failed - trying credential refresh", "status", resp.StatusCode, "body", body, "url", req.URL.Redacted())
+		} else {
+			slog.Error("M2M token request failed", "status", resp.StatusCode, "body", body, "url", req.URL.Redacted())
+		}
+
+		return "", retryable, fmt.Errorf("failed to get M2M token, status code: %d", resp.StatusCode)
 	}
 
 	var tokenResponse TokenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&tokenResponse); err != nil {
-		return "", fmt.Errorf("failed to decode token response: %w", err)
+		return "", false, fmt.Errorf("failed to decode token response: %w", err)
+	}
+
+	if tokenResponse.AccessToken == "" {
+		return "", true, errors.New("empty access token in response")
+	}
+
+	return tokenResponse.AccessToken, false, nil
+}
+
+// doFinalTokenRequest executes a retry after credentials refresh. no additional retries to avoid loops
+func doFinalTokenRequest(client *http.Client, req *http.Request) (string, error) {
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to perform retry token request: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		body := strings.TrimSpace(string(bodyBytes))
+		slog.Error("M2M token retry failed", "status", resp.StatusCode, "body", body, "url", req.URL.Redacted())
+
+		return "", fmt.Errorf("retry failed; status code: %d", resp.StatusCode)
+	}
+
+	var tokenResponse TokenResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResponse); err != nil {
+		return "", fmt.Errorf("failed to decode retry token response: %w", err)
+	}
+
+	if tokenResponse.AccessToken == "" {
+		return "", errors.New("empty access token in retry response")
 	}
 
 	return tokenResponse.AccessToken, nil

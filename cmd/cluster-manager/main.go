@@ -4,13 +4,10 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"os"
-	"time"
 
-	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
@@ -49,15 +46,6 @@ func main() {
 		slog.Error("failed to start inventory client", "error", err)
 		os.Exit(7)
 	}
-
-	// retrieve client credentials from Vault
-	clientId, vaultOK := initVaultClientCredentials(config)
-	if !vaultOK {
-		slog.Warn("Vault unavailable: disabling kubeconfig token renewal and custom TTL enforcement")
-		config.DisableCustomTTL = true
-	}
-	// handle TTL enforcement
-	handleTTLEnforcement(config, clientId, vaultOK)
 
 	s := rest.NewServer(k8sclient.Dyn, rest.WithAuth(authenticator), rest.WithConfig(config), rest.WithInventory(inv))
 	if err := s.Serve(); err != nil {
@@ -100,48 +88,3 @@ func initializeK8sClient() *k8s.Client {
 	return k8sclient
 }
 
-func handleTTLEnforcement(cfg *config.Config, clientID string, vaultOK bool) {
-	if cfg.DisableAuth || !vaultOK {
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	token, err := auth.JwtTokenWithM2M(ctx, &cfg.DefaultKubeconfigTTL)
-	if err != nil {
-		slog.Warn("failed to obtain admin token; skipping TTL enforcement", "error", err)
-		return
-	}
-
-	if cfg.DisableCustomTTL {
-		// override the existed keycloak access token lifespan
-		auth.ClearClientAccessTokenTTL(context.Background(), cfg.OidcUrl, "", clientID, token, slog.Default())
-	} else {
-		// clear any existing override so client inherits realm default
-		auth.EnforceClientAccessTokenTTL(context.Background(), cfg.OidcUrl, "", clientID, cfg.DefaultKubeconfigTTL, token, slog.Default())
-	}
-}
-
-// initVaultClientCredentials fetches Keycloak client credentials from Vault if auth is enabled
-// on failure (non-fatal) token renewal and custom TTL enforcement are disabled
-func initVaultClientCredentials(cfg *config.Config) (string, bool) {
-	if cfg.DisableAuth {
-		return "", false
-	}
-
-	vaultAuth, err := auth.NewVaultAuth(auth.VaultServer, auth.ServiceAccount)
-	if err != nil {
-		slog.Warn("vault init failed", "error", err)
-		return "", false
-	}
-
-	clientID, clientSecret, err := vaultAuth.GetClientCredentials(context.Background())
-	if err != nil {
-		slog.Warn("failed to fetch client credentials from Vault", "error", err)
-		return "", false
-	}
-	// cache for later token requests (avoid runtime Vault dependency)
-	auth.SetCachedM2MCredentials(clientID, clientSecret)
-	return clientID, true
-}
