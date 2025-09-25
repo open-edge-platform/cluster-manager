@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -725,6 +726,9 @@ func TestTokenRenewalWithVaultAndKeycloak(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			// reset cached M2M credentials for deterministic scenarios with vault fetch
+			intauth.SetCachedM2MCredentials("", "")
+
 			origExp := time.Now().Add(tt.originalTokenTTL)
 			originalToken := helpers.CreateTestJWT(origExp, tt.userRoles)
 
