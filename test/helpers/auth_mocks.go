@@ -99,16 +99,8 @@ func (m *MockKeycloakServer) handleTokenRequest(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// Extract TTL from request if provided
-	requestedTTL := m.TokenTTL
-	if ttlStr := r.FormValue("expires_in"); ttlStr != "" {
-		if ttlSeconds, err := time.ParseDuration(ttlStr + "s"); err == nil {
-			requestedTTL = ttlSeconds
-		}
-	}
-
 	// Generate a mock JWT token with the requested TTL
-	token := m.generateMockJWT(requestedTTL)
+	token := m.generateMockJWT(m.TokenTTL)
 
 	response := auth.TokenResponse{
 		AccessToken:  token,
@@ -117,7 +109,7 @@ func (m *MockKeycloakServer) handleTokenRequest(w http.ResponseWriter, r *http.R
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("failed to encode mock token response: %v", err), http.StatusInternalServerError)
 		return
 	}
 }

@@ -7,7 +7,9 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
@@ -18,8 +20,13 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+// JwtTokenWithM2MFunc is used for renewing the user-facing kubeconfig token
+var JwtTokenWithM2MFunc = auth.JwtTokenWithM2M
+
+// JwtTokenWithM2MAdminFunc gets admin tokens for managing token ttl settings. This is
+// separate from the user token function so tests can track calls independently
+var JwtTokenWithM2MAdminFunc = auth.JwtTokenWithM2M
 var updateKubeconfigWithTokenFunc = updateKubeconfigWithToken
-//nolint:unused // will be used in the next PR
 var tokenRenewalFunc = tokenRenewal
 
 // (GET /v2/clusters/{name}/kubeconfigs)
@@ -46,8 +53,24 @@ func (s *Server) GetV2ClustersNameKubeconfigs(ctx context.Context, request api.G
 		}, nil
 	}
 
-	clusterKubeconfigUpdated, err := updateKubeconfigWithTokenFunc(clusterKubeconfig, namespace, request.Name, request.Params.Authorization)
+	// Determine TTL for kubeconfig JWT based on configuration
+	//    > 0: request a renewed token with specified TTL
+	//   == 0: skip renewal (pass-through existing token)
+	var kubeconfigTTL *time.Duration
+	// always set pointer (including zero) so tokenRenewal can distinguish between "no config provided" (nil) and 0 meaning skip
+	if s.config != nil {
+		tmp := s.config.DefaultKubeconfigTTL
+		kubeconfigTTL = &tmp
+	}
+
+	clusterKubeconfigUpdated, err := updateKubeconfigWithTokenFunc(clusterKubeconfig, namespace, request.Name, request.Params.Authorization, s.config.DisableAuth, kubeconfigTTL)
 	if err != nil {
+		if strings.Contains(err.Error(), "token expired") || strings.Contains(err.Error(), "token not renewable") {
+			slog.Warn("authorization token rejected", "reason", err.Error())
+			return api.GetV2ClustersNameKubeconfigs401JSONResponse{
+				N401UnauthorizedJSONResponse: api.N401UnauthorizedJSONResponse{Message: ptr("Unauthorized: token expired")},
+			}, nil
+		}
 		slog.Error("failed to update kubeconfig with token", "error", err)
 		return api.GetV2ClustersNameKubeconfigs500JSONResponse{
 			N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{
@@ -110,14 +133,12 @@ func (s *Server) getClusterKubeconfig(ctx context.Context, namespace, clusterNam
 // server external:
 // server: https://connect-gateway.<domain>:443/kubernetes/<project-id>-<cluster-name>
 
-func updateKubeconfigWithToken(kubeconfig kubeconfigParameters, namespace, clusterName, authHeader string) (string, error) {
+func updateKubeconfigWithToken(kubeconfig kubeconfigParameters, namespace, clusterName, authHeader string, disableAuth bool, ttl *time.Duration) (string, error) {
 	token := auth.GetAccessToken(authHeader)
-	// enable in feature flags on next PR
-	newAccessToken := token
-	// newAccessToken, err := tokenRenewalFunc(token)
-	// if err != nil {
-	// 	return "", err
-	// }
+	newAccessToken, err := tokenRenewalFunc(token, disableAuth, ttl)
+	if err != nil {
+		return "", err
+	}
 	caData, domain, userName := kubeconfig.serverCA, kubeconfig.clusterDomain, kubeconfig.userName
 
 	config, err := unmarshalKubeconfig(kubeconfig.kubeConfigDecode)
@@ -236,15 +257,93 @@ func updateKubeconfigFields(config map[string]interface{}, user, clusterName, se
 		},
 	}
 }
-//nolint:unused // will be used in the next PR
-func tokenRenewal(accessToken string) (string, error) {
+
+var (
+	// lastAppliedTTLSeconds tracks the last successfully enforced (or cleared) TTL in whole seconds.
+	// -1 means never applied. 0 means override cleared (inherit realm). >0 means enforced value.
+	lastAppliedTTLSeconds int64 = -1
+)
+
+func tokenRenewal(accessToken string, disableAuth bool, ttl *time.Duration) (string, error) {
+	// skip renewal when auth disabled or configured TTL is exactly zero
+	if disableAuth {
+		slog.Debug("authentication disabled, skipping token renewal")
+		return accessToken, nil
+	}
+	// Dynamic enforcement / clear: if ttl provided and differs from last applied seconds, attempt enforcement.
+	if ttl != nil {
+		desiredSeconds := int64(ttl.Seconds())
+		if desiredSeconds != lastAppliedTTLSeconds { // need to apply or clear
+			issuer := os.Getenv(auth.OidcUrlEnvVar)
+			if issuer == "" {
+				issuer = os.Getenv("KEYCLOAK_URL")
+			}
+			if err := auth.EnsureM2MCredentials(false); err != nil {
+				slog.Warn("cannot ensure M2M credentials for TTL enforcement", "error", err)
+			} else {
+				clientID := auth.GetM2MClientID()
+				adminToken, errTok := JwtTokenWithM2MAdminFunc(context.Background(), nil)
+				if errTok != nil {
+					slog.Warn("failed to get M2M admin token for TTL enforcement", "error", errTok)
+				} else if issuer != "" && clientID != "" {
+					var ok bool
+					if desiredSeconds > 0 {
+						ok = auth.EnforceClientAccessTokenTTL(context.Background(), issuer, "", clientID, time.Duration(desiredSeconds)*time.Second, adminToken, slog.Default())
+					} else { // desiredSeconds == 0 -> clear override
+						ok = auth.ClearClientAccessTokenTTL(context.Background(), issuer, "", clientID, adminToken, slog.Default())
+					}
+					if ok {
+						lastAppliedTTLSeconds = desiredSeconds
+						slog.Debug("keycloak client TTL state applied", "applied_seconds", desiredSeconds)
+					} else {
+						slog.Warn("keycloak client TTL state NOT applied", "attempted_seconds", desiredSeconds)
+					}
+				}
+			}
+		}
+	}
+	if ttl != nil && *ttl == 0 {
+		slog.Debug("configured kubeconfig TTL == 0 (inherit realm) after enforcement, skipping token renewal")
+		return accessToken, nil
+	}
+
+	// parse claims (without signature verification – existing ExtractClaims behavior) to inspect exp.
+	_, _, exp, err := auth.ExtractClaims(accessToken)
+	if err != nil {
+		return "", fmt.Errorf("token not renewable: %w", err)
+	}
+
+	// this avoid renew an expired token
+	if time.Now().After(exp) {
+		return "", fmt.Errorf("token expired at %s", exp.UTC().Format(time.RFC3339))
+	}
+
 	ctx := context.Background()
-	newToken, err := auth.JwtTokenWithM2M(ctx, nil)
+
+	// one-time attempt to enforce / clear Keycloak per-client TTL using the service account token itself
+	// proceed if we have a desired ttl pointer (could be zero). We treat zero as 'inherit realm'
+	newToken, err := JwtTokenWithM2MFunc(ctx, ttl)
 	if err != nil {
 		return "", fmt.Errorf("failed to get new M2M token: %w", err)
 	}
 
-	slog.Debug("generated fresh token with M2M authentication for consistent TTL")
+	// allows service tokens based on groups + roles
+	newAzp, newUser, newExp, claimErr := auth.ExtractClaims(newToken)
+	if claimErr != nil {
+		slog.Warn("failed to parse renewed token claims; falling back to original token", "error", claimErr)
+
+		return accessToken, nil
+	}
+
+	remainingOriginal := time.Until(exp)
+	requestedTTL := "<nil>"
+	if ttl != nil {
+		requestedTTL = ttl.String()
+	}
+
+	renewedLifetime := time.Until(newExp)
+	slog.Debug("kubeconfig token renewed", "original_remaining", remainingOriginal, "requested_ttl", requestedTTL, "renewed_lifetime", renewedLifetime, "user", newUser, "azp", newAzp)
+
 	return newToken, nil
 }
 
