@@ -20,7 +20,12 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+// JwtTokenWithM2MFunc is used for renewing the user-facing kubeconfig token
 var JwtTokenWithM2MFunc = auth.JwtTokenWithM2M
+
+// JwtTokenWithM2MAdminFunc gets admin tokens for managing token ttl settings. This is
+// separate from the user token function so tests can track calls independently
+var JwtTokenWithM2MAdminFunc = auth.JwtTokenWithM2M
 var updateKubeconfigWithTokenFunc = updateKubeconfigWithToken
 var tokenRenewalFunc = tokenRenewal
 
@@ -277,7 +282,7 @@ func tokenRenewal(accessToken string, disableAuth bool, ttl *time.Duration) (str
 				slog.Warn("cannot ensure M2M credentials for TTL enforcement", "error", err)
 			} else {
 				clientID := auth.GetM2MClientID()
-				adminToken, errTok := JwtTokenWithM2MFunc(context.Background(), nil)
+				adminToken, errTok := JwtTokenWithM2MAdminFunc(context.Background(), nil)
 				if errTok != nil {
 					slog.Warn("failed to get M2M admin token for TTL enforcement", "error", errTok)
 				} else if issuer != "" && clientID != "" {

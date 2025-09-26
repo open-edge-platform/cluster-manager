@@ -843,6 +843,12 @@ func TestKubeconfigEndToEndRenewalCallExpectations(t *testing.T) {
 	activeProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			// ensure admin function does not interfere with renewal expectation tracking
+			origAdmin := JwtTokenWithM2MAdminFunc
+			JwtTokenWithM2MAdminFunc = func(ctx context.Context, ttl *time.Duration) (string, error) {
+				return helpers.CreateTestJWT(time.Now().Add(5*time.Minute), []string{"admin"}), nil
+			}
+			defer func() { JwtTokenWithM2MAdminFunc = origAdmin }()
 			initialExp := time.Now().Add(15 * time.Minute)
 			initialToken := helpers.CreateTestJWT(initialExp, []string{"role"})
 
@@ -899,6 +905,12 @@ func TestExpiredOriginalTokenRenewal(t *testing.T) {
 		return "", fmt.Errorf("should not be called for expired token")
 	}
 	defer func() { JwtTokenWithM2MFunc = original }()
+	// ensure admin variant (used for TTL enforcement) returns token
+	origAdmin := JwtTokenWithM2MAdminFunc
+	JwtTokenWithM2MAdminFunc = func(ctx context.Context, ttl *time.Duration) (string, error) {
+		return helpers.CreateTestJWT(time.Now().Add(10*time.Minute), []string{"admin"}), nil
+	}
+	defer func() { JwtTokenWithM2MAdminFunc = origAdmin }()
 
 	serverConfig := config.Config{ClusterDomain: "kind.internal", Username: "admin", DisableAuth: false, DefaultKubeconfigTTL: configuredTTL}
 
