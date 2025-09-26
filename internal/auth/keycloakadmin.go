@@ -27,18 +27,18 @@ type kcClient struct {
 	Attributes map[string]string `json:"attributes"`
 }
 
-// EnforceClientAccessTokenTTL sets the client's access token lifespan if different from desired value
-// errors are logged and suppressed to avoid blocking service startup.
-func EnforceClientAccessTokenTTL(ctx context.Context, oidcURL string, realm string, clientID string, desired time.Duration, adminToken string, logger *slog.Logger) {
+// EnforceClientAccessTokenTTL sets the client's access token lifespan if different from desired value.
+// Returns true on success (including already correct), false on failure.
+func EnforceClientAccessTokenTTL(ctx context.Context, oidcURL string, realm string, clientID string, desired time.Duration, adminToken string, logger *slog.Logger) bool {
 	if clientID == "" || desired <= 0 {
 		slog.Debug("skip TTL enforcement: invalid input")
-		return
+		return false
 	}
 
 	base, derivedRealm, err := deriveBaseAndRealm(oidcURL)
 	if err != nil {
 		slog.Warn("cannot derive keycloak endpoint", "error", err)
-		return
+		return false
 	}
 
 	if realm == "" {
@@ -48,13 +48,13 @@ func EnforceClientAccessTokenTTL(ctx context.Context, oidcURL string, realm stri
 	uuid, err := kcLookupClientUUID(ctx, base, realm, clientID, adminToken)
 	if err != nil {
 		slog.Warn("failed to lookup client UUID", "error", err)
-		return
+		return false
 	}
 
 	cl, err := kcGetClient(ctx, base, realm, uuid, adminToken)
 	if err != nil {
 		slog.Warn("failed to get client config", "error", err)
-		return
+		return false
 	}
 
 	if cl.Attributes == nil {
@@ -66,29 +66,31 @@ func EnforceClientAccessTokenTTL(ctx context.Context, oidcURL string, realm stri
 	current := cl.Attributes["access.token.lifespan"]
 	if current == desiredStr {
 		slog.Debug("client TTL already correct in keycloak")
-		return
+		return true
 	}
 
 	cl.Attributes["access.token.lifespan"] = desiredStr
 	if err := kcUpdateClient(ctx, base, realm, uuid, adminToken, cl); err != nil {
 		slog.Error("failed client TTL enforcement", "error", err)
-		return
+		return false
 	}
 
 	slog.Info("client TTL updated", "previous", current, "new", desiredStr)
+	return true
 }
 
-// ClearClientAccessTokenTTL removes per-client token lifespan override to inherit realm default
-func ClearClientAccessTokenTTL(ctx context.Context, oidcURL string, realm string, clientID string, adminToken string, logger *slog.Logger) {
+// ClearClientAccessTokenTTL removes per-client token lifespan override to inherit realm default.
+// Returns true if override absent or successfully cleared; false on failure.
+func ClearClientAccessTokenTTL(ctx context.Context, oidcURL string, realm string, clientID string, adminToken string, logger *slog.Logger) bool {
 	if clientID == "" {
 		slog.Debug("no clientID setup")
-		return
+		return false
 	}
 
 	base, derivedRealm, err := deriveBaseAndRealm(oidcURL)
 	if err != nil {
 		slog.Warn("cannot derive keycloak endpoint for clear", "error", err)
-		return
+		return false
 	}
 
 	if realm == "" {
@@ -98,29 +100,61 @@ func ClearClientAccessTokenTTL(ctx context.Context, oidcURL string, realm string
 	uuid, err := kcLookupClientUUID(ctx, base, realm, clientID, adminToken)
 	if err != nil {
 		slog.Warn("failed to get uuid for ttl clear", "error", err)
-		return
+		return false
 	}
 
 	cl, err := kcGetClient(ctx, base, realm, uuid, adminToken)
 	if err != nil {
 		slog.Warn("failed to get client for ttl clear", "error", err)
-		return
+		return false
 	}
 
-	// check if override exists and get value
+	if cl.Attributes == nil { // nothing to clear
+		return true
+	}
+
 	old, present := cl.Attributes["access.token.lifespan"]
-	if cl.Attributes == nil || !present {
+	if !present { // already default
 		slog.Debug("no TTL override to clear")
-		return
+		return true
 	}
 
 	delete(cl.Attributes, "access.token.lifespan")
 	if err := kcUpdateClient(ctx, base, realm, uuid, adminToken, cl); err != nil {
-		slog.Error("failed to clear client TTL override", "error", err)
-		return
+		slog.Error("failed to clear client TTL override (delete attribute)", "error", err)
+		return false
+	}
+
+	// verify removal
+	clVerify, err := kcGetClient(ctx, base, realm, uuid, adminToken)
+	if err != nil {
+		slog.Warn("failed to re-fetch client after clear", "error", err)
+		return false
+	}
+
+	if clVerify.Attributes != nil {
+		if v2, still := clVerify.Attributes["access.token.lifespan"]; still {
+			// Fallback: some Keycloak versions keep a ghost value unless explicitly set to empty string first
+			clVerify.Attributes["access.token.lifespan"] = ""
+			if err2 := kcUpdateClient(ctx, base, realm, uuid, adminToken, clVerify); err2 != nil {
+				slog.Warn("fallback empty-string clear failed", "error", err2, "current_value", v2)
+				return false
+			}
+			// final verification
+			if clFinal, err3 := kcGetClient(ctx, base, realm, uuid, adminToken); err3 == nil && clFinal.Attributes != nil {
+				if vf, still2 := clFinal.Attributes["access.token.lifespan"]; still2 && vf != "" {
+					slog.Warn("TTL override still present after deletion + empty-string attempts", "value", vf)
+					return false
+				}
+			} else if err3 != nil {
+				slog.Warn("failed final fetch after fallback clear", "error", err3)
+				return false
+			}
+		}
 	}
 
 	slog.Info("keycloak client TTL override cleared", "previous", old)
+	return true
 }
 
 // deriveBaseAndRealm extracts base host (scheme://host[:port]) and realm name from a standard keycloak OIDC issuer URL

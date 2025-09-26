@@ -254,7 +254,9 @@ func updateKubeconfigFields(config map[string]interface{}, user, clusterName, se
 }
 
 var (
-	keycloakClientTTLEnforced bool
+	// lastAppliedTTLSeconds tracks the last successfully enforced (or cleared) TTL in whole seconds.
+	// -1 means never applied. 0 means override cleared (inherit realm). >0 means enforced value.
+	lastAppliedTTLSeconds int64 = -1
 )
 
 func tokenRenewal(accessToken string, disableAuth bool, ttl *time.Duration) (string, error) {
@@ -263,29 +265,35 @@ func tokenRenewal(accessToken string, disableAuth bool, ttl *time.Duration) (str
 		slog.Debug("authentication disabled, skipping token renewal")
 		return accessToken, nil
 	}
-	// If ttl pointer provided (including 0) attempt one-time Keycloak TTL enforcement/clear BEFORE deciding to skip.
-	// Use an admin (M2M) token instead of the incoming access token to avoid 401 when the user token lacks realm-management roles.
-	if ttl != nil && !keycloakClientTTLEnforced {
-		issuer := os.Getenv(auth.OidcUrlEnvVar)
-		if issuer == "" {
-			issuer = os.Getenv("KEYCLOAK_URL")
-		}
-		if err := auth.EnsureM2MCredentials(false); err != nil {
-			slog.Warn("cannot ensure M2M credentials for TTL enforcement", "error", err)
-		} else {
-			clientID := auth.GetM2MClientID()
-			// obtain an admin token (use default lifetime; override enforcement applies to client settings, not the admin token itself)
-			adminToken, errTok := JwtTokenWithM2MFunc(context.Background(), nil)
-			if errTok != nil {
-				slog.Warn("failed to get M2M admin token for TTL enforcement", "error", errTok)
-			} else if issuer != "" && clientID != "" {
-				if *ttl > 0 {
-					auth.EnforceClientAccessTokenTTL(context.Background(), issuer, "", clientID, *ttl, adminToken, slog.Default())
-				} else { // clear override when ttl == 0 to revert to realm default
-					auth.ClearClientAccessTokenTTL(context.Background(), issuer, "", clientID, adminToken, slog.Default())
+	// Dynamic enforcement / clear: if ttl provided and differs from last applied seconds, attempt enforcement.
+	if ttl != nil {
+		desiredSeconds := int64(ttl.Seconds())
+		if desiredSeconds != lastAppliedTTLSeconds { // need to apply or clear
+			issuer := os.Getenv(auth.OidcUrlEnvVar)
+			if issuer == "" {
+				issuer = os.Getenv("KEYCLOAK_URL")
+			}
+			if err := auth.EnsureM2MCredentials(false); err != nil {
+				slog.Warn("cannot ensure M2M credentials for TTL enforcement", "error", err)
+			} else {
+				clientID := auth.GetM2MClientID()
+				adminToken, errTok := JwtTokenWithM2MFunc(context.Background(), nil)
+				if errTok != nil {
+					slog.Warn("failed to get M2M admin token for TTL enforcement", "error", errTok)
+				} else if issuer != "" && clientID != "" {
+					var ok bool
+					if desiredSeconds > 0 {
+						ok = auth.EnforceClientAccessTokenTTL(context.Background(), issuer, "", clientID, time.Duration(desiredSeconds)*time.Second, adminToken, slog.Default())
+					} else { // desiredSeconds == 0 -> clear override
+						ok = auth.ClearClientAccessTokenTTL(context.Background(), issuer, "", clientID, adminToken, slog.Default())
+					}
+					if ok {
+						lastAppliedTTLSeconds = desiredSeconds
+						slog.Debug("keycloak client TTL state applied", "applied_seconds", desiredSeconds)
+					} else {
+						slog.Warn("keycloak client TTL state NOT applied", "attempted_seconds", desiredSeconds)
+					}
 				}
-				// mark enforced to avoid repeated admin calls (future enhancement: track last applied TTL to allow dynamic changes without restart)
-				keycloakClientTTLEnforced = true
 			}
 		}
 	}
