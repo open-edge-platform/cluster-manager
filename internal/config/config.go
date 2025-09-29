@@ -33,8 +33,8 @@ type Config struct {
 	// Default template name to use for new projects
 	DefaultTemplate string
 
-	// DefaultKubeconfigTTL specifies the default TTL for kubeconfig JWT tokens
-	DefaultKubeconfigTTL time.Duration
+	// KubeconfigTTL specifies the TTL for kubeconfig JWT tokens
+	KubeconfigTTL time.Duration
 
 	OidcUrl              string
 	OpaEnabled           bool
@@ -66,17 +66,17 @@ func ParseConfig() *Config {
 	flag.Parse()
 
 	cfg := &Config{
-		DisableAuth:          *disableAuth,
-		DisableMultitenancy:  *disableMultitenancy || *disableMt,
-		DisableInventory:     *disableInv,
-		DisableMetrics:       *disableMetrics,
-		DefaultTemplate:      *defaultTemplate,
-		DefaultKubeconfigTTL: time.Duration(*kubeconfigTTLHours * float64(time.Hour)),
-		LogLevel:             *logLevel,
-		LogFormat:            strings.ToLower(*logFormat),
-		ClusterDomain:        *clusterDomain,
-		Username:             *userName,
-		InventoryAddress:     *inventoryAddress,
+		DisableAuth:         *disableAuth,
+		DisableMultitenancy: *disableMultitenancy || *disableMt,
+		DisableInventory:    *disableInv,
+		DisableMetrics:      *disableMetrics,
+		DefaultTemplate:     *defaultTemplate,
+		KubeconfigTTL:       time.Duration(*kubeconfigTTLHours * float64(time.Hour)),
+		LogLevel:            *logLevel,
+		LogFormat:           strings.ToLower(*logFormat),
+		ClusterDomain:       *clusterDomain,
+		Username:            *userName,
+		InventoryAddress:    *inventoryAddress,
 	}
 
 	if *prefixes != "" {
@@ -134,9 +134,9 @@ func (c *Config) Validate() error {
 	}
 
 	// allow 0 to mean: do not renew (pass-through existing token); negative still invalid
-	if c.DefaultKubeconfigTTL < 0 {
-		slog.Error("kubeconfig TTL must be >= 0", "provided", c.DefaultKubeconfigTTL)
-		return fmt.Errorf("kubeconfig TTL must be >= 0, got %v", c.DefaultKubeconfigTTL)
+	if c.KubeconfigTTL < 0 {
+		slog.Error("kubeconfig TTL must be >= 0", "provided", c.KubeconfigTTL)
+		return fmt.Errorf("kubeconfig TTL must be >= 0, got %v", c.KubeconfigTTL)
 	}
 
 	return nil

@@ -59,7 +59,7 @@ func (s *Server) GetV2ClustersNameKubeconfigs(ctx context.Context, request api.G
 	var kubeconfigTTL *time.Duration
 	// always set pointer (including zero) so tokenRenewal can distinguish between "no config provided" (nil) and 0 meaning skip
 	if s.config != nil {
-		kubeconfigTTL = &s.config.DefaultKubeconfigTTL
+		kubeconfigTTL = &s.config.KubeconfigTTL
 	}
 
 	clusterKubeconfigUpdated, err := updateKubeconfigWithTokenFunc(clusterKubeconfig, namespace, request.Name, request.Params.Authorization, s.config.DisableAuth, kubeconfigTTL)
@@ -264,22 +264,22 @@ var (
 )
 
 func tokenRenewal(accessToken string, disableAuth bool, ttl *time.Duration) (string, error) {
-	// skip renewal when auth disabled or configured TTL is exactly zero
+	// skip renewal outright if auth disabled
 	if disableAuth {
 		slog.Debug("authentication disabled, skipping token renewal")
 		return accessToken, nil
 	}
 
-	// if ttl provided and differs from last applied seconds, attempt enforcement
-	// ttl nil only in tests - the HTTP handler always passes a non-nil pointer (&config.DefaultKubeconfigTTL)
+	// Enforce (or clear) per-client TTL if a ttl pointer is provided
+	// ttl is nil only in tests; handler always supplies &config.KubeconfigTTL
 	if ttl != nil {
-		if *ttl == 0 {
-			slog.Debug("configured kubeconfig TTL == 0 (inherit realm) after enforcement, skipping token renewal")
-			return accessToken, nil
-		}
 		desiredSeconds := int64(ttl.Seconds())
-		if desiredSeconds != lastAppliedTTLSeconds { // need to apply or clear
+		if desiredSeconds != lastAppliedTTLSeconds {
 			enforceClientAccessTokenTTL(desiredSeconds)
+		}
+		if desiredSeconds == 0 {
+			slog.Debug("configured kubeconfig TTL == 0 (inherit realm), skipping token renewal")
+			return accessToken, nil
 		}
 	}
 	// parse claims (existing ExtractClaims behavior) to inspect exp

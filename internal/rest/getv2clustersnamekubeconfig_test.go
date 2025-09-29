@@ -161,7 +161,7 @@ func TestGetV2ClustersNameKubeconfigs200(t *testing.T) {
 		restoreTokenRenewal := mockTokenRenewal(jwtToken)
 		defer restoreTokenRenewal()
 		mockedk8sclient, _, _ := mockK8sClient(t, name, encodedKubeconfig, nil)
-		serverConfig := config.Config{ClusterDomain: "kind.internal", Username: "admin", DisableAuth: true, DefaultKubeconfigTTL: 30 * time.Minute}
+		serverConfig := config.Config{ClusterDomain: "kind.internal", Username: "admin", DisableAuth: true, KubeconfigTTL: 30 * time.Minute}
 		server := NewServer(mockedk8sclient)
 		server.config = &serverConfig
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
@@ -765,7 +765,7 @@ func TestKubeconfigEndToEndWithTTL(t *testing.T) {
 				}
 			}
 
-			serverConfig := config.Config{ClusterDomain: "kind.internal", Username: "admin", DisableAuth: tc.disableAuth, DefaultKubeconfigTTL: tc.configuredTTL}
+			serverConfig := config.Config{ClusterDomain: "kind.internal", Username: "admin", DisableAuth: tc.disableAuth, KubeconfigTTL: tc.configuredTTL}
 
 			encodedKubeconfig := base64.StdEncoding.EncodeToString([]byte(exampleKubeconfig))
 			mockedk8sclient, _, _ := mockK8sClient(t, clusterName, encodedKubeconfig, nil)
@@ -807,7 +807,7 @@ func TestKubeconfigEndToEndWithTTLM2MFailure(t *testing.T) {
 	}
 	defer func() { JwtTokenWithM2MFunc = original }()
 
-	serverConfig := config.Config{ClusterDomain: "kind.internal", Username: "admin", DisableAuth: false, DefaultKubeconfigTTL: 2 * time.Hour}
+	serverConfig := config.Config{ClusterDomain: "kind.internal", Username: "admin", DisableAuth: false, KubeconfigTTL: 2 * time.Hour}
 
 	encodedKubeconfig := base64.StdEncoding.EncodeToString([]byte(exampleKubeconfig))
 	mockedk8sclient, _, _ := mockK8sClient(t, clusterName, encodedKubeconfig, nil)
@@ -868,7 +868,7 @@ func TestKubeconfigEndToEndRenewalCallExpectations(t *testing.T) {
 			}
 			defer func() { JwtTokenWithM2MFunc = original }()
 
-			serverConfig := config.Config{ClusterDomain: "kind.internal", Username: "admin", DisableAuth: tc.disableAuth, DefaultKubeconfigTTL: tc.configuredTTL}
+			serverConfig := config.Config{ClusterDomain: "kind.internal", Username: "admin", DisableAuth: tc.disableAuth, KubeconfigTTL: tc.configuredTTL}
 			encodedKubeconfig := base64.StdEncoding.EncodeToString([]byte(exampleKubeconfig))
 			mockedk8sclient, _, _ := mockK8sClient(t, clusterName, encodedKubeconfig, nil)
 			server := NewServer(mockedk8sclient)
@@ -912,7 +912,7 @@ func TestExpiredOriginalTokenRenewal(t *testing.T) {
 	}
 	defer func() { JwtTokenWithM2MAdminFunc = origAdmin }()
 
-	serverConfig := config.Config{ClusterDomain: "kind.internal", Username: "admin", DisableAuth: false, DefaultKubeconfigTTL: configuredTTL}
+	serverConfig := config.Config{ClusterDomain: "kind.internal", Username: "admin", DisableAuth: false, KubeconfigTTL: configuredTTL}
 
 	encodedKubeconfig := base64.StdEncoding.EncodeToString([]byte(exampleKubeconfig))
 	mockedk8sclient, _, _ := mockK8sClient(t, clusterName, encodedKubeconfig, nil)
