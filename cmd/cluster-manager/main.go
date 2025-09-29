@@ -35,7 +35,7 @@ func main() {
 
 	k8sclient := initializeK8sClient()
 
-	authenticator, err := rest.GetAuthenticator(config)
+	auth, err := rest.GetAuthenticator(config)
 	if err != nil {
 		slog.Error("failed to get authenticator", "error", err)
 		os.Exit(4)
@@ -47,12 +47,11 @@ func main() {
 		os.Exit(7)
 	}
 
-	s := rest.NewServer(k8sclient.Dyn, rest.WithAuth(authenticator), rest.WithConfig(config), rest.WithInventory(inv))
+	s := rest.NewServer(k8sclient.Dyn, rest.WithAuth(auth), rest.WithConfig(config), rest.WithInventory(inv))
 	if err := s.Serve(); err != nil {
 		slog.Error("server failed", "error", err)
 		os.Exit(5)
 	}
-
 }
 
 func initializeSystemLabels(config *config.Config) {

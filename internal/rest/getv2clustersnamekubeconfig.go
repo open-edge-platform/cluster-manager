@@ -59,8 +59,7 @@ func (s *Server) GetV2ClustersNameKubeconfigs(ctx context.Context, request api.G
 	var kubeconfigTTL *time.Duration
 	// always set pointer (including zero) so tokenRenewal can distinguish between "no config provided" (nil) and 0 meaning skip
 	if s.config != nil {
-		tmp := s.config.DefaultKubeconfigTTL
-		kubeconfigTTL = &tmp
+		kubeconfigTTL = &s.config.DefaultKubeconfigTTL
 	}
 
 	clusterKubeconfigUpdated, err := updateKubeconfigWithTokenFunc(clusterKubeconfig, namespace, request.Name, request.Params.Authorization, s.config.DisableAuth, kubeconfigTTL)
@@ -270,44 +269,22 @@ func tokenRenewal(accessToken string, disableAuth bool, ttl *time.Duration) (str
 		slog.Debug("authentication disabled, skipping token renewal")
 		return accessToken, nil
 	}
-	// Dynamic enforcement / clear: if ttl provided and differs from last applied seconds, attempt enforcement.
-	if ttl != nil {
-		desiredSeconds := int64(ttl.Seconds())
-		if desiredSeconds != lastAppliedTTLSeconds { // need to apply or clear
-			issuer := os.Getenv(auth.OidcUrlEnvVar)
-			if issuer == "" {
-				issuer = os.Getenv("KEYCLOAK_URL")
-			}
-			if err := auth.EnsureM2MCredentials(false); err != nil {
-				slog.Warn("cannot ensure M2M credentials for TTL enforcement", "error", err)
-			} else {
-				clientID := auth.GetM2MClientID()
-				adminToken, errTok := JwtTokenWithM2MAdminFunc(context.Background(), nil)
-				if errTok != nil {
-					slog.Warn("failed to get M2M admin token for TTL enforcement", "error", errTok)
-				} else if issuer != "" && clientID != "" {
-					var ok bool
-					if desiredSeconds > 0 {
-						ok = auth.EnforceClientAccessTokenTTL(context.Background(), issuer, "", clientID, time.Duration(desiredSeconds)*time.Second, adminToken, slog.Default())
-					} else { // desiredSeconds == 0 -> clear override
-						ok = auth.ClearClientAccessTokenTTL(context.Background(), issuer, "", clientID, adminToken, slog.Default())
-					}
-					if ok {
-						lastAppliedTTLSeconds = desiredSeconds
-						slog.Debug("keycloak client TTL state applied", "applied_seconds", desiredSeconds)
-					} else {
-						slog.Warn("keycloak client TTL state NOT applied", "attempted_seconds", desiredSeconds)
-					}
-				}
-			}
-		}
-	}
+
 	if ttl != nil && *ttl == 0 {
 		slog.Debug("configured kubeconfig TTL == 0 (inherit realm) after enforcement, skipping token renewal")
 		return accessToken, nil
 	}
 
-	// parse claims (without signature verification – existing ExtractClaims behavior) to inspect exp.
+	// if ttl provided and differs from last applied seconds, attempt enforcement
+	// ttl nil only in tests - the HTTP handler always passes a non-nil pointer (&config.DefaultKubeconfigTTL)
+	if ttl != nil {
+		desiredSeconds := int64(ttl.Seconds())
+		if desiredSeconds != lastAppliedTTLSeconds { // need to apply or clear
+			enforceClientAccessTokenTTL(desiredSeconds)
+		}
+	}
+
+	// parse claims (existing ExtractClaims behavior) to inspect exp.
 	_, _, exp, err := auth.ExtractClaims(accessToken)
 	if err != nil {
 		return "", fmt.Errorf("token not renewable: %w", err)
@@ -345,6 +322,45 @@ func tokenRenewal(accessToken string, disableAuth bool, ttl *time.Duration) (str
 	slog.Debug("kubeconfig token renewed", "original_remaining", remainingOriginal, "requested_ttl", requestedTTL, "renewed_lifetime", renewedLifetime, "user", newUser, "azp", newAzp)
 
 	return newToken, nil
+}
+
+// enforceClientAccessTokenTTL enforces (>0) or clears (0) client token TTL and updates lastAppliedTTLSeconds 
+// only on success, early-exits on missing env or credentials
+func enforceClientAccessTokenTTL(desiredSeconds int64) {
+	issuer := os.Getenv(auth.OidcUrlEnvVar)
+	if issuer == "" {
+		issuer = os.Getenv("KEYCLOAK_URL")
+	}
+	// check M2M credentials exist and create if missing
+	if err := auth.EnsureM2MCredentials(false); err != nil {
+		slog.Warn("cannot ensure M2M credentials for TTL enforcement", "error", err)
+		return
+	}
+
+	clientID := auth.GetM2MClientID()
+	if issuer == "" || clientID == "" {
+		return
+	}
+
+	adminToken, errTok := JwtTokenWithM2MAdminFunc(context.Background(), nil)
+	if errTok != nil {
+		slog.Warn("failed to get M2M admin token for TTL enforcement", "error", errTok)
+		return
+	}
+
+	var ok bool
+	if desiredSeconds > 0 {
+		ok = auth.EnforceClientAccessTokenTTL(context.Background(), issuer, "", clientID, time.Duration(desiredSeconds)*time.Second, adminToken, slog.Default())
+	} else {
+		ok = auth.ClearClientAccessTokenTTL(context.Background(), issuer, "", clientID, adminToken, slog.Default())
+	}
+
+	if ok {
+		lastAppliedTTLSeconds = desiredSeconds
+		slog.Debug("keycloak client TTL state applied", "applied_seconds", desiredSeconds)
+	} else {
+		slog.Warn("keycloak client TTL state NOT applied", "attempted_seconds", desiredSeconds)
+	}
 }
 
 type kubeConfigData struct {
