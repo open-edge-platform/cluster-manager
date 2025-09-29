@@ -37,9 +37,9 @@ var credsMu sync.Mutex
 // JwtTokenWithM2M does not need to contact Vault on each invocation. Safe for concurrent reads after set
 func SetCachedM2MCredentials(id, secret string) {
 	credsMu.Lock()
+	defer credsMu.Unlock()
 	cachedClientID = id
 	cachedClientSecret = secret
-	credsMu.Unlock()
 }
 
 // GetM2MClientID returns the currently cached M2M client ID (empty if not yet loaded)
@@ -58,6 +58,7 @@ func EnsureM2MCredentials(forceRefresh bool) error {
 // ensureM2MCredentials loads credentials from Vault if cache empty or forceRefresh requested
 // returns error if access fails
 func ensureM2MCredentials(ctx context.Context, forceRefresh bool) error {
+	// avoiding to defer here so the mutex is released before any network / vault calls
 	credsMu.Lock()
 	idEmpty := cachedClientID == "" || cachedClientSecret == ""
 	credsMu.Unlock()
@@ -78,10 +79,10 @@ func ensureM2MCredentials(ctx context.Context, forceRefresh bool) error {
 
 	SetCachedM2MCredentials(id, secret)
 	if forceRefresh {
-		slog.Warn("token failure - M2M credentials refreshed from Vault")
-	} else {
-		slog.Debug("loaded M2M credentials from Vault)")
+		slog.Warn("M2M credentials force refreshed from Vault")
+		return nil
 	}
+	slog.Debug("loaded M2M credentials from Vault")
 	return nil
 }
 
@@ -114,20 +115,20 @@ func ExtractClaims(tokenString string) (string, string, time.Time, error) {
 // JwtTokenWithM2M retrieves a new token from Keycloak using M2M authentication with configurable TTL
 func JwtTokenWithM2M(ctx context.Context, ttl *time.Duration) (string, error) {
 	if err := ensureM2MCredentials(ctx, false); err != nil {
-		return "", err
+		return "", fmt.Errorf("error loading credentials from vault, %w", err)
 	}
 
 	credsMu.Lock()
 	clientID, clientSecret := cachedClientID, cachedClientSecret
 	credsMu.Unlock()
 
-	keycloakURL := os.Getenv("KEYCLOAK_URL")
+	keycloakURL := os.Getenv(KeycloakUrlEnvVar)
 	if keycloakURL == "" { // use OIDC server when KEYCLOAK_URL isn't available
 		keycloakURL = os.Getenv(OidcUrlEnvVar)
 	}
 
 	if keycloakURL == "" {
-		return "", fmt.Errorf("KEYCLOAK_URL (or %s) environment variable not set", OidcUrlEnvVar)
+		return "", fmt.Errorf("%s (or %s) environment variable not set", KeycloakUrlEnvVar, OidcUrlEnvVar)
 	}
 
 	// prepare for M2M token request

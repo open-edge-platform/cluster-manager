@@ -154,18 +154,7 @@ func TestExtractClaims(t *testing.T) {
 
 // TestJwtTokenWithM2M tests the M2M token generation function
 func TestJwtTokenWithM2M(t *testing.T) {
-	type tests struct {
-		name        string
-		ttl         *time.Duration
-		expectedTTL time.Duration
-		// tolerance accounts for network/processing delay and minor clock skew
-		tolerance  time.Duration
-		vaultErr   error
-		keycloakFn func(w http.ResponseWriter, r *http.Request)
-		unsetEnv   bool
-		expectErr  string
-	}
-
+	// Table uses an anonymous struct for brevity; no need for a named local type.
 	oneHour := 1 * time.Hour
 	twoHours := 2 * time.Hour
 	day := 24 * time.Hour
@@ -179,7 +168,17 @@ func TestJwtTokenWithM2M(t *testing.T) {
 		_, _ = w.Write([]byte("{not-json"))
 	}
 
-	testcases := []tests{
+	testcases := []struct {
+		name        string
+		ttl         *time.Duration
+		expectedTTL time.Duration
+		// tolerance accounts for network/processing delay and minor clock skew
+		tolerance  time.Duration
+		vaultErr   error
+		keycloakFn func(w http.ResponseWriter, r *http.Request)
+		unsetEnv   bool
+		expectErr  string
+	}{
 		{name: "default ttl", ttl: nil, expectedTTL: oneHour, tolerance: 90 * time.Second},
 		{name: "custom 2h ttl", ttl: &twoHours, expectedTTL: twoHours, tolerance: 90 * time.Second},
 		{name: "custom 24h ttl", ttl: &day, expectedTTL: day, tolerance: 2 * time.Minute},
@@ -189,19 +188,19 @@ func TestJwtTokenWithM2M(t *testing.T) {
 		{name: "keycloak bad json", ttl: &twoHours, keycloakFn: badJSONHandler, expectErr: "failed to decode"},
 	}
 
-	origNewVaultAuthFunc := NewVaultAuthFunc
-	defer func() { NewVaultAuthFunc = origNewVaultAuthFunc }()
-
 	for _, tc := range testcases {
 		tc := tc // capture
 		t.Run(tc.name, func(t *testing.T) {
 			// reset cached credentials so each subtest independently triggers lazy load
 			cachedClientID = ""
 			cachedClientSecret = ""
-			// Override NewVaultAuthFunc for this subtest
+			// override NewVaultAuthFunc for this subtest and register cleanup
+			prev := NewVaultAuthFunc
 			NewVaultAuthFunc = func(vaultServer string, serviceAccount string) (VaultAuth, error) {
 				return &mockVaultAuth{err: tc.vaultErr}, nil
 			}
+			// ensure we always restore even on early failure
+			t.Cleanup(func() { NewVaultAuthFunc = prev })
 
 			// Setup / teardown KEYCLOAK_URL
 			origEnv := os.Getenv("KEYCLOAK_URL")
@@ -511,18 +510,17 @@ func TestJwtTokenWithM2M_LazyAndRetryScenarios(t *testing.T) {
 		},
 	}
 
-	origNewVaultAuthFunc := NewVaultAuthFunc
-	defer func() { NewVaultAuthFunc = origNewVaultAuthFunc }()
-
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			resetCache()
 			atomic.StoreInt32(&vaultCalls, 0)
 
-			// counting VaultAuth implementation
+			// counting VaultAuth implementation with cleanup
+			prev := NewVaultAuthFunc
 			NewVaultAuthFunc = func(vaultServer string, serviceAccount string) (VaultAuth, error) {
 				return &countingVaultAuth{}, nil
 			}
+			t.Cleanup(func() { NewVaultAuthFunc = prev })
 
 			handler := tc.keycloakHandler()
 			server := httptest.NewServer(handler)

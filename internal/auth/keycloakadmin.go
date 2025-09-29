@@ -11,16 +11,14 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	neturl "net/url"
+	"net/url"
 	"strings"
 	"time"
 )
 
 var httpClient = &http.Client{Timeout: 10 * time.Second}
 
-// kcClient is a minimal representation of a Keycloak client instance  we care about
-// it allows minimal keycloak admin client for setting/clearing per-client access
-// token lifespans at startup and operations for token TTL management
+// kcClient is a minimal keycloak admin client for per-client access token ttl management
 type kcClient struct {
 	ID         string            `json:"id"`
 	ClientID   string            `json:"clientId"`
@@ -29,7 +27,7 @@ type kcClient struct {
 
 // EnforceClientAccessTokenTTL sets the client's access token lifespan if different from desired value.
 // Returns true on success (including already correct), false on failure.
-func EnforceClientAccessTokenTTL(ctx context.Context, oidcURL string, realm string, clientID string, desired time.Duration, adminToken string, logger *slog.Logger) bool {
+func EnforceClientAccessTokenTTL(ctx context.Context, oidcURL string, realm string, clientID string, desired time.Duration, adminToken string) bool {
 	if clientID == "" || desired <= 0 {
 		slog.Debug("skip TTL enforcement: invalid input")
 		return false
@@ -57,10 +55,6 @@ func EnforceClientAccessTokenTTL(ctx context.Context, oidcURL string, realm stri
 		return false
 	}
 
-	if cl.Attributes == nil {
-		cl.Attributes = map[string]string{}
-	}
-
 	desiredStr := fmt.Sprintf("%d", int64(desired.Seconds()))
 
 	current := cl.Attributes["access.token.lifespan"]
@@ -71,7 +65,7 @@ func EnforceClientAccessTokenTTL(ctx context.Context, oidcURL string, realm stri
 
 	cl.Attributes["access.token.lifespan"] = desiredStr
 	if err := kcUpdateClient(ctx, base, realm, uuid, adminToken, cl); err != nil {
-		slog.Error("failed client TTL enforcement", "error", err)
+		slog.Error("failed to update access token ttl", "error", err)
 		return false
 	}
 
@@ -81,7 +75,7 @@ func EnforceClientAccessTokenTTL(ctx context.Context, oidcURL string, realm stri
 
 // ClearClientAccessTokenTTL removes per-client token lifespan override to inherit realm default.
 // Returns true if override absent or successfully cleared; false on failure.
-func ClearClientAccessTokenTTL(ctx context.Context, oidcURL string, realm string, clientID string, adminToken string, logger *slog.Logger) bool {
+func ClearClientAccessTokenTTL(ctx context.Context, oidcURL string, realm string, clientID string, adminToken string) bool {
 	if clientID == "" {
 		slog.Debug("no clientID setup")
 		return false
@@ -109,12 +103,8 @@ func ClearClientAccessTokenTTL(ctx context.Context, oidcURL string, realm string
 		return false
 	}
 
-	if cl.Attributes == nil { // nothing to clear
-		return true
-	}
-
-	old, present := cl.Attributes["access.token.lifespan"]
-	if !present { // already default
+	old, ok := cl.Attributes["access.token.lifespan"]
+	if !ok { // already default
 		slog.Debug("no TTL override to clear")
 		return true
 	}
@@ -163,7 +153,7 @@ func deriveBaseAndRealm(oidc string) (string, string, error) {
 		return "", "", errors.New("empty OIDC URL")
 	}
 
-	u, err := neturl.Parse(oidc)
+	u, err := url.Parse(oidc)
 	if err != nil {
 		return "", "", fmt.Errorf("parse oidc url: %w", err)
 	}
@@ -190,11 +180,11 @@ func kcLookupClientUUID(ctx context.Context, base, realm, clientID, token string
 		return "", errors.New("empty clientID")
 	}
 	// URL encode clientID in case of special characters
-	escapedId := neturl.QueryEscape(clientID)
-	url := fmt.Sprintf("%s/admin/realms/%s/clients?clientId=%s", base, realm, escapedId)
+	escapedId := url.QueryEscape(clientID)
+	reqURL := fmt.Sprintf("%s/admin/realms/%s/clients?clientId=%s", base, realm, escapedId)
 
 	var clients []kcClient
-	if err := kcDoJSON(ctx, http.MethodGet, url, token, nil, &clients); err != nil {
+	if err := kcDoJSON(ctx, http.MethodGet, reqURL, token, nil, &clients); err != nil {
 		return "", err
 	}
 
@@ -212,20 +202,25 @@ func kcLookupClientUUID(ctx context.Context, base, realm, clientID, token string
 }
 
 func kcGetClient(ctx context.Context, base, realm, uuid, token string) (*kcClient, error) {
-	url := fmt.Sprintf("%s/admin/realms/%s/clients/%s", base, realm, uuid)
+	reqURL := fmt.Sprintf("%s/admin/realms/%s/clients/%s", base, realm, uuid)
 	var cl kcClient // avoid returning nil
 
-	if err := kcDoJSON(ctx, http.MethodGet, url, token, nil, &cl); err != nil {
+	if err := kcDoJSON(ctx, http.MethodGet, reqURL, token, nil, &cl); err != nil {
 		return nil, err
+	}
+
+	// ensure Attributes map is non-nil for caller (avoid repetitive nil guards)
+	if cl.Attributes == nil {
+		cl.Attributes = map[string]string{}
 	}
 
 	return &cl, nil
 }
 
 func kcUpdateClient(ctx context.Context, base, realm, uuid, token string, cl *kcClient) error {
-	url := fmt.Sprintf("%s/admin/realms/%s/clients/%s", base, realm, uuid)
+	reqURL := fmt.Sprintf("%s/admin/realms/%s/clients/%s", base, realm, uuid)
 
-	return kcDoJSON(ctx, http.MethodPut, url, token, cl, nil)
+	return kcDoJSON(ctx, http.MethodPut, reqURL, token, cl, nil)
 }
 
 func kcDoJSON(ctx context.Context, method, urlStr, token string, body any, out any) error {
