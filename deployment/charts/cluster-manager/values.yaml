@@ -75,7 +75,7 @@ clusterManager:
     disable-multi-tenancy: false
     disable-inventory: false
     disable-metrics: true
-    default-template: "baseline-k3s-v0.0.8"
+    default-template: "baseline-k3s-v0.0.9"
     kubeconfig-ttl-hours: 0
 
   extraEnv: []
