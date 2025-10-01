@@ -194,3 +194,43 @@ openpolicyagent:
     capabilities:
       drop:
         - "ALL"
+
+# co-manager M2M client configuration
+credentialsM2M:
+  enabled: true
+
+  job:
+    image:
+      repository: badouralix/curl-jq@sha256:fe8a5ee49f613495df3b57afa86b39f081bd1b3b9ed61248f46c3d3d7df56092
+      tag: ""
+      pullPolicy: IfNotPresent
+
+    # job execution settings
+    backoffLimit: 3
+    activeDeadlineSeconds: 300  # timeout 5 minutes
+    ttlSecondsAfterFinished: 86400  # auto-deletion 24 hours
+    retryAttempts: 5
+    retryDelay: 10
+
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+  # platform services configuration
+  vault:
+    service: "vault.orch-platform.svc"
+    port: 8200
+    secretPath: "secret/data/co-manager-m2m-client-secret"
+    authPath: "auth/kubernetes"
+
+  keycloak:
+    service: "platform-keycloak.orch-platform.svc"
+    port: 8080
+    realm: "master"
+    adminSecretName: "platform-keycloak"
+    adminSecretNamespace: "orch-platform"
+    clientId: "co-manager-m2m-client"

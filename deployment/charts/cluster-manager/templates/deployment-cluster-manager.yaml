@@ -57,6 +57,7 @@ spec:
         - '-logformat={{ .Values.clusterManager.args.logformat }}'
         - '-clusterdomain={{ .Values.clusterManager.args.clusterdomain }}'
         - '-username={{ .Values.clusterManager.args.username }}'
+        - '-kubeconfig-ttl-hours={{ index .Values.clusterManager.args "kubeconfig-ttl-hours" }}'
         {{- if .Values.clusterManager.args.systemLabelsPrefixes }}
         - '-system-labels-prefixes={{ .Values.clusterManager.args.systemLabelsPrefixes }}'
         {{- end }}
