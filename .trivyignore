@@ -8,3 +8,6 @@
 # This issue is tracked in our issue tracker and will be addressed eventually. We are silencing it as known and accepted issue for now until it gets properly resolved. 
 # AVD-KSV-0041 (CRITICAL): ClusterRole 'cluster-manager' shouldn't have access to manage resource 'secrets'
 AVD-KSV-0041
+# Ignore ConfigMap false positive for script variables
+# deployment/charts/cluster-manager/templates/co-manager-credentials-configmap.yaml
+AVD-KSV-0109
