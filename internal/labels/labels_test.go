@@ -29,11 +29,12 @@ func TestUserLabels(t *testing.T) {
 	}
 
 	want := map[string]string{
-		"clustername": "scale-0a9c889f-97a4-5a27-aa57-e82300a2b19c",
-		"cpumanager":  "true",
-		"test-app":    "enabled",
-		"tests":       "scale",
-		"default":     "true",
+		"clustername":                "scale-0a9c889f-97a4-5a27-aa57-e82300a2b19c",
+		"cpumanager":                 "true",
+		"test-app":                   "enabled",
+		"tests":                      "scale",
+		"default":                    "true",
+		"trusted-compute-compatible": "true",
 	}
 
 	got := labels.UserLabels(clusterLabels)
@@ -69,7 +70,6 @@ func TestSystemLabels(t *testing.T) {
 		"cluster.x-k8s.io/cluster-name":           "demo-cluster",
 		"edge-orchestrator.intel.com/users-label": "user-value",
 		"topology.cluster.x-k8s.io/owned":         "",
-		"trusted-compute-compatible":              "false",
 	}
 
 	got := labels.SystemLabels(clusterLabels)
