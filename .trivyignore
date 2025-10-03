@@ -10,4 +10,9 @@
 AVD-KSV-0041
 # Ignore ConfigMap false positive for script variables
 # deployment/charts/cluster-manager/templates/co-manager-credentials-configmap.yaml
+# no credentials are stored in the configmap script
 AVD-KSV-0109
+AVD-KSV-01010
+# This is part of the standard RBAC setup required for Vault k8s authn, without permission, the app wont be able to authenticate with Vault
+# templates/co-manager-credentials-rbac.yaml
+AVD-KSV-0113
