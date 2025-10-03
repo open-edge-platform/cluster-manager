@@ -11,9 +11,10 @@ import (
 )
 
 const (
-	OidcUrlEnvVar    = "OIDC_SERVER_URL"
-	OpaEnabledEnvVar = "OPA_ENABLED"
-	OpaPortEnvVar    = "OPA_PORT"
+	OidcUrlEnvVar     = "OIDC_SERVER_URL"
+	KeycloakUrlEnvVar = "KEYCLOAK_URL"
+	OpaEnabledEnvVar  = "OPA_ENABLED"
+	OpaPortEnvVar     = "OPA_PORT"
 )
 
 // oidcAuthenticator is an implementation of the Authenticator interface that uses OIDC for authentication
