@@ -197,7 +197,7 @@ openpolicyagent:
 
 # co-manager M2M client configuration
 credentialsM2M:
-  enabled: true
+  enabled: false  # avoid test regression as services are unavailable
 
   job:
     # job execution settings
