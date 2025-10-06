@@ -28,7 +28,7 @@ type kcClient struct {
 // EnforceClientAccessTokenTTL sets the client's access token lifespan if different from desired value.
 // Returns true on success (including already correct), false on failure.
 func EnforceClientAccessTokenTTL(ctx context.Context, oidcURL string, realm string, clientID string, desired time.Duration, adminToken string) bool {
-	if clientID == "" || desired <= 0 {
+	if clientID == "" || desired < 0 {
 		slog.Debug("skip TTL enforcement: invalid input")
 		return false
 	}

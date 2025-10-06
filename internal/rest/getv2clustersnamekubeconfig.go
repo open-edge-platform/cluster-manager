@@ -55,7 +55,7 @@ func (s *Server) GetV2ClustersNameKubeconfigs(ctx context.Context, request api.G
 
 	// Determine TTL for kubeconfig JWT based on configuration
 	//    > 0: request a renewed token with specified TTL
-	//   == 0: skip renewal (pass-through existing token)
+	//   == 0: request a renewed token with TTL=0 (immediate expiration)
 	var kubeconfigTTL *time.Duration
 	// always set pointer (including zero) so tokenRenewal can distinguish between "no config provided" (nil) and 0 meaning skip
 	if s.config != nil {
@@ -264,47 +264,27 @@ func tokenRenewal(accessToken string, disableAuth bool, ttl *time.Duration) (str
 		return accessToken, nil
 	}
 
-	// Enforce (or clear) per-client TTL if a ttl pointer is provided
 	// ttl is nil only in tests; handler always supplies &config.KubeconfigTTL
 	if ttl != nil {
 		desiredSeconds := int64(ttl.Seconds())
 		if desiredSeconds != lastAppliedTTLSeconds {
 			enforceClientAccessTokenTTL(desiredSeconds)
 		}
-		if desiredSeconds == 0 {
-			slog.Debug("configured kubeconfig TTL == 0 (inherit realm), skipping token renewal")
-			return accessToken, nil
-		}
-	}
-	// parse claims (existing ExtractClaims behavior) to inspect exp
-	_, _, exp, err := auth.ExtractClaims(accessToken)
-	if err != nil {
-		return "", fmt.Errorf("failed to extract claims: %w", err)
-	}
-
-	// this avoid renew an expired token
-	if time.Now().After(exp) {
-		return "", fmt.Errorf("token expired at %s", exp.UTC().Format(time.RFC3339))
 	}
 
 	ctx := context.Background()
 
-	// one-time attempt to enforce / clear Keycloak per-client TTL using the service account token itself
-	// proceed if we have a desired ttl pointer (could be zero). We treat zero as 'inherit realm'
 	newToken, err := JwtTokenWithM2MFunc(ctx, ttl)
 	if err != nil {
 		return "", fmt.Errorf("failed to get new M2M token: %w", err)
 	}
 
-	// allows service tokens based on groups + roles
 	newAzp, newUser, newExp, claimErr := auth.ExtractClaims(newToken)
 	if claimErr != nil {
-		slog.Warn("failed to parse renewed token claims; falling back to original token", "error", claimErr)
+		slog.Error("failed to parse renewed token claims", "error", claimErr)
 
 		return accessToken, nil
 	}
-
-	remainingOriginal := time.Until(exp)
 
 	requestedTTL := "<nil>" // "no TTL supplied" for tests
 	if ttl != nil {
@@ -312,7 +292,7 @@ func tokenRenewal(accessToken string, disableAuth bool, ttl *time.Duration) (str
 	}
 
 	renewedLifetime := time.Until(newExp)
-	slog.Debug("kubeconfig token renewed", "original_remaining", remainingOriginal, "requested_ttl", requestedTTL, "renewed_lifetime", renewedLifetime, "user", newUser, "azp", newAzp)
+	slog.Debug("kubeconfig token renewed", "requested_ttl", requestedTTL, "renewed_lifetime", renewedLifetime, "user", newUser, "azp", newAzp)
 
 	return newToken, nil
 }
@@ -341,12 +321,7 @@ func enforceClientAccessTokenTTL(desiredSeconds int64) {
 		return
 	}
 
-	var ok bool
-	if desiredSeconds > 0 {
-		ok = auth.EnforceClientAccessTokenTTL(context.Background(), issuer, "", clientID, time.Duration(desiredSeconds)*time.Second, adminToken)
-	} else {
-		ok = auth.ClearClientAccessTokenTTL(context.Background(), issuer, "", clientID, adminToken)
-	}
+	ok := auth.EnforceClientAccessTokenTTL(context.Background(), issuer, "", clientID, time.Duration(desiredSeconds)*time.Second, adminToken)
 
 	if !ok {
 		slog.Warn("keycloak client TTL state NOT applied", "attempted_seconds", desiredSeconds)

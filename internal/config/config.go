@@ -62,7 +62,7 @@ func ParseConfig() *Config {
 	clusterDomain := flag.String("clusterdomain", "kind.internal", "(optional) cluster domain")
 	userName := flag.String("username", "admin", "(optional) user")
 	inventoryAddress := flag.String("inventory-endpoint", "mi-inventory:50051", "(optional) inventory address")
-	kubeconfigTTLHours := flag.Float64("kubeconfig-ttl-hours", 1.0, "(optional) default TTL for kubeconfig JWTs in hours (0 = skip renewal)")
+	kubeconfigTTLHours := flag.Float64("kubeconfig-ttl-hours", 3.0, "(optional) default TTL for kubeconfig JWTs in hours")
 	flag.Parse()
 
 	cfg := &Config{
@@ -133,7 +133,7 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("inventory address is required to enable inventory integration")
 	}
 
-	// allow 0 to mean: do not renew (pass-through existing token); negative still invalid
+	// TTL=0 expires immediately
 	if c.KubeconfigTTL < 0 {
 		slog.Error("kubeconfig TTL must be >= 0", "provided", c.KubeconfigTTL)
 		return fmt.Errorf("kubeconfig TTL must be >= 0, got %v", c.KubeconfigTTL)
