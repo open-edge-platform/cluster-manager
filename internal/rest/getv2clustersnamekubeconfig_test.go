@@ -523,9 +523,9 @@ func TestTokenRenewal(t *testing.T) {
 			name:         "skip renewal when ttl=0",
 			disableAuth:  false,
 			ttl:          func() *time.Duration { z := time.Duration(0); return &z }(),
-			expectSame:   true,
+			expectSame:   false,
 			expectErr:    false,
-			expectCalled: false,
+			expectCalled: true,
 		},
 		{
 			name:         "renew when ttl>0",
@@ -721,12 +721,12 @@ func TestKubeconfigEndToEndWithTTL(t *testing.T) {
 			renes:           true,
 		},
 		{
-			name:            "ttl=0 retains original 1h",
+			name:            "ttl=0 expires 0h",
 			disableAuth:     false,
 			configuredTTL:   0,
 			initialTokenTTL: 1 * time.Hour,
-			expectedTTL:     1 * time.Hour,
-			renes:           false,
+			expectedTTL:     0 * time.Hour,
+			renes:           true,
 		},
 		{
 			name:            "auth disabled retains original 45m",
@@ -836,7 +836,7 @@ func TestKubeconfigEndToEndRenewalCallExpectations(t *testing.T) {
 	cases := []testCase{
 		{name: "renewal called when auth enabled and ttl>0", disableAuth: false, configuredTTL: 1 * time.Hour, expectCalled: true},
 		{name: "renewal skipped when auth disabled", disableAuth: true, configuredTTL: 1 * time.Hour, expectCalled: false},
-		{name: "renewal skipped when ttl=0", disableAuth: false, configuredTTL: 0, expectCalled: false},
+		{name: "renewal when ttl=0", disableAuth: false, configuredTTL: 0, expectCalled: true},
 	}
 
 	clusterName := "example-cluster"
