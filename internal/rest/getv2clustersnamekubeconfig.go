@@ -64,12 +64,6 @@ func (s *Server) GetV2ClustersNameKubeconfigs(ctx context.Context, request api.G
 
 	clusterKubeconfigUpdated, err := updateKubeconfigWithTokenFunc(clusterKubeconfig, namespace, request.Name, request.Params.Authorization, s.config.DisableAuth, kubeconfigTTL)
 	if err != nil {
-		if strings.Contains(err.Error(), "token expired") || strings.Contains(err.Error(), "token not renewable") {
-			slog.Warn("authorization token rejected", "reason", err.Error())
-			return api.GetV2ClustersNameKubeconfigs401JSONResponse{
-				N401UnauthorizedJSONResponse: api.N401UnauthorizedJSONResponse{Message: ptr("Unauthorized: token expired")},
-			}, nil
-		}
 		slog.Error("failed to update kubeconfig with token", "error", err)
 		return api.GetV2ClustersNameKubeconfigs500JSONResponse{
 			N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{
