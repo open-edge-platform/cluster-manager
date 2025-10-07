@@ -53,11 +53,7 @@ func (s *Server) GetV2ClustersNameKubeconfigs(ctx context.Context, request api.G
 		}, nil
 	}
 
-	// Determine TTL for kubeconfig JWT based on configuration
-	//    > 0: request a renewed token with specified TTL
-	//   == 0: request a renewed token with TTL=0 (immediate expiration)
 	var kubeconfigTTL *time.Duration
-	// always set pointer (including zero) so tokenRenewal can distinguish between "no config provided" (nil) and 0 meaning skip
 	if s.config != nil {
 		kubeconfigTTL = &s.config.KubeconfigTTL
 	}
@@ -252,8 +248,6 @@ func updateKubeconfigFields(config map[string]interface{}, user, clusterName, se
 }
 
 var (
-	// lastAppliedTTLSeconds tracks the last successfully enforced (or cleared) TTL in whole seconds.
-	// -1 means never applied. 0 means override cleared (inherit realm). >0 means enforced value.
 	lastAppliedTTLSeconds int64 = -1
 )
 
@@ -297,8 +291,7 @@ func tokenRenewal(accessToken string, disableAuth bool, ttl *time.Duration) (str
 	return newToken, nil
 }
 
-// enforceClientAccessTokenTTL enforces (>0) or clears (0) client token TTL and updates lastAppliedTTLSeconds
-// only on success, early-exits on missing env or credentials
+// enforceClientAccessTokenTTL enforces client token TTL and updates lastAppliedTTLSeconds
 func enforceClientAccessTokenTTL(desiredSeconds int64) {
 	issuer := os.Getenv(auth.OidcUrlEnvVar)
 	if issuer == "" {
