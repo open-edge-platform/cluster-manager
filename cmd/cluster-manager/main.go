@@ -4,12 +4,10 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"os"
 
-	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
@@ -36,7 +34,6 @@ func main() {
 	initializeMultitenancy(config)
 
 	k8sclient := initializeK8sClient()
-	//initializeAuth(config) // TODO: updated on feature flags pr
 
 	auth, err := rest.GetAuthenticator(config)
 	if err != nil {
@@ -88,21 +85,4 @@ func initializeK8sClient() *k8s.Client {
 		os.Exit(3)
 	}
 	return k8sclient
-}
-//nolint:unused // will be used in the next PR
-func initializeAuth(config *config.Config) {
-	// Initialize VaultAuth and fetch client credentials only when authentication is enabled
-	if !config.DisableAuth {
-		vaultAuth, err := auth.NewVaultAuth(auth.VaultServer, auth.ServiceAccount)
-		if err != nil {
-			slog.Error("failed to initialize VaultAuth", "error", err)
-			os.Exit(4)
-		}
-
-		_, _, err = vaultAuth.GetClientCredentials(context.Background())
-		if err != nil {
-			slog.Error("failed to fetch client credentials from Vault", "error", err)
-			os.Exit(4)
-		}
-	}
 }
