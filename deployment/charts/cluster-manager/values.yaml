@@ -7,6 +7,8 @@ global:
   # name:
   imagePullSecrets: []
 
+kubernetesClusterDomain: cluster.local
+
 # This is to override the chart name.
 nameOverride: ""
 fullNameOverride: ""
