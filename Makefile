@@ -11,11 +11,11 @@ SHELL := bash -eu -o pipefail
 VERSION            ?= $(shell cat VERSION | tr -d '[:space:]')
 GIT_HASH_SHORT     ?= $(shell git rev-parse --short=8 HEAD)
 VERSION_DEV_SUFFIX := ${GIT_HASH_SHORT}
-CLUSTERCTL_VERSION ?= v1.9.5
+CLUSTERCTL_VERSION ?= v1.10.7
 KUBEADM_VERSION    ?= v1.9.0
 RKE2_VERSION       ?= v0.12.0
-K3s_VERSION        ?= v0.2.1
-DOCKER_INFRA_VERSION   ?= v1.8.5
+K3s_VERSION        ?= v0.3.0
+DOCKER_INFRA_VERSION   ?= v1.10.7
 CLUSTERCTL := $(shell command -v clusterctl 2> /dev/null)
 
 FUZZTIME ?= 60s
@@ -374,7 +374,7 @@ CONTROLLER_TOOLS_VERSION ?= v0.17.0
 ENVTEST_VERSION ?= $(shell go list -m -f "{{ .Version }}" sigs.k8s.io/controller-runtime | awk -F'[v.]' '{printf "release-%d.%d", $$2, $$3}')
 #ENVTEST_K8S_VERSION is the version of Kubernetes to use for setting up ENVTEST binaries (i.e. 1.31)
 ENVTEST_K8S_VERSION ?= $(shell go list -m -f "{{ .Version }}" k8s.io/api | awk -F'[v.]' '{printf "1.%d", $$3}')
-GOLANGCI_LINT_VERSION ?= v1.64.7
+GOLANGCI_LINT_VERSION ?= v1.64.8
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
