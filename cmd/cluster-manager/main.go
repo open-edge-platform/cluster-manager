@@ -30,32 +30,10 @@ func main() {
 	slog.Info("Cluster Manager configuration ", "config", config)
 
 	logger.InitializeLogger(config)
+	initializeSystemLabels(config)
+	initializeMultitenancy(config)
 
-	if len(config.SystemLabelsPrefixes) > 0 {
-		slog.Info(fmt.Sprintf("overriding system labels prefixes with %v", config.SystemLabelsPrefixes))
-		labels.OverrideSystemPrefixes(config.SystemLabelsPrefixes)
-	}
-
-	multitenancy.SetDefaultTemplate(config.DefaultTemplate)
-
-	if !config.DisableMultitenancy {
-		// TODO? may need to be initialized after server as all resource handling is done in the server
-		tdm, err := multitenancy.NewDatamodelClient()
-		if err != nil {
-			slog.Error("failed to initialize tenancy datamodel client", "error", err)
-			os.Exit(2)
-		}
-		if err = tdm.Start(); err != nil {
-			slog.Error("failed to start tenancy datamodel client", "error", err)
-			os.Exit(2)
-		}
-	}
-
-	k8sclient := k8s.New().WithInClusterConfig()
-	if k8sclient == nil {
-		slog.Error("failed to initialize k8s clientset")
-		os.Exit(3)
-	}
+	k8sclient := initializeK8sClient()
 
 	auth, err := rest.GetAuthenticator(config)
 	if err != nil {
@@ -74,4 +52,37 @@ func main() {
 		slog.Error("server failed", "error", err)
 		os.Exit(5)
 	}
+}
+
+func initializeSystemLabels(config *config.Config) {
+	if len(config.SystemLabelsPrefixes) > 0 {
+		slog.Info(fmt.Sprintf("overriding system labels prefixes with %v", config.SystemLabelsPrefixes))
+		labels.OverrideSystemPrefixes(config.SystemLabelsPrefixes)
+	}
+}
+
+func initializeMultitenancy(config *config.Config) {
+	multitenancy.SetDefaultTemplate(config.DefaultTemplate)
+
+	if !config.DisableMultitenancy {
+		// TODO? may need to be initialized after server as all resource handling is done in the server
+		tdm, err := multitenancy.NewDatamodelClient()
+		if err != nil {
+			slog.Error("failed to initialize tenancy datamodel client", "error", err)
+			os.Exit(2)
+		}
+		if err = tdm.Start(); err != nil {
+			slog.Error("failed to start tenancy datamodel client", "error", err)
+			os.Exit(2)
+		}
+	}
+}
+
+func initializeK8sClient() *k8s.Client {
+	k8sclient := k8s.New().WithInClusterConfig()
+	if k8sclient == nil {
+		slog.Error("failed to initialize k8s clientset")
+		os.Exit(3)
+	}
+	return k8sclient
 }

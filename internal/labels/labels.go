@@ -20,7 +20,7 @@ const (
 )
 
 var (
-	systemPrefixes  = []string{PlatformPrefix, capiDomainLabelKey, capiTopologyLabelKey, PrometheusMetricsUrlLabelKey, TrustedComputeLabelKey}
+	systemPrefixes  = []string{PlatformPrefix, capiDomainLabelKey, capiTopologyLabelKey, PrometheusMetricsUrlLabelKey}
 	labelKeyRegex   = regexp.MustCompile(`^(([A-Za-z0-9][-A-Za-z0-9_.]{0,250})?[A-Za-z0-9]\/)?([A-Za-z0-9][-A-Za-z0-9_.]{0,61})?[A-Za-z0-9]$`)
 	labelValueRegex = regexp.MustCompile(`^([A-Za-z0-9][-A-Za-z0-9_.]{0,61})?[A-Za-z0-9]?$`)
 )

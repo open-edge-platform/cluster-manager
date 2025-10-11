@@ -20,12 +20,12 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       with:
         persist-credentials: false
 
     - name: Bootstrap CI environment
-      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@bf0ca523f17ab9f79ad5f45df760d302b68ac932  # 0.1.39
+      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@a389c296f4a6dd2ff9d976007fd386950ab99605  # 0.1.49
       with:
         gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
 

@@ -14,7 +14,7 @@ type Options struct {
 	inventoryAddress string
 	enableTracing    bool
 	enableMetrics    bool
-	k8sClient        *k8s.Client
+	k8sClient        k8s.K8sWrapperClient
 }
 
 func (o *Options) WaitGroup() *sync.WaitGroup {
@@ -42,7 +42,7 @@ type OptionsBuilder interface {
 	WithInventoryAddress(address string) OptionsBuilder
 	WithTracing(enableTracing bool) OptionsBuilder
 	WithMetrics(enableMetrics bool) OptionsBuilder
-	WithK8sClient(client *k8s.Client) OptionsBuilder
+	WithK8sClient(client k8s.K8sWrapperClient) OptionsBuilder
 	Build() Options
 }
 
@@ -72,7 +72,7 @@ func (b *optionsBuilder) WithMetrics(enableMetrics bool) OptionsBuilder {
 	return b
 }
 
-func (b *optionsBuilder) WithK8sClient(client *k8s.Client) OptionsBuilder {
+func (b *optionsBuilder) WithK8sClient(client k8s.K8sWrapperClient) OptionsBuilder {
 	b.options.k8sClient = client
 	return b
 }

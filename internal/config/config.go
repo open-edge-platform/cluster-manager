@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 )
@@ -31,6 +32,9 @@ type Config struct {
 
 	// Default template name to use for new projects
 	DefaultTemplate string
+
+	// KubeconfigTTL specifies the TTL for kubeconfig JWT tokens
+	KubeconfigTTL time.Duration
 
 	OidcUrl              string
 	OpaEnabled           bool
@@ -58,6 +62,7 @@ func ParseConfig() *Config {
 	clusterDomain := flag.String("clusterdomain", "kind.internal", "(optional) cluster domain")
 	userName := flag.String("username", "admin", "(optional) user")
 	inventoryAddress := flag.String("inventory-endpoint", "mi-inventory:50051", "(optional) inventory address")
+	kubeconfigTTLHours := flag.Float64("kubeconfig-ttl-hours", 3.0, "(optional) default TTL for kubeconfig JWTs in hours")
 	flag.Parse()
 
 	cfg := &Config{
@@ -66,6 +71,7 @@ func ParseConfig() *Config {
 		DisableInventory:    *disableInv,
 		DisableMetrics:      *disableMetrics,
 		DefaultTemplate:     *defaultTemplate,
+		KubeconfigTTL:       time.Duration(*kubeconfigTTLHours * float64(time.Hour)),
 		LogLevel:            *logLevel,
 		LogFormat:           strings.ToLower(*logFormat),
 		ClusterDomain:       *clusterDomain,
@@ -125,6 +131,12 @@ func (c *Config) Validate() error {
 	if !c.DisableInventory && c.InventoryAddress == "" {
 		slog.Error("inventory address is required to enable inventory integration")
 		return fmt.Errorf("inventory address is required to enable inventory integration")
+	}
+
+	// TTL=0 expires immediately
+	if c.KubeconfigTTL < 0 {
+		slog.Error("kubeconfig TTL must be >= 0", "provided", c.KubeconfigTTL)
+		return fmt.Errorf("kubeconfig TTL must be >= 0, got %v", c.KubeconfigTTL)
 	}
 
 	return nil
