@@ -7,7 +7,9 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
@@ -18,7 +20,14 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+// JwtTokenWithM2MFunc is used for renewing the user-facing kubeconfig token
+var JwtTokenWithM2MFunc = auth.JwtTokenWithM2M
+
+// JwtTokenWithM2MAdminFunc gets admin tokens for managing token ttl settings. This is
+// separate from the user token function so tests can track calls independently
+var JwtTokenWithM2MAdminFunc = auth.JwtTokenWithM2M
 var updateKubeconfigWithTokenFunc = updateKubeconfigWithToken
+var tokenRenewalFunc = tokenRenewal
 
 // (GET /v2/clusters/{name}/kubeconfigs)
 func (s *Server) GetV2ClustersNameKubeconfigs(ctx context.Context, request api.GetV2ClustersNameKubeconfigsRequestObject) (api.GetV2ClustersNameKubeconfigsResponseObject, error) {
@@ -26,6 +35,7 @@ func (s *Server) GetV2ClustersNameKubeconfigs(ctx context.Context, request api.G
 
 	authHeader := request.Params.Authorization
 	if !strings.HasPrefix(authHeader, auth.BearerPrefix) {
+		slog.Error("invalid Authorization header", "authHeader", authHeader)
 		return api.GetV2ClustersNameKubeconfigs401JSONResponse{
 			N401UnauthorizedJSONResponse: api.N401UnauthorizedJSONResponse{
 				Message: ptr("Unauthorized: invalid Authorization header"),
@@ -43,7 +53,12 @@ func (s *Server) GetV2ClustersNameKubeconfigs(ctx context.Context, request api.G
 		}, nil
 	}
 
-	clusterKubeconfigUpdated, err := updateKubeconfigWithTokenFunc(clusterKubeconfig, namespace, request.Name, request.Params.Authorization)
+	var kubeconfigTTL *time.Duration
+	if s.config != nil {
+		kubeconfigTTL = &s.config.KubeconfigTTL
+	}
+
+	clusterKubeconfigUpdated, err := updateKubeconfigWithTokenFunc(clusterKubeconfig, namespace, request.Name, request.Params.Authorization, s.config.DisableAuth, kubeconfigTTL)
 	if err != nil {
 		slog.Error("failed to update kubeconfig with token", "error", err)
 		return api.GetV2ClustersNameKubeconfigs500JSONResponse{
@@ -107,8 +122,12 @@ func (s *Server) getClusterKubeconfig(ctx context.Context, namespace, clusterNam
 // server external:
 // server: https://connect-gateway.<domain>:443/kubernetes/<project-id>-<cluster-name>
 
-func updateKubeconfigWithToken(kubeconfig kubeconfigParameters, namespace, clusterName, authHeader string) (string, error) {
+func updateKubeconfigWithToken(kubeconfig kubeconfigParameters, namespace, clusterName, authHeader string, disableAuth bool, ttl *time.Duration) (string, error) {
 	token := auth.GetAccessToken(authHeader)
+	newAccessToken, err := tokenRenewalFunc(token, disableAuth, ttl)
+	if err != nil {
+		return "", err
+	}
 	caData, domain, userName := kubeconfig.serverCA, kubeconfig.clusterDomain, kubeconfig.userName
 
 	config, err := unmarshalKubeconfig(kubeconfig.kubeConfigDecode)
@@ -131,7 +150,7 @@ func updateKubeconfigWithToken(kubeconfig kubeconfigParameters, namespace, clust
 	serverAddress := fmt.Sprintf("https://connect-gateway.%s:443%s%s", domain, middleUrl, endSegment)
 	slog.Debug("serverAddress", "decoded", serverAddress)
 
-	updateKubeconfigFields(config, clusterName+"-"+userName, clusterName, serverAddress, caData, token)
+	updateKubeconfigFields(config, clusterName+"-"+userName, clusterName, serverAddress, caData, newAccessToken)
 
 	updatedKubeconfig, err := yaml.Marshal(config)
 	if err != nil {
@@ -226,6 +245,85 @@ func updateKubeconfigFields(config map[string]interface{}, user, clusterName, se
 			},
 		},
 	}
+}
+
+var (
+	lastAppliedTTLSeconds int64 = -1
+)
+
+func tokenRenewal(accessToken string, disableAuth bool, ttl *time.Duration) (string, error) {
+	// skip renewal outright if auth disabled
+	if disableAuth {
+		slog.Debug("authentication disabled, skipping token renewal")
+		return accessToken, nil
+	}
+
+	// ttl is nil only in tests; handler always supplies &config.KubeconfigTTL
+	if ttl != nil {
+		desiredSeconds := int64(ttl.Seconds())
+		if desiredSeconds != lastAppliedTTLSeconds {
+			enforceClientAccessTokenTTL(desiredSeconds)
+		}
+	}
+
+	ctx := context.Background()
+
+	newToken, err := JwtTokenWithM2MFunc(ctx, ttl)
+	if err != nil {
+		return "", fmt.Errorf("failed to get new M2M token: %w", err)
+	}
+
+	newAzp, newUser, newExp, claimErr := auth.ExtractClaims(newToken)
+	if claimErr != nil {
+		slog.Error("failed to parse renewed token claims", "error", claimErr)
+
+		return accessToken, nil
+	}
+
+	requestedTTL := "<nil>" // "no TTL supplied" for tests
+	if ttl != nil {
+		requestedTTL = ttl.String()
+	}
+
+	renewedLifetime := time.Until(newExp)
+	slog.Debug("kubeconfig token renewed", "requested_ttl", requestedTTL, "renewed_lifetime", renewedLifetime, "user", newUser, "azp", newAzp)
+
+	return newToken, nil
+}
+
+// enforceClientAccessTokenTTL enforces client token TTL and updates lastAppliedTTLSeconds
+func enforceClientAccessTokenTTL(desiredSeconds int64) {
+	issuer := os.Getenv(auth.OidcUrlEnvVar)
+	if issuer == "" {
+		issuer = os.Getenv(auth.KeycloakUrlEnvVar)
+	}
+	// check M2M credentials exist and create if missing
+	if err := auth.EnsureM2MCredentials(false); err != nil {
+		slog.Warn("cannot ensure M2M credentials for TTL enforcement", "error", err)
+		return
+	}
+
+	clientID := auth.GetM2MClientID()
+	if issuer == "" || clientID == "" {
+		return
+	}
+
+	adminToken, errTok := JwtTokenWithM2MAdminFunc(context.Background(), nil)
+	if errTok != nil {
+		slog.Warn("failed to get M2M admin token for TTL enforcement", "error", errTok)
+		return
+	}
+
+	ok := auth.EnforceClientAccessTokenTTL(context.Background(), issuer, "", clientID, time.Duration(desiredSeconds)*time.Second, adminToken)
+
+	if !ok {
+		slog.Warn("keycloak client TTL state NOT applied", "attempted_seconds", desiredSeconds)
+		return
+	}
+
+	lastAppliedTTLSeconds = desiredSeconds
+	slog.Debug("keycloak client TTL state applied", "applied_seconds", desiredSeconds)
+
 }
 
 type kubeConfigData struct {

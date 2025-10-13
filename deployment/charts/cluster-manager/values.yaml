@@ -7,6 +7,8 @@ global:
   # name:
   imagePullSecrets: []
 
+kubernetesClusterDomain: cluster.local
+
 # This is to override the chart name.
 nameOverride: ""
 fullNameOverride: ""
@@ -75,7 +77,11 @@ clusterManager:
     disable-multi-tenancy: false
     disable-inventory: false
     disable-metrics: true
-    default-template: "baseline-k3s-v0.0.7"
+    default-template: "baseline-k3s-v0.0.9"
+    # TTL in hours for JWT tokens in generated kubeconfig files
+    # 0 = immediate expiration (disables kubeconfig)
+    # Actual TTL can be limited by Keycloak's realm-level max token lifetime settings
+    kubeconfig-ttl-hours: 3
 
   extraEnv: []
 
@@ -194,3 +200,38 @@ openpolicyagent:
     capabilities:
       drop:
         - "ALL"
+
+# co-manager M2M client configuration
+credentialsM2M:
+  enabled: false  # avoid test regression as services are unavailable
+
+  job:
+    # job execution settings
+    backoffLimit: 3
+    activeDeadlineSeconds: 300  # timeout 5 minutes
+    ttlSecondsAfterFinished: 86400  # auto-deletion 24 hours
+    retryAttempts: 5
+    retryDelay: 10
+
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+  # platform services configuration
+  vault:
+    service: "vault.orch-platform.svc"
+    port: 8200
+    secretPath: "secret/data/co-manager-m2m-client-secret"
+    authPath: "auth/kubernetes"
+
+  keycloak:
+    service: "platform-keycloak.orch-platform.svc"
+    port: 8080
+    realm: "master"
+    adminSecretName: "platform-keycloak"
+    adminSecretNamespace: "orch-platform"
+    clientId: "co-manager-m2m-client"

@@ -1,7 +1,7 @@
 {
   "name": "restricted-k3s",
-  "version": "v0.0.7",
-  "kubernetesVersion": "v1.32.4+k3s1",
+  "version": "v0.0.9",
+  "kubernetesVersion": "v1.32.9+k3s1",
   "description": "Restricted Cluster Template for k3s",
   "controlplaneprovidertype": "k3s",
   "infraprovidertype": "intel",
@@ -29,11 +29,15 @@
               },
               {
                 "path": "/var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl",
-                "content": "{{ template \\\"base\\\" . }}\n\n[plugins.\\\"io.containerd.grpc.v1.cri\\\".containerd.runtimes.kata-qemu]\n  runtime_type = \\\"io.containerd.kata-qemu.v2\\\"\n  runtime_path = \\\"/opt/kata/bin/containerd-shim-kata-v2\\\"\n  privileged_without_host_devices = true\n  pod_annotations = [\\\"io.katacontainers.*\\\"]\n\n[plugins.\\\"io.containerd.grpc.v1.cri\\\".containerd.runtimes.kata-qemu.options]\n  ConfigPath = \\\"/opt/kata/share/defaults/kata-containers/configuration-qemu.toml\\\""
+                "content": "{{ template \\\"base\\\" . }}\n\n[plugins.\\\"io.containerd.grpc.v1.cri\\\".containerd.runtimes.kata-qemu]\n  runtime_type = \\\"io.containerd.kata-qemu.v2\\\"\n  runtime_path = \\\"/opt/kata/bin/containerd-shim-kata-v2\\\"\n  privileged_without_host_devices = true\n  pod_annotations = [\\\"io.katacontainers.*\\\"]\n\n[plugins.\\\"io.containerd.grpc.v1.cri\\\".containerd.runtimes.kata-qemu.options]\n  ConfigPath = \\\"/opt/kata/share/defaults/kata-containers/configuration-qemu.toml\\\"\n\n[plugins.\\\"io.containerd.nri.v1.nri\\\"]\n  disable = false\n  disable_connections = false\n  plugin_config_path = \\\"/etc/nri/conf.d\\\"\n  plugin_path = \\\"/opt/nri/plugins\\\"\n  plugin_registration_timeout = \\\"5s\\\"\n  plugin_request_timeout = \\\"2s\\\"\n  socket_path = \\\"/var/run/nri/nri.sock\\\""
               },
               {
                 "path": "/etc/rancher/k3s/config.yaml.d/kube-apiserver-arg.yaml",
                 "content": "kube-apiserver-arg:\n- tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384\n- anonymous-auth=false"
+              },
+              {
+                "path": "/etc/rancher/k3s/config.yaml.d/etcd-arg.yaml",
+                "content": "etcd-arg:\n- cipher-suites=[TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384]"
               }
             ],
             "agentConfig": {
@@ -69,7 +73,7 @@
                 "servicelb"
               ]
             },
-            "version": "v1.32.4+k3s1"
+            "version": "v1.32.9+k3s1"
           }
         }
       }
