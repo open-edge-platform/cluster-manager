@@ -9,9 +9,9 @@ replace github.com/google/cel-go => github.com/google/cel-go v0.22.1
 
 require (
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/getkin/kin-openapi v0.131.0
-	github.com/go-logr/logr v1.4.2
-	github.com/golang-jwt/jwt/v5 v5.2.2
+	github.com/getkin/kin-openapi v0.133.0
+	github.com/go-logr/logr v1.4.3
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/lestrrat-go/jwx/v2 v2.1.6
@@ -45,6 +45,7 @@ require (
 	github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 // indirect
 	github.com/speakeasy-api/openapi-overlay v0.9.0 // indirect
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
+	github.com/woodsbury/decimal128 v1.3.0 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect
 )
 
