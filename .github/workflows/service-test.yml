@@ -12,42 +12,42 @@ on:
     branches:
       - main
       - release-*
-  workflow_dispatch: 
-  
+  workflow_dispatch:
+
 jobs:
   integration-smoke-test:
     permissions:
       contents: read
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout orch ci
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      with:
-        ref: ${{ github.head_ref }}
-        persist-credentials: false
+      - name: Checkout orch ci
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          ref: ${{ github.head_ref }}
+          persist-credentials: false
 
-    - name: Bootstrap CI environment
-      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@a389c296f4a6dd2ff9d976007fd386950ab99605  # 0.1.49
-      with:
-        gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
+      - name: Bootstrap CI environment
+        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@a389c296f4a6dd2ff9d976007fd386950ab99605  # 0.1.49
+        with:
+          gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
 
-    - name: Run service test
-      run: make run-service-test
+      - name: Run service test
+        run: make run-service-test
 
-    - name: Gather logs from every pod
-      if: always()
-      run: |
-        mkdir -p service-test-logs
-        for pod_and_namespace in $(kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.name}{";"}{.metadata.namespace}{"\n"}{end}'); do
-          pod=$(echo "$pod_and_namespace" | awk -F';' '{print $1}')
-          namespace=$(echo "$pod_and_namespace" | awk -F';' '{print $2}')
-          echo "Gathering logs for pod $pod in namespace $namespace"
-          kubectl logs "$pod" -n "$namespace" > "./service-test-logs/${pod}.log" || echo "Failed to get logs for $pod in namespace $namespace"
-        done
+      - name: Gather logs from every pod
+        if: always()
+        run: |
+          mkdir -p service-test-logs
+          for pod_and_namespace in $(kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.name}{";"}{.metadata.namespace}{"\n"}{end}'); do
+            pod=$(echo "$pod_and_namespace" | awk -F';' '{print $1}')
+            namespace=$(echo "$pod_and_namespace" | awk -F';' '{print $2}')
+            echo "Gathering logs for pod $pod in namespace $namespace"
+            kubectl logs "$pod" -n "$namespace" > "./service-test-logs/${pod}.log" || echo "Failed to get logs for $pod in namespace $namespace"
+          done
 
-    - name: Upload pod logs as evidence
-      if: always()
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
-      with:
-        name: service-test-logs
-        path: service-test-logs
+      - name: Upload pod logs as evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: service-test-logs
+          path: service-test-logs
