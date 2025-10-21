@@ -16,3 +16,6 @@ packages:
   github.com/open-edge-platform/infra-core/inventory/v2/pkg/client:
     interfaces:
       TenantAwareInventoryClient:
+  github.com/open-edge-platform/cluster-manager/v2/internal/k8s:
+    interfaces:
+      Client:

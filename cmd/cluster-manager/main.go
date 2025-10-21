@@ -47,7 +47,7 @@ func main() {
 		os.Exit(7)
 	}
 
-	s := rest.NewServer(k8sclient.Dynamic(), rest.WithAuth(auth), rest.WithConfig(config), rest.WithInventory(inv))
+	s := rest.NewServer(k8sclient, rest.WithAuth(auth), rest.WithConfig(config), rest.WithInventory(inv))
 	if err := s.Serve(); err != nil {
 		slog.Error("server failed", "error", err)
 		os.Exit(5)

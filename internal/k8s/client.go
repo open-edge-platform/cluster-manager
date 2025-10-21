@@ -22,16 +22,16 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8sLabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	dockerProvider "sigs.k8s.io/cluster-api/test/infrastructure/docker/api/v1beta1"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-    "k8s.io/client-go/tools/cache"
-	k8sLabels "k8s.io/apimachinery/pkg/labels"
 )
 
 const (
@@ -90,20 +90,20 @@ var (
 )
 
 type Client interface {
-    StartInformers(ctx context.Context, resources []schema.GroupVersionResource) error
-    GetCached(ctx context.Context, resourceSchema schema.GroupVersionResource, namespace, name string) (*unstructured.Unstructured, error)
-    ListCached(ctx context.Context, resourceSchema schema.GroupVersionResource, namespace string, listOptions metav1.ListOptions) (*unstructured.UnstructuredList, error)
-    CreateNamespace(ctx context.Context, name string) error
-    DeleteNamespace(ctx context.Context, namespace string) error
-    CreateCluster(ctx context.Context, namespace string, cluster capi.Cluster) (string, error)
-    DeleteClusters(ctx context.Context, namespace string) error
-    GetCluster(ctx context.Context, namespace, name string) (*capi.Cluster, error)
-    GetMachines(ctx context.Context, namespace, clusterName string) ([]capi.Machine, error)
-    CreateMachineBinding(ctx context.Context, namespace string, binding intelProvider.IntelMachineBinding) error
-    IntelMachines(ctx context.Context, namespace, clusterName string) ([]intelProvider.IntelMachine, error)
-    DockerMachines(ctx context.Context, namespace, clusterName string) ([]dockerProvider.DockerMachine, error)
-    IntelMachine(ctx context.Context, namespace, providerMachineName string) (intelProvider.IntelMachine, error)
-    DockerMachine(ctx context.Context, namespace, providerMachineName string) (dockerProvider.DockerMachine, error)
+	StartInformers(ctx context.Context, resources []schema.GroupVersionResource) error
+	GetCached(ctx context.Context, resourceSchema schema.GroupVersionResource, namespace, name string) (*unstructured.Unstructured, error)
+	ListCached(ctx context.Context, resourceSchema schema.GroupVersionResource, namespace string, listOptions metav1.ListOptions) (*unstructured.UnstructuredList, error)
+	CreateNamespace(ctx context.Context, name string) error
+	DeleteNamespace(ctx context.Context, namespace string) error
+	CreateCluster(ctx context.Context, namespace string, cluster capi.Cluster) (string, error)
+	DeleteClusters(ctx context.Context, namespace string) error
+	GetCluster(ctx context.Context, namespace, name string) (*capi.Cluster, error)
+	GetMachines(ctx context.Context, namespace, clusterName string) ([]capi.Machine, error)
+	CreateMachineBinding(ctx context.Context, namespace string, binding intelProvider.IntelMachineBinding) error
+	IntelMachines(ctx context.Context, namespace, clusterName string) ([]intelProvider.IntelMachine, error)
+	DockerMachines(ctx context.Context, namespace, clusterName string) ([]dockerProvider.DockerMachine, error)
+	IntelMachine(ctx context.Context, namespace, providerMachineName string) (intelProvider.IntelMachine, error)
+	DockerMachine(ctx context.Context, namespace, providerMachineName string) (dockerProvider.DockerMachine, error)
 	GetMachineByHostID(ctx context.Context, namespace, hostID string) (capi.Machine, error)
 	DeleteCluster(ctx context.Context, namespace string, clusterName string) error
 	SetMachineLabels(ctx context.Context, namespace string, machineName string, newUserLabels map[string]string) error
@@ -115,120 +115,120 @@ type Client interface {
 	GetClusterTemplate(ctx context.Context, namespace, templateName string) (*v1alpha1.ClusterTemplate, error)
 	Templates(ctx context.Context, namespace string) ([]v1alpha1.ClusterTemplate, error)
 	DeleteTemplates(ctx context.Context, namespace string) error
-    DefaultTemplate(ctx context.Context, namespace string) (v1alpha1.ClusterTemplate, error)
+	DefaultTemplate(ctx context.Context, namespace string) (v1alpha1.ClusterTemplate, error)
 	CreateTemplate(ctx context.Context, namespace string, template *v1alpha1.ClusterTemplate) error
 	Template(ctx context.Context, namespace, name string) (v1alpha1.ClusterTemplate, error)
 	Dynamic() dynamic.Interface
 	SetClusterLabels(ctx context.Context, namespace string, clusterName string, newUserLabels map[string]string) error
 }
 
-
 type ManagerClient struct {
-    Dyn       dynamic.Interface
-    Informers dynamicinformer.DynamicSharedInformerFactory
+	Dyn       dynamic.Interface
+	Informers dynamicinformer.DynamicSharedInformerFactory
 }
 
 // New creates a new Client with optional configurations.
 func New(opts ...func(*ManagerClient)) *ManagerClient {
-    client := &ManagerClient{}
-    for _, opt := range opts {
-        opt(client)
-    }
+	client := &ManagerClient{}
+	for _, opt := range opts {
+		opt(client)
+	}
 	if client.Dyn == nil {
 		return client
 	}
-    // initialize the dynamic informer factory
-    client.Informers = dynamicinformer.NewDynamicSharedInformerFactory(client.Dyn, 10*time.Minute)
+	// initialize the dynamic informer factory
+	client.Informers = dynamicinformer.NewDynamicSharedInformerFactory(client.Dyn, 10*time.Minute)
 
-    // start informers (docker machines not in use yet)
-    if err := client.StartInformers(context.Background(), []schema.GroupVersionResource{
-        clusterResourceSchema,
-        templateResourceSchema,
+	// start informers (docker machines not in use yet)
+	if err := client.StartInformers(context.Background(), []schema.GroupVersionResource{
+		clusterResourceSchema,
+		templateResourceSchema,
 		bindingsResourceSchema,
 		machineResourceSchema,
 		IntelMachineResourceSchema,
-    }); err != nil {
+	}); err != nil {
 		slog.Warn("failed to start informers. This may result in cache errors", "error", err)
-        return nil
-    }
+		return nil
+	}
 
-    return client
+	return client
 }
 
 // Dynamic allows access to the dynamic client for write operations
 func (cli *ManagerClient) Dynamic() dynamic.Interface {
 	return cli.Dyn
 }
+
 // StartInformers starts all informers and waits for their caches to sync.
 func (cli *ManagerClient) StartInformers(ctx context.Context, resources []schema.GroupVersionResource) error {
-    slog.Info("starting informers")
+	slog.Info("starting informers")
 	if cli.Dyn == nil {
 		return fmt.Errorf("dynamic client is not initialized")
 	}
-    // create informers for the specified resources
-    syncFuncs := []cache.InformerSynced{}
-    for _, resource := range resources {
+	// create informers for the specified resources
+	syncFuncs := []cache.InformerSynced{}
+	for _, resource := range resources {
 		slog.Info("starting informer for resource", "resource", resource)
-        informer := cli.Informers.ForResource(resource).Informer()
-        go informer.Run(ctx.Done())
-        syncFuncs = append(syncFuncs, informer.HasSynced)
-    }
+		informer := cli.Informers.ForResource(resource).Informer()
+		go informer.Run(ctx.Done())
+		syncFuncs = append(syncFuncs, informer.HasSynced)
+	}
 
-    // wait for all caches to sync
-    if !cache.WaitForCacheSync(ctx.Done(), syncFuncs...) {
-        return fmt.Errorf("failed to sync caches")
-    }
-    slog.Info("informers started and caches synced")
-    return nil
+	// wait for all caches to sync
+	if !cache.WaitForCacheSync(ctx.Done(), syncFuncs...) {
+		return fmt.Errorf("failed to sync caches")
+	}
+	slog.Info("informers started and caches synced")
+	return nil
 }
 
 // GetCached retrieves an object from the informer cache or falls back to the API if not found.
 func (cli *ManagerClient) GetCached(ctx context.Context, resourceSchema schema.GroupVersionResource, namespace, name string) (*unstructured.Unstructured, error) {
-    informer := cli.Informers.ForResource(resourceSchema).Informer()
+	informer := cli.Informers.ForResource(resourceSchema).Informer()
 
-    // wait for the cache to sync before accessing it
-    if !cache.WaitForCacheSync(ctx.Done(), informer.HasSynced) {
-        return nil, fmt.Errorf("cache not synced for resource: %v", resourceSchema.Resource)
-    }
+	// wait for the cache to sync before accessing it
+	if !cache.WaitForCacheSync(ctx.Done(), informer.HasSynced) {
+		return nil, fmt.Errorf("cache not synced for resource: %v", resourceSchema.Resource)
+	}
 
-    // attempt to retrieve the object from the cache
-    key := name
-    if namespace != "" {
-        key = fmt.Sprintf("%s/%s", namespace, name)
-    }
-    obj, exists, err := informer.GetStore().GetByKey(key)
-    if err != nil {
-        return nil, fmt.Errorf("error retrieving object from cache: %w", err)
-    }
-    if !exists {
-        slog.Info("cache miss, falling back to API", "key", key)
-        return cli.Dyn.Resource(resourceSchema).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
-    }
+	// attempt to retrieve the object from the cache
+	key := name
+	if namespace != "" {
+		key = fmt.Sprintf("%s/%s", namespace, name)
+	}
+	obj, exists, err := informer.GetStore().GetByKey(key)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving object from cache: %w", err)
+	}
+	if !exists {
+		slog.Info("cache miss, falling back to API", "key", key)
+		return cli.Dyn.Resource(resourceSchema).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+	}
 
-    return obj.(*unstructured.Unstructured), nil
+	return obj.(*unstructured.Unstructured), nil
 }
 
 func (cli *ManagerClient) ListCached(ctx context.Context, resourceSchema schema.GroupVersionResource, namespace string, listOptions metav1.ListOptions) (*unstructured.UnstructuredList, error) {
-    informer := cli.Informers.ForResource(resourceSchema).Informer()
+	informer := cli.Informers.ForResource(resourceSchema).Informer()
 
-    // Wait for the cache to sync before accessing it
-    if !cache.WaitForCacheSync(ctx.Done(), informer.HasSynced) {
-        return nil, fmt.Errorf("cache not synced for resource: %v", resourceSchema.Resource)
-    }
+	// Wait for the cache to sync before accessing it
+	if !cache.WaitForCacheSync(ctx.Done(), informer.HasSynced) {
+		return nil, fmt.Errorf("cache not synced for resource: %v", resourceSchema.Resource)
+	}
 
-    // Attempt to retrieve the objects from the cache
-    var filteredObjects []unstructured.Unstructured
-    items := informer.GetStore().List()
-    for _, item := range items {
-        obj := item.(*unstructured.Unstructured)
+	// Attempt to retrieve the objects from the cache
+	var filteredObjects []unstructured.Unstructured
+	items := informer.GetStore().List()
+	for _, item := range items {
+		obj := item.(*unstructured.Unstructured)
 
-        // Filter by namespace if provided
-        if namespace != "" && obj.GetNamespace() != namespace {
-            continue
-        }
+		// Filter by namespace if provided
+		if namespace != "" && obj.GetNamespace() != namespace {
+			continue
+		}
 
-        // Apply label selector filtering
-        if listOptions.LabelSelector != "" {
+		// Apply label selector filtering
+		if listOptions.LabelSelector != "" {
 			parsedSelector, parseErr := metav1.ParseToLabelSelector(listOptions.LabelSelector)
 			if parseErr != nil {
 				return nil, fmt.Errorf("invalid label selector: %w", parseErr)
@@ -237,32 +237,32 @@ func (cli *ManagerClient) ListCached(ctx context.Context, resourceSchema schema.
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert label selector: %w", err)
 			}
-            if err != nil {
-                return nil, fmt.Errorf("invalid label selector: %w", err)
-            }
-            if !selector.Matches(k8sLabels.Set(obj.GetLabels())) {
-                continue
-            }
-        }
+			if err != nil {
+				return nil, fmt.Errorf("invalid label selector: %w", err)
+			}
+			if !selector.Matches(k8sLabels.Set(obj.GetLabels())) {
+				continue
+			}
+		}
 
-        filteredObjects = append(filteredObjects, *obj)
-    }
+		filteredObjects = append(filteredObjects, *obj)
+	}
 
-    // If no objects are found in the cache, fall back to the API
-    if len(filteredObjects) == 0 {
-        slog.Info("cache miss, falling back to API", "resource", resourceSchema.Resource, "namespace", namespace)
-        unstructuredList, err := cli.Dyn.Resource(resourceSchema).Namespace(namespace).List(ctx, listOptions)
-        if err != nil {
-            return nil, fmt.Errorf("error retrieving objects from API: %w", err)
-        }
-        return unstructuredList, nil
-    }
+	// If no objects are found in the cache, fall back to the API
+	if len(filteredObjects) == 0 {
+		slog.Info("cache miss, falling back to API", "resource", resourceSchema.Resource, "namespace", namespace)
+		unstructuredList, err := cli.Dyn.Resource(resourceSchema).Namespace(namespace).List(ctx, listOptions)
+		if err != nil {
+			return nil, fmt.Errorf("error retrieving objects from API: %w", err)
+		}
+		return unstructuredList, nil
+	}
 
-    // Convert the filtered objects into an UnstructuredList
-    unstructuredList := &unstructured.UnstructuredList{
-        Items: filteredObjects,
-    }
-    return unstructuredList, nil
+	// Convert the filtered objects into an UnstructuredList
+	unstructuredList := &unstructured.UnstructuredList{
+		Items: filteredObjects,
+	}
+	return unstructuredList, nil
 }
 
 func (c *ManagerClient) WithInClusterConfig() *ManagerClient {
@@ -470,7 +470,7 @@ func modifyLabels(ctx context.Context, c *ManagerClient, namespace string, resou
 	}
 
 	transaction := func() error {
-		resource, err := c.Dyn.Resource(resourceSchema).Namespace(namespace).Get(ctx, resourceName, metav1.GetOptions{})
+		resource, err := c.GetCached(ctx, resourceSchema, namespace, resourceName)
 		if err != nil {
 			return backoff.Permanent(err)
 		}
@@ -492,7 +492,7 @@ func (c *ManagerClient) DefaultTemplate(ctx context.Context, namespace string) (
 	var template v1alpha1.ClusterTemplate
 
 	listOptions := metav1.ListOptions{LabelSelector: fmt.Sprintf("%v=%v", labels.DefaultLabelKey, labels.DefaultLabelVal)}
-	unstructuredClusterTemplatesList, err := c.Dyn.Resource(templateResourceSchema).Namespace(namespace).List(ctx, listOptions)
+	unstructuredClusterTemplatesList, err := c.ListCached(ctx, templateResourceSchema, namespace, listOptions)
 	if err != nil {
 		return template, err
 	}
@@ -519,7 +519,7 @@ func (c *ManagerClient) DefaultTemplate(ctx context.Context, namespace string) (
 func (c *ManagerClient) Templates(ctx context.Context, namespace string) ([]v1alpha1.ClusterTemplate, error) {
 	var templates []v1alpha1.ClusterTemplate
 
-	unstructuredClusterTemplatesList, err := c.Dyn.Resource(templateResourceSchema).Namespace(namespace).List(ctx, metav1.ListOptions{})
+	unstructuredClusterTemplatesList, err := c.ListCached(ctx, templateResourceSchema, namespace, metav1.ListOptions{})
 	if err != nil {
 		return templates, err
 	}
@@ -540,7 +540,7 @@ func (c *ManagerClient) Templates(ctx context.Context, namespace string) ([]v1al
 func (c *ManagerClient) Template(ctx context.Context, namespace, name string) (v1alpha1.ClusterTemplate, error) {
 	var template v1alpha1.ClusterTemplate
 
-	unstructuredTemplate, err := c.Dyn.Resource(templateResourceSchema).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+	unstructuredTemplate, err := c.GetCached(ctx, templateResourceSchema, namespace, name)
 	if err != nil {
 		return template, err
 	}
@@ -557,7 +557,7 @@ func (c *ManagerClient) Template(ctx context.Context, namespace, name string) (v
 func (c *ManagerClient) GetCluster(ctx context.Context, namespace, name string) (*capi.Cluster, error) {
 	var cluster capi.Cluster
 
-	unstructuredCluster, err := c.Dyn.Resource(clusterResourceSchema).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+	unstructuredCluster, err := c.GetCached(ctx, clusterResourceSchema, namespace, name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, ErrClusterNotFound
@@ -576,7 +576,7 @@ func (c *ManagerClient) GetCluster(ctx context.Context, namespace, name string) 
 // GetMachineByHostID returns the machine with the given host ID in the given namespace for the given cluster
 func (c *ManagerClient) GetMachineByHostID(ctx context.Context, namespace, hostID string) (capi.Machine, error) {
 	opts := metav1.ListOptions{}
-	unstructuredMachinesList, err := c.Dyn.Resource(machineResourceSchema).Namespace(namespace).List(ctx, opts)
+	unstructuredMachinesList, err := c.ListCached(ctx, machineResourceSchema, namespace, opts)
 	if err != nil {
 		return capi.Machine{}, err
 	}
@@ -600,7 +600,7 @@ func (c *ManagerClient) GetMachines(ctx context.Context, namespace, clusterName 
 	var machines []capi.Machine
 
 	opts := metav1.ListOptions{LabelSelector: fmt.Sprintf("cluster.x-k8s.io/cluster-name=%v", clusterName)}
-	unstructuredMachinesList, err := c.Dyn.Resource(machineResourceSchema).Namespace(namespace).List(ctx, opts)
+	unstructuredMachinesList, err := c.ListCached(ctx, machineResourceSchema, namespace, opts)
 	if err != nil {
 		return machines, err
 	}
@@ -620,7 +620,7 @@ func (c *ManagerClient) GetMachines(ctx context.Context, namespace, clusterName 
 func (c *ManagerClient) GetClusterTemplate(ctx context.Context, namespace, templateName string) (*v1alpha1.ClusterTemplate, error) {
 	var template v1alpha1.ClusterTemplate
 
-	unstructuredClusterTemplate, err := c.Dyn.Resource(templateResourceSchema).Namespace(namespace).Get(ctx, templateName, metav1.GetOptions{})
+	unstructuredClusterTemplate, err := c.GetCached(ctx, templateResourceSchema, namespace, templateName)
 	if err != nil {
 		return nil, err
 	}
@@ -634,7 +634,7 @@ func (c *ManagerClient) GetClusterTemplate(ctx context.Context, namespace, templ
 }
 
 func (c *ManagerClient) HasTemplate(ctx context.Context, namespace, templateName string) bool {
-	_, err := c.Dyn.Resource(templateResourceSchema).Namespace(namespace).Get(ctx, templateName, metav1.GetOptions{})
+	_, err := c.GetCached(ctx, templateResourceSchema, namespace, templateName)
 	return err == nil
 }
 
@@ -695,7 +695,7 @@ func (c *ManagerClient) DockerMachine(ctx context.Context, namespace, providerMa
 func providerMachine[T any](ctx context.Context, c *ManagerClient, namespace, providerMachineName string, providerSchema schema.GroupVersionResource) (T, error) {
 	var machine T
 
-	unstructuredMachine, err := c.Dyn.Resource(providerSchema).Namespace(namespace).Get(ctx, providerMachineName, metav1.GetOptions{})
+	unstructuredMachine, err := c.GetCached(ctx, providerSchema, namespace, providerMachineName)
 	if err != nil {
 		return machine, err
 	}
@@ -706,6 +706,16 @@ func providerMachine[T any](ctx context.Context, c *ManagerClient, namespace, pr
 	}
 
 	return machine, nil
+}
+
+// CreateClusterLabels creates labels for a cluster (alias for SetClusterLabels)
+func (c *ManagerClient) CreateClusterLabels(ctx context.Context, namespace string, clusterName string, newLabels map[string]string) error {
+	return c.SetClusterLabels(ctx, namespace, clusterName, newLabels)
+}
+
+// CreateTemplateLabels creates labels for a template (alias for AddTemplateLabels)
+func (c *ManagerClient) CreateTemplateLabels(ctx context.Context, namespace string, templateName string, newLabels map[string]string) error {
+	return c.AddTemplateLabels(ctx, namespace, templateName, newLabels)
 }
 
 func getRateLimiterParams() (float64, int64, error) {

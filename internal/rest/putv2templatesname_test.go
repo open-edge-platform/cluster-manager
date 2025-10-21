@@ -39,7 +39,7 @@ func TestPutV2Templates200(t *testing.T) {
 	mockedk8sclient := k8s.NewMockInterface(t)
 	mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource)
 
-	server := NewServer(mockedk8sclient)
+	server := NewServer(wrapMockInterface(mockedk8sclient))
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 	// create a handler with middleware
@@ -72,7 +72,7 @@ func TestPutV2Templates404(t *testing.T) {
 	mockedk8sclient := k8s.NewMockInterface(t)
 	mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource)
 
-	server := NewServer(mockedk8sclient)
+	server := NewServer(wrapMockInterface(mockedk8sclient))
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 	// create a handler with middleware
@@ -109,7 +109,7 @@ func TestPutV2Templates400(t *testing.T) {
 	// Mock the Get call to return a bad request error
 	mockResource.On("Get", mock.Anything, "baseline-v1.0.0", v1.GetOptions{}).Return(nil, k8serrors.NewBadRequest("simulated bad request error"))
 
-	server := NewServer(mockClient)
+	server := NewServer(wrapMockInterface(mockClient))
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 	// Create a handler with middleware
@@ -187,7 +187,7 @@ func TestPutV2TemplatesAlreadyDefault(t *testing.T) {
 	mockedk8sclient := k8s.NewMockInterface(t)
 	mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource)
 
-	server := NewServer(mockedk8sclient)
+	server := NewServer(wrapMockInterface(mockedk8sclient))
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 	handler, err := server.ConfigureHandler()
@@ -225,7 +225,7 @@ func TestPutV2TemplatesListWithLabelSelector(t *testing.T) {
 	// Mock the update call to unlabel the existing default template
 	resource.EXPECT().Update(mock.Anything, mock.Anything, v1.UpdateOptions{}).Return(nil, nil).Times(2)
 
-	server := NewServer(mockedk8sclient)
+	server := NewServer(wrapMockInterface(mockedk8sclient))
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 	handler, err := server.ConfigureHandler()
@@ -274,7 +274,7 @@ func TestFetchTemplateVersions(t *testing.T) {
 	mockResource.On("List", mock.Anything, v1.ListOptions{}).Return(templateList, nil)
 
 	// Create a server instance
-	server := NewServer(mockClient)
+	server := NewServer(wrapMockInterface(mockClient))
 
 	// Call the fetchAndSelectLatestVersion method
 	version, err := server.fetchAndSelectLatestVersion(context.Background(), "template1", "default")
@@ -304,7 +304,7 @@ func TestPutV2TemplatesFetchTemplateVersionsError(t *testing.T) {
 	// Simulate an error in fetchTemplateVersions
 	mockResource.On("List", mock.Anything, mock.Anything).Return(nil, errors.New("internal server error"))
 
-	server := NewServer(mockClient)
+	server := NewServer(wrapMockInterface(mockClient))
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 	// Create a handler with middleware
@@ -369,7 +369,7 @@ func TestPutV2TemplatesInternalServerError(t *testing.T) {
 
 			tt.mockSetup(resource)
 
-			server := NewServer(mockedk8sclient)
+			server := NewServer(wrapMockInterface(mockedk8sclient))
 			require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 			handler, err := server.ConfigureHandler()
@@ -468,7 +468,7 @@ func TestFetchAndSelectLatestVersion(t *testing.T) {
 	// Mock the List call to return the template list
 	mockResource.On("List", mock.Anything, v1.ListOptions{}).Return(templateList, nil)
 
-	server := NewServer(mockClient)
+	server := NewServer(wrapMockInterface(mockClient))
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 	// Call the fetchAndSelectLatestVersion method
@@ -499,7 +499,7 @@ func TestFetchAndSelectLatestVersionNotFound(t *testing.T) {
 	// Mock the List call to return an empty list
 	mockResource.On("List", mock.Anything, v1.ListOptions{}).Return(&unstructured.UnstructuredList{}, nil)
 
-	server := NewServer(mockClient)
+	server := NewServer(wrapMockInterface(mockClient))
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 	// Call the fetchAndSelectLatestVersion method
@@ -604,7 +604,7 @@ func TestPutV2TemplatesSetMostRecentVersionAsDefault2(t *testing.T) {
 	// Mock the Update call to unlabel the existing default template
 	mockResource.On("Update", mock.Anything, mock.Anything, v1.UpdateOptions{}).Return(nil, nil).Times(2)
 
-	server := NewServer(mockClient)
+	server := NewServer(wrapMockInterface(mockClient))
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 	// Create a handler with middleware
@@ -649,7 +649,7 @@ func createPutV2TemplatesNameStubServer(t *testing.T) *Server {
 	mockedk8sclient := k8s.NewMockInterface(t)
 	mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource).Maybe()
 	return &Server{
-		k8sclient: mockedk8sclient,
+		k8sclient: wrapMockInterface(mockedk8sclient),
 	}
 }
 

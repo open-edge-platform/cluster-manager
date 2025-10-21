@@ -27,10 +27,10 @@ const (
 )
 
 var (
-	GetClusterConfigFunc  = rest.InClusterConfig
-	GetK8sClientFunc      = k8s.New().WithInClusterConfig
-	GetNexusClientSetFunc = nexus.NewForConfig
-	nexusContextTimeout   = time.Second * 5
+	GetClusterConfigFunc                    = rest.InClusterConfig
+	GetK8sClientFunc      func() k8s.Client = func() k8s.Client { return k8s.New().WithInClusterConfig() }
+	GetNexusClientSetFunc                   = nexus.NewForConfig
+	nexusContextTimeout                     = time.Second * 5
 
 	GetTemplatesFunc = func() ([]*v1alpha1.ClusterTemplate, error) {
 		return template.ReadDefaultTemplates()

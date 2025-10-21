@@ -37,7 +37,7 @@ func TestDeleteV2ClustersName204(t *testing.T) {
 		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
 
 		// Create a new server with the mocked k8s client
-		server := NewServer(mockedk8sclient)
+		server := NewServer(wrapMockInterface(mockedk8sclient))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -64,7 +64,7 @@ func TestDeleteV2ClustersName400(t *testing.T) {
 
 		// Create a server instance with a mock k8s client
 		mockedk8sclient := k8s.NewMockInterface(t)
-		server := NewServer(mockedk8sclient)
+		server := NewServer(wrapMockInterface(mockedk8sclient))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -100,7 +100,7 @@ func TestDeleteV2ClustersName404(t *testing.T) {
 		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
 
 		// Create a new server with the mocked k8s client
-		server := NewServer(mockedk8sclient)
+		server := NewServer(wrapMockInterface(mockedk8sclient))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -136,7 +136,7 @@ func TestDeleteV2ClustersName500(t *testing.T) {
 		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
 
 		// Create a new server with the mocked k8s client
-		server := NewServer(mockedk8sclient)
+		server := NewServer(wrapMockInterface(mockedk8sclient))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 		// Create a new request & response recorder
 		req := httptest.NewRequest("DELETE", fmt.Sprintf("/v2/clusters/%s", name), nil)
@@ -164,7 +164,7 @@ func createDeleteV2ClustersNameStubServer(t *testing.T) *Server {
 	mockedk8sclient := k8s.NewMockInterface(t)
 	mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource).Maybe()
 	return &Server{
-		k8sclient: mockedk8sclient,
+		k8sclient: wrapMockInterface(mockedk8sclient),
 	}
 }
 

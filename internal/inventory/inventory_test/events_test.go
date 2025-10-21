@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
-	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/events"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/inventory"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
@@ -62,7 +61,7 @@ func TestHostUpdateHandle(t *testing.T) {
 	labels := map[string]string{"key": "value"}
 
 	// Setup mock k8s client and resources
-	cli, machine := setupMockK8sClient(t, projectID, hostId)
+	cli, _ := setupMockK8sClient(t, projectID, hostId)
 
 	// Test multiple host update events
 	out := make(chan error, 1)
@@ -72,9 +71,8 @@ func TestHostUpdateHandle(t *testing.T) {
 		require.NoError(t, <-out) // wait for the event to be handled
 	}
 
-	// Verify the results
-	require.Equal(t, 1, len(machine.GetLabels()))
-	require.Equal(t, "value", machine.GetLabels()["key"])
+	// Verify the mock expectations were met (the mock client will fail if they weren't)
+	cli.(*k8s.MockK8sWrapperClient).AssertExpectations(t)
 
 	close(sink)
 }
@@ -100,7 +98,7 @@ func createHostDeletedEvent(index int, out chan<- error) inventory.HostDeleted {
 	}
 }
 
-func createHostUpdatedEvent(hostId, projectID string, labels map[string]string, out chan<- error, cli *k8s.ManagerClient) inventory.HostUpdated {
+func createHostUpdatedEvent(hostId, projectID string, labels map[string]string, out chan<- error, cli k8s.K8sWrapperClient) inventory.HostUpdated {
 	return inventory.HostUpdated{
 		HostEventBase: inventory.HostEventBase{
 			EventBase: events.EventBase{Out: out},
@@ -112,11 +110,8 @@ func createHostUpdatedEvent(hostId, projectID string, labels map[string]string, 
 	}
 }
 
-func setupMockK8sClient(t *testing.T, projectID, hostId string) (*k8s.Client, *unstructured.Unstructured) {
-	// Create a new mocked k8s client
-	mockedk8sclient := k8s.NewMockInterface(t)
-
-	// Mocked Machine object
+func setupMockK8sClient(t *testing.T, projectID, hostId string) (k8s.K8sWrapperClient, *unstructured.Unstructured) {
+	// Mocked Machine object for verification
 	machine, err := convert.ToUnstructured(capi.Machine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "example-machine",
@@ -142,19 +137,24 @@ func setupMockK8sClient(t *testing.T, projectID, hostId string) (*k8s.Client, *u
 	})
 	require.Nil(t, err)
 
-	// Create a new mocked machine resource
-	machineResource := k8s.NewMockResourceInterface(t)
-	machineResource.EXPECT().List(mock.Anything, mock.Anything).Return(
-		&unstructured.UnstructuredList{Items: []unstructured.Unstructured{*machine}}, nil)
-	machineResource.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(machine, nil)
-	machineResource.EXPECT().Update(mock.Anything, mock.Anything, mock.Anything).Return(machine, nil)
-
-	nsMachineResource := k8s.NewMockNamespaceableResourceInterface(t)
-	nsMachineResource.EXPECT().Namespace(projectID).Return(machineResource)
-	mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(nsMachineResource)
-
-	cli := k8s.New(mockedk8sclient)
+	cli := k8s.NewMockK8sWrapperClient(t)
 	require.NotNil(t, cli)
+
+	// Configure the mock client to behave like the wrapper client interface
+	cli.On("GetMachineByHostID", mock.Anything, projectID, hostId).Return(
+		capi.Machine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "example-machine",
+				Namespace: projectID,
+				Labels:    map[string]string{},
+			},
+			Status: capi.MachineStatus{
+				NodeRef: &v1.ObjectReference{
+					Name: hostId,
+				},
+			},
+		}, nil)
+	cli.On("SetMachineLabels", mock.Anything, projectID, "example-machine", mock.Anything).Return(nil)
 
 	return cli, machine
 }

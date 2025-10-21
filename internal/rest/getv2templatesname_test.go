@@ -32,7 +32,7 @@ func createMockServerTemplateNameVersion(t *testing.T, template v1alpha1.Cluster
 	mockedk8sclient := k8s.NewMockInterface(t)
 	mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource)
 
-	return NewServer(mockedk8sclient)
+	return NewServer(wrapMockInterface(mockedk8sclient))
 }
 
 func TestGetV2TemplatesNameVersion(t *testing.T) {
@@ -159,7 +159,7 @@ func createGetV2TemplatesNameStubServer(t *testing.T) *Server {
 	mockedk8sclient := k8s.NewMockInterface(t)
 	mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource).Maybe()
 	return &Server{
-		k8sclient: mockedk8sclient,
+		k8sclient: wrapMockInterface(mockedk8sclient),
 	}
 }
 

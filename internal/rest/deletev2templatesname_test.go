@@ -96,7 +96,7 @@ func TestDeleteV2TemplatesNameVersion(t *testing.T) {
 			mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource)
 
 			// create a new server with the mocked mockedk8sclient
-			server := NewServer(mockedk8sclient)
+			server := NewServer(wrapMockInterface(mockedk8sclient))
 			require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 			// create a handler with middleware
@@ -146,7 +146,7 @@ func createDeleteV2TemplatesNameStubServer(t *testing.T) *Server {
 	mockedk8sclient := k8s.NewMockInterface(t)
 	mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource).Maybe()
 	return &Server{
-		k8sclient: mockedk8sclient,
+		k8sclient: wrapMockInterface(mockedk8sclient),
 	}
 }
 

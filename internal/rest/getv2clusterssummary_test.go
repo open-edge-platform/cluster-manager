@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-package rest_test
+package rest
 
 import (
 	"encoding/json"
@@ -13,51 +13,12 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 
-	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
-	"github.com/open-edge-platform/cluster-manager/v2/internal/rest"
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 )
-
-var clusterStatusReady = capi.ClusterStatus{
-	Phase: string(capi.ClusterPhaseProvisioned),
-	Conditions: []capi.Condition{
-		{
-			Type:   capi.ReadyCondition,
-			Status: corev1.ConditionTrue,
-		},
-		{
-			Type:   capi.ControlPlaneReadyCondition,
-			Status: corev1.ConditionTrue,
-		},
-		{
-			Type:   capi.InfrastructureReadyCondition,
-			Status: corev1.ConditionTrue,
-		},
-	},
-}
-
-var clusterStatusInProgressControlPlane = capi.ClusterStatus{
-	Phase: string(capi.ClusterPhaseProvisioned),
-	Conditions: []capi.Condition{
-		{
-			Type:   capi.ReadyCondition,
-			Status: corev1.ConditionTrue,
-		},
-		{
-			Type:   capi.ControlPlaneReadyCondition,
-			Status: corev1.ConditionFalse,
-		},
-		{
-			Type:   capi.InfrastructureReadyCondition,
-			Status: corev1.ConditionTrue,
-		},
-	},
-}
 
 var clusterStatusErrorControlPlane = capi.ClusterStatus{
 	Phase: string(capi.ClusterPhaseProvisioned),
@@ -79,76 +40,6 @@ var clusterStatusErrorControlPlane = capi.ClusterStatus{
 var clusterStatusUnknown = capi.ClusterStatus{
 	Phase:      string(capi.ClusterPhaseProvisioned),
 	Conditions: []capi.Condition{},
-}
-
-func createMockServer(t *testing.T, clusters []capi.Cluster, projectID string, options ...bool) *rest.Server {
-	unstructuredClusters := make([]unstructured.Unstructured, len(clusters))
-	for i, cluster := range clusters {
-		unstructuredCluster, err := convert.ToUnstructured(cluster)
-		require.NoError(t, err, "convertClusterToUnstructured() error = %v, want nil")
-		unstructuredClusters[i] = *unstructuredCluster
-	}
-	unstructuredClusterList := &unstructured.UnstructuredList{
-		Items: unstructuredClusters,
-	}
-	// default is to set up k8s client and machineResource mocks
-	setupK8sMocks := true
-	mockMachineResource := true
-	if len(options) > 0 {
-		setupK8sMocks = options[0]
-		mockMachineResource = options[1]
-	}
-	var mockedk8sclient *k8s.MockInterface
-	mockedk8sclient = k8s.NewMockInterface(t)
-	if setupK8sMocks {
-		machine := capi.Machine{
-			Status: capi.MachineStatus{
-				Phase: "Running",
-				Conditions: []capi.Condition{
-					{Type: "HealthCheckSucceed", Status: "True"},
-					{Type: "InfrastructureReady", Status: "True"},
-					{Type: "NodeHealthy", Status: "True"},
-				},
-			},
-		}
-		unstructuredMachine, err := convert.ToUnstructured(machine)
-		require.NoError(t, err, "convertMachineToUnstructured() error = %v, want nil")
-		resource := k8s.NewMockResourceInterface(t)
-		resource.EXPECT().List(mock.Anything, metav1.ListOptions{}).Return(unstructuredClusterList, nil)
-		nsResource := k8s.NewMockNamespaceableResourceInterface(t)
-		nsResource.EXPECT().Namespace(projectID).Return(resource)
-		mockedk8sclient = k8s.NewMockInterface(t)
-		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
-		if mockMachineResource {
-			for _, cluster := range clusters {
-				resource.EXPECT().List(mock.Anything, metav1.ListOptions{
-					LabelSelector: "cluster.x-k8s.io/cluster-name=" + cluster.Name,
-				}).Return(&unstructured.UnstructuredList{Items: []unstructured.Unstructured{*unstructuredMachine}}, nil).Maybe()
-			}
-			mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(nsResource).Maybe()
-		}
-	}
-	return rest.NewServer(mockedk8sclient)
-}
-
-func generateClusterWithStatus(name, version *string, status capi.ClusterStatus) capi.Cluster {
-	clusterName := ""
-	if name != nil {
-		clusterName = *name
-	}
-	clusterVersion := ""
-	if version != nil {
-		clusterVersion = *version
-	}
-	return capi.Cluster{
-		ObjectMeta: metav1.ObjectMeta{Name: clusterName},
-		Spec:       capi.ClusterSpec{Topology: &capi.Topology{Version: clusterVersion}},
-		Status:     status,
-	}
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }
 
 func TestGetV2ClustersSummary200(t *testing.T) {
@@ -237,7 +128,7 @@ func TestGetV2ClustersSummary500(t *testing.T) {
 		mockedk8sclient := k8s.NewMockInterface(t)
 		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
 
-		server := rest.NewServer(mockedk8sclient)
+		server := NewServer(wrapMockInterface(mockedk8sclient))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		req := httptest.NewRequest("GET", "/v2/clusters/summary", nil)

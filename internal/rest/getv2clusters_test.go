@@ -122,7 +122,7 @@ func createMockServer(t *testing.T, clusters []capi.Cluster, projectID string, o
 			mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(namespacedMachineResource).Maybe()
 		}
 	}
-	return NewServer(mockedk8sclient)
+	return NewServer(wrapMockInterface(mockedk8sclient))
 }
 
 func generateCluster(name *string, version *string) capi.Cluster {
@@ -646,7 +646,7 @@ func TestGetV2Clusters500(t *testing.T) {
 		mockedk8sclient := k8s.NewMockInterface(t)
 		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
 
-		server := NewServer(mockedk8sclient)
+		server := NewServer(wrapMockInterface(mockedk8sclient))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -681,7 +681,7 @@ func TestGetV2Clusters500(t *testing.T) {
 		mockedk8sclient := k8s.NewMockInterface(t)
 		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource).Maybe()
 
-		server := NewServer(mockedk8sclient)
+		server := NewServer(wrapMockInterface(mockedk8sclient))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -713,7 +713,7 @@ func TestGetV2Clusters400(t *testing.T) {
 		// Simulate an error in listing clusters
 		mockedk8sclient := k8s.NewMockInterface(t)
 
-		server := NewServer(mockedk8sclient)
+		server := NewServer(wrapMockInterface(mockedk8sclient))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -742,7 +742,7 @@ func TestGetV2Clusters400(t *testing.T) {
 		// Simulate an error in listing clusters
 		mockedk8sclient := k8s.NewMockInterface(t)
 
-		server := NewServer(mockedk8sclient)
+		server := NewServer(wrapMockInterface(mockedk8sclient))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -918,7 +918,7 @@ func createGetV2ClustersStubServer(t *testing.T) *Server {
 	mockedk8sclient := k8s.NewMockInterface(t)
 	mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource).Maybe()
 	return &Server{
-		k8sclient: mockedk8sclient,
+		k8sclient: wrapMockInterface(mockedk8sclient),
 	}
 }
 

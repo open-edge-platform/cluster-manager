@@ -39,7 +39,7 @@ func setupMockServer1(t *testing.T, expectedCluster unstructured.Unstructured, e
 	mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
 
 	// create a new server with the mocked mockedk8sclient
-	server := NewServer(mockedk8sclient)
+	server := NewServer(wrapMockInterface(mockedk8sclient))
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 	return server
