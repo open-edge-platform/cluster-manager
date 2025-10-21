@@ -19,7 +19,7 @@ const (
 )
 
 // Nodes returns the list of nodes in the cluster.
-func Nodes(ctx context.Context, cli *k8s.Client, cluster *capi.Cluster) ([]api.NodeInfo, error) {
+func Nodes(ctx context.Context, cli k8s.Client, cluster *capi.Cluster) ([]api.NodeInfo, error) {
 	nodes := []api.NodeInfo{}
 
 	machines, err := cli.GetMachines(ctx, cluster.Namespace, cluster.Name)
@@ -79,7 +79,7 @@ func getNodeStatus(machine capi.Machine) api.StatusInfo {
 	return status
 }
 
-func getNodeId(ctx context.Context, cli *k8s.Client, machine capi.Machine) (string, error) {
+func getNodeId(ctx context.Context, cli k8s.Client, machine capi.Machine) (string, error) {
 	providerMachineName := machine.Spec.InfrastructureRef.Name
 	providerMachineKind := machine.Spec.InfrastructureRef.Kind
 	switch providerMachineKind {

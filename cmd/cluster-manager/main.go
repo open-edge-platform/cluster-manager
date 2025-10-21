@@ -47,7 +47,7 @@ func main() {
 		os.Exit(7)
 	}
 
-	s := rest.NewServer(k8sclient.Dyn, rest.WithAuth(auth), rest.WithConfig(config), rest.WithInventory(inv))
+	s := rest.NewServer(k8sclient.Dynamic(), rest.WithAuth(auth), rest.WithConfig(config), rest.WithInventory(inv))
 	if err := s.Serve(); err != nil {
 		slog.Error("server failed", "error", err)
 		os.Exit(5)
@@ -78,7 +78,7 @@ func initializeMultitenancy(config *config.Config) {
 	}
 }
 
-func initializeK8sClient() *k8s.Client {
+func initializeK8sClient() k8s.Client {
 	k8sclient := k8s.New().WithInClusterConfig()
 	if k8sclient == nil {
 		slog.Error("failed to initialize k8s clientset")
