@@ -45,7 +45,7 @@ func (s *Server) PostV2Templates(ctx context.Context, request api.PostV2Template
 	}
 
 	unstructuredClusterTemplate := &unstructured.Unstructured{Object: templateObject}
-	_, err = s.k8sclient.Resource(core.TemplateResourceSchema).Namespace(activeProjectID).Create(ctx, unstructuredClusterTemplate, v1.CreateOptions{})
+	_, err = s.k8sclient.Dynamic().Resource(core.TemplateResourceSchema).Namespace(activeProjectID).Create(ctx, unstructuredClusterTemplate, v1.CreateOptions{})
 
 	if err != nil && errors.IsBadRequest(err) {
 		slog.Error("failed to create clusterTemplate - invalid clusterTemplate", "namespace", activeProjectID, "name", name, "error", err)

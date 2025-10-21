@@ -63,7 +63,7 @@ func (suite *TenancyDatamodelTestSuite) TestNewDatamodelClient() {
 		name                           string
 		configFunc                     func() (*rest.Config, error)
 		clientSetFunc                  func(*rest.Config) (*nexus.Clientset, error)
-		k8sClientFunc                  func() *k8s.Client
+		k8sClientFunc                  func() k8s.Client
 		templateFunc                   func() ([]*v1alpha1.ClusterTemplate, error)
 		podSecurityAdmissionConfigFunc func() (map[string][]byte, error)
 		expectedErr                    error
@@ -77,7 +77,7 @@ func (suite *TenancyDatamodelTestSuite) TestNewDatamodelClient() {
 			clientSetFunc: func(*rest.Config) (*nexus.Clientset, error) {
 				return nexus.NewFakeClient(), nil
 			},
-			k8sClientFunc: func() *k8s.Client {
+			k8sClientFunc: func() k8s.Client {
 				return k8s.New().WithFakeClient()
 			},
 			templateFunc: func() ([]*v1alpha1.ClusterTemplate, error) {

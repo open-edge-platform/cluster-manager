@@ -21,14 +21,7 @@ func (s *Server) GetV2Templates(ctx context.Context, request api.GetV2TemplatesR
 	slog.Debug("GetV2Templates", "params", request.Params)
 	activeProjectID := request.Params.Activeprojectid.String()
 
-	cli := k8s.New(s.k8sclient)
-	if cli == nil {
-		message := "failed to create k8s client"
-		slog.Error(message)
-		return api.GetV2Templates500JSONResponse{N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{Message: &message}}, nil
-	}
-
-	defaultTemplate, err := getV2TemplateDefault(ctx, cli, activeProjectID, request.Params.Default)
+	defaultTemplate, err := getV2TemplateDefault(ctx, s.k8sclient, activeProjectID, request.Params.Default)
 	if err != nil {
 		response, is200OK := handleV2TemplateDefaultResponse(err, defaultTemplate)
 		if !is200OK {
@@ -36,10 +29,10 @@ func (s *Server) GetV2Templates(ctx context.Context, request api.GetV2TemplatesR
 		}
 	}
 
-	return getV2TemplatesAll(ctx, cli, activeProjectID, request.Params, defaultTemplate)
+	return getV2TemplatesAll(ctx, s.k8sclient, activeProjectID, request.Params, defaultTemplate)
 }
 
-func getV2TemplateDefault(ctx context.Context, cli *k8s.Client, activeProjectID string, defaultParam *bool) (*api.DefaultTemplateInfo, error) {
+func getV2TemplateDefault(ctx context.Context, cli k8s.Client, activeProjectID string, defaultParam *bool) (*api.DefaultTemplateInfo, error) {
 	if defaultParam == nil { // To always return default template (see pr #76)
 		return nil, nil
 	}
@@ -65,7 +58,7 @@ func getV2TemplateDefault(ctx context.Context, cli *k8s.Client, activeProjectID 
 	return defaultTemplateInfo, nil
 }
 
-func getV2TemplatesAll(ctx context.Context, cli *k8s.Client, activeProjectID string, params any, defaultTemplate *api.DefaultTemplateInfo) (api.GetV2TemplatesResponseObject, error) {
+func getV2TemplatesAll(ctx context.Context, cli k8s.Client, activeProjectID string, params any, defaultTemplate *api.DefaultTemplateInfo) (api.GetV2TemplatesResponseObject, error) {
 	// get all templates from k8s
 	templates, err := cli.Templates(ctx, activeProjectID)
 	if err != nil {

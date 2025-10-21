@@ -106,7 +106,7 @@ func (s *Server) DeleteV2ClustersNameNodesNodeId(ctx context.Context, request ap
 }
 
 func deleteCluster(ctx context.Context, s *Server, activeProjectID, clusterName string, options v1.DeleteOptions) error {
-	err := s.k8sclient.Resource(core.ClusterResourceSchema).Namespace(activeProjectID).Delete(ctx, clusterName, options)
+	err := s.k8sclient.Dynamic().Resource(core.ClusterResourceSchema).Namespace(activeProjectID).Delete(ctx, clusterName, options)
 	if errors.IsNotFound(err) {
 		return fmt.Errorf("cluster %s not found in namespace %s", clusterName, activeProjectID)
 	}
@@ -122,7 +122,7 @@ func scaleDownCluster(ctx context.Context, s *Server, capiCluster *capi.Cluster,
 		return err
 	}
 	// delete the machine
-	err = s.k8sclient.Resource(core.MachineResourceSchema).Namespace(capiCluster.Namespace).Delete(ctx, machine.Name, options)
+	err = s.k8sclient.Dynamic().Resource(core.MachineResourceSchema).Namespace(capiCluster.Namespace).Delete(ctx, machine.Name, options)
 	if errors.IsNotFound(err) {
 		return fmt.Errorf("machine %s not found in namespace %s", machine.Name, capiCluster.Namespace)
 	}
@@ -131,7 +131,7 @@ func scaleDownCluster(ctx context.Context, s *Server, capiCluster *capi.Cluster,
 	if err != nil {
 		return err
 	}
-	err = s.k8sclient.Resource(core.BindingsResourceSchema).Namespace(capiCluster.Namespace).Delete(ctx, intelMachine.Name, options)
+	err = s.k8sclient.Dynamic().Resource(core.BindingsResourceSchema).Namespace(capiCluster.Namespace).Delete(ctx, intelMachine.Name, options)
 	if errors.IsNotFound(err) {
 		return fmt.Errorf("could not delete machine binding %s in namespace %s", intelMachine.Name, capiCluster.Namespace)
 	}
@@ -143,6 +143,6 @@ func scaleDownCluster(ctx context.Context, s *Server, capiCluster *capi.Cluster,
 		return err
 	}
 	unstructuredCluster := &unstructured.Unstructured{Object: unstructuredClusterInfo}
-	_, err = s.k8sclient.Resource(core.ClusterResourceSchema).Namespace(capiCluster.Namespace).Update(ctx, unstructuredCluster, v1.UpdateOptions{})
+	_, err = s.k8sclient.Dynamic().Resource(core.ClusterResourceSchema).Namespace(capiCluster.Namespace).Update(ctx, unstructuredCluster, v1.UpdateOptions{})
 	return err
 }

@@ -100,7 +100,7 @@ func createHostDeletedEvent(index int, out chan<- error) inventory.HostDeleted {
 	}
 }
 
-func createHostUpdatedEvent(hostId, projectID string, labels map[string]string, out chan<- error, cli *k8s.Client) inventory.HostUpdated {
+func createHostUpdatedEvent(hostId, projectID string, labels map[string]string, out chan<- error, cli *k8s.ManagerClient) inventory.HostUpdated {
 	return inventory.HostUpdated{
 		HostEventBase: inventory.HostEventBase{
 			EventBase: events.EventBase{Out: out},
