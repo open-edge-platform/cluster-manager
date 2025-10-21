@@ -13,7 +13,6 @@ import (
 
 	ct "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -26,7 +25,7 @@ func (s *Server) GetV2TemplatesNameVersion(ctx context.Context, request api.GetV
 	templateName := request.Name + "-" + request.Version
 	slog.Debug("getting clusterTemplate", "schema", core.TemplateResourceSchema, "namespace", activeProjectID, "name", templateName)
 
-	unstructuredClusterTemplate, err := s.k8sclient.Resource(core.TemplateResourceSchema).Namespace(activeProjectID).Get(ctx, templateName, v1.GetOptions{})
+	unstructuredClusterTemplate, err := s.k8sclient.GetCached(ctx, core.TemplateResourceSchema, activeProjectID, templateName)
 	switch {
 	case errors.IsNotFound(err):
 		slog.Error("clusterTemplate not found", "namespace", activeProjectID, "name", templateName)

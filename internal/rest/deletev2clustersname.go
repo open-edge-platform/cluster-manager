@@ -27,7 +27,7 @@ func (s *Server) DeleteV2ClustersName(ctx context.Context, request api.DeleteV2C
 		}, nil
 	}
 
-	err := s.k8sclient.Resource(core.ClusterResourceSchema).Namespace(activeProjectID).Delete(ctx, name, v1.DeleteOptions{})
+	err := s.k8sclient.Dynamic().Resource(core.ClusterResourceSchema).Namespace(activeProjectID).Delete(ctx, name, v1.DeleteOptions{})
 	if errors.IsNotFound(err) {
 		message := fmt.Sprintf("cluster %s not found in namespace %s", name, activeProjectID)
 		return api.DeleteV2ClustersName404JSONResponse{N404NotFoundJSONResponse: api.N404NotFoundJSONResponse{Message: &message}}, nil

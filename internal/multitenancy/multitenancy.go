@@ -45,7 +45,7 @@ var (
 
 type TenancyDatamodel struct {
 	nexus           *nexus.Clientset
-	k8s             *k8s.Client
+	k8s             k8s.Client
 	templates       []*v1alpha1.ClusterTemplate
 	psaData         map[string][]byte
 	defaultTemplate string

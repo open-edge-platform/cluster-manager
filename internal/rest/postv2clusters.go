@@ -57,16 +57,8 @@ func (s *Server) PostV2Clusters(ctx context.Context, request api.PostV2ClustersR
 		clusterName = *request.Body.Name
 	}
 
-	// create k8s client
-	cli := k8s.New(s.k8sclient)
-	if cli == nil {
-		msg := "failed to create k8s client"
-		slog.Error(msg)
-		return api.PostV2Clusters500JSONResponse{N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{Message: &msg}}, nil
-	}
-
 	// fetch cluster template
-	template, err := fetchTemplate(ctx, cli, namespace, request.Body.Template)
+	template, err := fetchTemplate(ctx, s.k8sclient, namespace, request.Body.Template)
 	if err != nil {
 		msg := fmt.Sprintf("failed to create cluster: %v", err)
 		slog.Error(msg)
@@ -96,7 +88,7 @@ func (s *Server) PostV2Clusters(ctx context.Context, request api.PostV2ClustersR
 
 	// create cluster
 	slog.Debug("creating cluster", "namespace", namespace)
-	createdClusterName, err := s.createCluster(ctx, cli, namespace, clusterName, template, nodes, clusterLabels)
+	createdClusterName, err := s.createCluster(ctx, &s.k8sclient, namespace, clusterName, template, nodes, clusterLabels)
 	if err != nil {
 		slog.Error("failed to create cluster", "namespace", namespace, "name", clusterName, "error", err)
 		return api.PostV2Clusters500JSONResponse{
@@ -108,7 +100,7 @@ func (s *Server) PostV2Clusters(ctx context.Context, request api.PostV2ClustersR
 
 	// create machine binding for Intel infra provider
 	if api.TemplateInfoInfraprovidertype(template.Spec.InfraProviderType) == api.Intel {
-		err := createBindings(ctx, cli, namespace, clusterName, template.Name, nodes)
+		err := createBindings(ctx, s.k8sclient, namespace, clusterName, template.Name, nodes)
 		if err != nil {
 			msg := fmt.Sprintf("failed to create machine bindings: %v", err)
 			slog.Error(msg)
@@ -120,7 +112,7 @@ func (s *Server) PostV2Clusters(ctx context.Context, request api.PostV2ClustersR
 	return api.PostV2Clusters201JSONResponse(fmt.Sprintf("successfully created cluster %s", createdClusterName)), nil
 }
 
-func fetchTemplate(ctx context.Context, cli *k8s.Client, namespace string, templateName *string) (ct.ClusterTemplate, error) {
+func fetchTemplate(ctx context.Context, cli k8s.Client, namespace string, templateName *string) (ct.ClusterTemplate, error) {
 	// template name is optional, if not provided we use default
 	var template ct.ClusterTemplate
 	var err error
@@ -189,14 +181,14 @@ func (s *Server) createCluster(ctx context.Context, cli *k8s.Client, namespace, 
 		},
 	}
 
-	newClusterName, err := cli.CreateCluster(ctx, namespace, cluster)
+	newClusterName, err := s.k8sclient.CreateCluster(ctx, namespace, cluster)
 	if err != nil {
 		return "", err
 	}
 	return newClusterName, nil
 }
 
-func createBindings(ctx context.Context, cli *k8s.Client, namespace, clusterName, templateName string, nodes []api.NodeSpec) error {
+func createBindings(ctx context.Context, cli k8s.Client, namespace, clusterName, templateName string, nodes []api.NodeSpec) error {
 	for _, nodes := range nodes {
 		binding := intelv1alpha1.IntelMachineBinding{
 			TypeMeta: v1.TypeMeta{
@@ -224,7 +216,7 @@ func createBindings(ctx context.Context, cli *k8s.Client, namespace, clusterName
 
 func (s *Server) enableReadOnlyInstall(ctx context.Context, cli *k8s.Client, namespace, clusterName, nodeUuid string, template ct.ClusterTemplate) (bool, error) {
 	// Fetch the cluster template
-	clusterTemplate, err := cli.GetClusterTemplate(ctx, namespace, template.Name)
+	clusterTemplate, err := s.k8sclient.GetClusterTemplate(ctx, namespace, template.Name)
 	if err != nil {
 		return false, fmt.Errorf("failed to fetch cluster template %s: %w", template.Name, err)
 	}
