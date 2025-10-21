@@ -34,15 +34,15 @@ require (
 	github.com/rancher/cluster-api-provider-rke2 v0.20.1
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.6.0
-	google.golang.org/protobuf v1.36.9
+	google.golang.org/protobuf v1.36.10
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.34.1
 	k8s.io/apimachinery v0.34.1
 	k8s.io/client-go v0.34.1
 	k8s.io/kubectl v0.34.1
-	sigs.k8s.io/cluster-api v1.10.7
-	sigs.k8s.io/cluster-api/test v1.10.7
-	sigs.k8s.io/controller-runtime v0.22.2
+	sigs.k8s.io/cluster-api v1.11.2
+	sigs.k8s.io/cluster-api/test v1.11.2
+	sigs.k8s.io/controller-runtime v0.22.3
 )
 
 require (
@@ -217,7 +217,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.34.1
 	k8s.io/apiserver v0.34.1 // indirect
-	k8s.io/cluster-bootstrap v0.32.3 // indirect
 	k8s.io/component-base v0.34.1 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b // indirect
