@@ -307,10 +307,10 @@ helm-test: ## Template the charts.
 helm-build: ## Package helm charts.
 	mkdir -p $(BUILD_DIR)
 	for d in $(HELM_DIRS); do \
-		yq eval -i '.version = "${HELM_VERSION}"' $$d/Chart.yaml; \
-		yq eval -i '.appVersion = "${VERSION}"' $$d/Chart.yaml; \
-		yq eval -i '.annotations.revision = "${LABEL_REVISION}"' $$d/Chart.yaml; \
-		yq eval -i '.annotations.created = "${LABEL_CREATED}"' $$d/Chart.yaml; \
+		yq eval '.version = "${HELM_VERSION}"' $$d/Chart.yaml > $$d/Chart.yaml.tmp && mv $$d/Chart.yaml.tmp $$d/Chart.yaml; \
+		yq eval '.appVersion = "${VERSION}"' $$d/Chart.yaml > $$d/Chart.yaml.tmp && mv $$d/Chart.yaml.tmp $$d/Chart.yaml; \
+		yq eval '.annotations.revision = "${LABEL_REVISION}"' $$d/Chart.yaml > $$d/Chart.yaml.tmp && mv $$d/Chart.yaml.tmp $$d/Chart.yaml; \
+		yq eval '.annotations.created = "${LABEL_CREATED}"' $$d/Chart.yaml > $$d/Chart.yaml.tmp && mv $$d/Chart.yaml.tmp $$d/Chart.yaml; \
 		helm package --app-version=${VERSION} --version=${HELM_VERSION} --debug -u $$d -d $(BUILD_DIR); \
 	done
 
