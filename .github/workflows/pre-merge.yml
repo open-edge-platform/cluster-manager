@@ -27,7 +27,7 @@ jobs:
         persist-credentials: false
 
     - name: "Setup"
-      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@76700c2fb6d547733b9218d9638dca43f5296399  # 0.1.52
+      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@e4fa54613527cfaad83ba8b625fd845a4ab8409d  # 0.1.53
       with:
         gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
         bootstrap_tools: "go,gotools,nodejs"
@@ -61,7 +61,7 @@ jobs:
         persist-credentials: false
 
     - name: "Setup"
-      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@76700c2fb6d547733b9218d9638dca43f5296399  # 0.1.52
+      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@e4fa54613527cfaad83ba8b625fd845a4ab8409d  # 0.1.53
       with:
         gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
         bootstrap_tools: "go,gotools"
@@ -94,7 +94,7 @@ jobs:
         persist-credentials: false
 
     - name: "Setup"
-      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@76700c2fb6d547733b9218d9638dca43f5296399  # 0.1.52
+      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@e4fa54613527cfaad83ba8b625fd845a4ab8409d  # 0.1.53
       with:
         gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
         bootstrap_tools: "go,gotools" 
