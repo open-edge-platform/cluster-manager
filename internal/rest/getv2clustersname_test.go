@@ -76,7 +76,7 @@ func setupMockServer(t *testing.T, expectedCluster capi.Cluster, expectedActiveP
 	mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(nsResource).Maybe()
 
 	// create a new server with the mocked mockedk8sclient
-	server := NewServer(mockedk8sclient)
+	server := NewServer(wrapMockInterface(mockedk8sclient))
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 	return server
@@ -430,7 +430,7 @@ func TestGetV2ClusterNoNodesPopulatesDefault(t *testing.T) {
 
 	// Create the server with the mocked client
 	server := &Server{
-		k8sclient: mockedK8sClient,
+		k8sclient: wrapMockInterface(mockedK8sClient),
 	}
 
 	clusterDetailInfo, err := server.getCluster(context.Background(), expectedActiveProjectID, expectedClusterName)
@@ -454,7 +454,7 @@ func createGetV2ClustersNameStubServer(t *testing.T) *Server {
 	mockedk8sclient := k8s.NewMockInterface(t)
 	mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource).Maybe()
 	return &Server{
-		k8sclient: mockedk8sclient,
+		k8sclient: wrapMockInterface(mockedk8sclient),
 	}
 }
 func FuzzGetV2NameClusters(f *testing.F) {

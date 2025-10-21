@@ -53,7 +53,7 @@ func (s *Server) GetV2ClustersName(ctx context.Context, request api.GetV2Cluster
 
 	cluster, err := s.getCluster(ctx, activeProjectID, name)
 	if err != nil {
-		if errors.Unwrap(err) == k8s.ErrClusterNotFound {
+		if errors.Is(err, k8s.ErrClusterNotFound) {
 			return api.GetV2ClustersName404JSONResponse{
 				N404NotFoundJSONResponse: api.N404NotFoundJSONResponse{
 					Message: ptr(err.Error()),
@@ -74,7 +74,7 @@ func (s *Server) GetV2ClustersName(ctx context.Context, request api.GetV2Cluster
 // getCluster retrieves a cluster from the k8s client
 func (s *Server) getCluster(ctx context.Context, activeProjectID, name string) (api.ClusterDetailInfo, error) {
 	namespace := activeProjectID
-	
+
 	capiCluster, err := s.k8sclient.GetCluster(ctx, namespace, name)
 	if err != nil {
 		slog.Error("failed to get cluster", "name", name, "error", err)

@@ -134,7 +134,7 @@ func TestPostV2Clusters201(t *testing.T) {
 		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsClusterResource)
 
 		// Create a server instance with the mock k8s client
-		server := NewServer(mockedk8sclient, WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
+		server := NewServer(wrapMockInterface(mockedk8sclient), WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -301,7 +301,7 @@ func TestPostV2Clusters201(t *testing.T) {
 		mockedk8sclient.EXPECT().Resource(core.BindingsResourceSchema).Return(nsBindingResource)
 
 		// Create a server instance with the mock k8s client
-		server := NewServer(mockedk8sclient, WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
+		server := NewServer(wrapMockInterface(mockedk8sclient), WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -438,7 +438,7 @@ func TestPostV2Clusters201K3sAirGap(t *testing.T) {
 		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsClusterResource)
 
 		// Create a server instance with the mock k8s client
-		server := NewServer(mockedk8sclient, WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
+		server := NewServer(wrapMockInterface(mockedk8sclient), WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -565,7 +565,7 @@ func TestPostV2Clusters201NoNameNoTemplate(t *testing.T) {
 	mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsClusterResource)
 
 	// Create a server instance with the mock k8s client
-	server := NewServer(mockedk8sclient, WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
+	server := NewServer(wrapMockInterface(mockedk8sclient), WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 	// Create a new request & response recorder
@@ -647,7 +647,7 @@ func TestPostV2Clusters500(t *testing.T) {
 		mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsTemplateResource)
 
 		// Create a server instance with the mock k8s client
-		server := NewServer(mockedk8sclient, WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
+		server := NewServer(wrapMockInterface(mockedk8sclient), WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -727,7 +727,7 @@ func TestPostV2Clusters500(t *testing.T) {
 		mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsTemplateResource)
 
 		// Create a server instance with the mock k8s client
-		server := NewServer(mockedk8sclient, WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
+		server := NewServer(wrapMockInterface(mockedk8sclient), WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -781,7 +781,7 @@ func TestPostV2Clusters500(t *testing.T) {
 		mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsTemplateResource)
 
 		// Create a server instance with the mock k8s client
-		server := NewServer(mockedk8sclient, WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
+		server := NewServer(wrapMockInterface(mockedk8sclient), WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -956,7 +956,7 @@ func TestPostV2Clusters500(t *testing.T) {
 		mockedk8sclient.EXPECT().Resource(core.BindingsResourceSchema).Return(nsBindingResource)
 
 		// Create a server instance with the mock k8s client
-		server := NewServer(mockedk8sclient, WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
+		server := NewServer(wrapMockInterface(mockedk8sclient), WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -998,7 +998,7 @@ func TestPostV2Clusters400(t *testing.T) {
 
 		// Create a server instance with a mock k8s client
 		mockedk8sclient := k8s.NewMockInterface(t)
-		server := NewServer(mockedk8sclient, WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
+		server := NewServer(wrapMockInterface(mockedk8sclient), WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -1032,7 +1032,7 @@ func TestPostV2Clusters400(t *testing.T) {
 
 		// Create a server instance with a mock k8s client
 		mockedk8sclient := k8s.NewMockInterface(t)
-		server := NewServer(mockedk8sclient, WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
+		server := NewServer(wrapMockInterface(mockedk8sclient), WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder with missing fields
@@ -1058,7 +1058,7 @@ func TestPostV2Clusters400(t *testing.T) {
 
 		// Create a server instance with a mock k8s client
 		mockedk8sclient := k8s.NewMockInterface(t)
-		server := NewServer(mockedk8sclient, WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
+		server := NewServer(wrapMockInterface(mockedk8sclient), WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder with invalid JSON
@@ -1084,7 +1084,7 @@ func TestPostV2Clusters400(t *testing.T) {
 
 		// Create a server instance with a mock k8s client
 		mockedk8sclient := k8s.NewMockInterface(t)
-		server := NewServer(mockedk8sclient, WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
+		server := NewServer(wrapMockInterface(mockedk8sclient), WithConfig(&config.Config{ClusterDomain: "kind.internal"}))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder with invalid data types
@@ -1137,7 +1137,7 @@ func createPostV2ClustersStubServer(t *testing.T) *Server {
 	mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsTemplateResource).Maybe()
 
 	return &Server{
-		k8sclient: mockedk8sclient,
+		k8sclient: wrapMockInterface(mockedk8sclient),
 	}
 }
 
