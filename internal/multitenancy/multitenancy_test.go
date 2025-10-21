@@ -331,7 +331,7 @@ func (suite *TenancyDatamodelTestSuite) TestSetupProjectSetDefaultTemplate() {
 		name                           string
 		configFunc                     func() (*rest.Config, error)
 		nexusClientFunc                func(*rest.Config) (*nexus.Clientset, error)
-		k8sClientFunc                  func() *k8s.Client
+		k8sClientFunc                  func() k8s.Client
 		templateFunc                   func() ([]*v1alpha1.ClusterTemplate, error)
 		podSecurityAdmissionConfigFunc func() (map[string][]byte, error)
 		defaultTemplateName            string
@@ -344,7 +344,7 @@ func (suite *TenancyDatamodelTestSuite) TestSetupProjectSetDefaultTemplate() {
 			name:                           "Default template is configured (should see all 5, mock-template-1 is default)",
 			configFunc:                     func() (*rest.Config, error) { return &rest.Config{}, nil },
 			nexusClientFunc:                func(*rest.Config) (*nexus.Clientset, error) { return &nexus.Clientset{}, nil },
-			k8sClientFunc:                  func() *k8s.Client { return k8s.New().WithFakeClient() },
+			k8sClientFunc:                  func() k8s.Client { return k8s.New().WithFakeClient() },
 			templateFunc:                   func() ([]*v1alpha1.ClusterTemplate, error) { return template.ReadDefaultTemplates() },
 			podSecurityAdmissionConfigFunc: func() (map[string][]byte, error) { return map[string][]byte{}, nil },
 			defaultTemplateName:            "mock-template-1-v1.0.0",
@@ -357,7 +357,7 @@ func (suite *TenancyDatamodelTestSuite) TestSetupProjectSetDefaultTemplate() {
 			name:                           "Default template is not configured (should see all 5, mock-template-1 is default)",
 			configFunc:                     func() (*rest.Config, error) { return &rest.Config{}, nil },
 			nexusClientFunc:                func(*rest.Config) (*nexus.Clientset, error) { return &nexus.Clientset{}, nil },
-			k8sClientFunc:                  func() *k8s.Client { return k8s.New().WithFakeClient() },
+			k8sClientFunc:                  func() k8s.Client { return k8s.New().WithFakeClient() },
 			templateFunc:                   func() ([]*v1alpha1.ClusterTemplate, error) { return template.ReadDefaultTemplates() },
 			podSecurityAdmissionConfigFunc: func() (map[string][]byte, error) { return map[string][]byte{}, nil },
 			defaultTemplateName:            "",
@@ -370,7 +370,7 @@ func (suite *TenancyDatamodelTestSuite) TestSetupProjectSetDefaultTemplate() {
 			name:                           "Default template is configured but not available (should see all 5, mock-template-1 is default)",
 			configFunc:                     func() (*rest.Config, error) { return &rest.Config{}, nil },
 			nexusClientFunc:                func(*rest.Config) (*nexus.Clientset, error) { return &nexus.Clientset{}, nil },
-			k8sClientFunc:                  func() *k8s.Client { return k8s.New().WithFakeClient() },
+			k8sClientFunc:                  func() k8s.Client { return k8s.New().WithFakeClient() },
 			templateFunc:                   func() ([]*v1alpha1.ClusterTemplate, error) { return template.ReadDefaultTemplates() },
 			podSecurityAdmissionConfigFunc: func() (map[string][]byte, error) { return map[string][]byte{}, nil },
 			defaultTemplateName:            "not-available-template-v1.0.0",
@@ -383,7 +383,7 @@ func (suite *TenancyDatamodelTestSuite) TestSetupProjectSetDefaultTemplate() {
 			name:            "Valid default template exists in project namespace (should see all 5, valid-existing-v1.2.3 is default)",
 			configFunc:      func() (*rest.Config, error) { return &rest.Config{}, nil },
 			nexusClientFunc: func(*rest.Config) (*nexus.Clientset, error) { return &nexus.Clientset{}, nil },
-			k8sClientFunc: func() *k8s.Client {
+			k8sClientFunc: func() k8s.Client {
 				client := k8s.New().WithFakeClient()
 				assert.NotNil(suite.T(), client)
 
@@ -421,7 +421,7 @@ func (suite *TenancyDatamodelTestSuite) TestSetupProjectSetDefaultTemplate() {
 			name:            "Invalid default template exists in project namespace (should see all 5, mock-template-1 is default)",
 			configFunc:      func() (*rest.Config, error) { return &rest.Config{}, nil },
 			nexusClientFunc: func(*rest.Config) (*nexus.Clientset, error) { return &nexus.Clientset{}, nil },
-			k8sClientFunc: func() *k8s.Client {
+			k8sClientFunc: func() k8s.Client {
 				client := k8s.New().WithFakeClient()
 				assert.NotNil(suite.T(), client)
 
