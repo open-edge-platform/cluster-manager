@@ -25,7 +25,7 @@ require (
 	github.com/lestrrat-go/jwx/v2 v2.1.6
 	github.com/oapi-codegen/nethttp-middleware v1.1.2
 	github.com/oapi-codegen/runtime v1.1.2
-	github.com/onsi/ginkgo/v2 v2.26.0
+	github.com/onsi/ginkgo/v2 v2.27.1
 	github.com/onsi/gomega v1.38.2
 	github.com/open-edge-platform/cluster-api-provider-intel v1.2.4
 	github.com/open-edge-platform/infra-core/inventory/v2 v2.30.10
@@ -40,8 +40,8 @@ require (
 	k8s.io/apimachinery v0.34.1
 	k8s.io/client-go v0.34.1
 	k8s.io/kubectl v0.34.1
-	sigs.k8s.io/cluster-api v1.10.7
-	sigs.k8s.io/cluster-api/test v1.10.7
+	sigs.k8s.io/cluster-api v1.11.2
+	sigs.k8s.io/cluster-api/test v1.11.2
 	sigs.k8s.io/controller-runtime v0.22.3
 )
 
@@ -217,7 +217,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.34.1
 	k8s.io/apiserver v0.34.1 // indirect
-	k8s.io/cluster-bootstrap v0.32.3 // indirect
 	k8s.io/component-base v0.34.1 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b // indirect
