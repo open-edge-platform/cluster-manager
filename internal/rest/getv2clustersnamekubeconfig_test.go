@@ -162,7 +162,7 @@ func TestGetV2ClustersNameKubeconfigs200(t *testing.T) {
 		defer restoreTokenRenewal()
 		mockedk8sclient, _, _ := mockK8sClient(t, name, encodedKubeconfig, nil)
 		serverConfig := config.Config{ClusterDomain: "kind.internal", Username: "admin", DisableAuth: true, KubeconfigTTL: 30 * time.Minute}
-		server := NewServer(mockedk8sclient)
+		server := NewServer(wrapMockInterface(mockedk8sclient))
 		server.config = &serverConfig
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 		// Create a new request & response recorder
@@ -248,7 +248,7 @@ func TestGetV2ClustersNameKubeconfigs404(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockedk8sclient, _, _ := mockK8sClient(t, tt.clusterName, "", tt.mockSetup)
-			server := NewServer(mockedk8sclient)
+			server := NewServer(wrapMockInterface(mockedk8sclient))
 			server.config = &serverConfig
 			require.NotNil(t, server, "NewServer() returned nil, want not nil")
 			req, rr := createRequestAndRecorder(t, "GET", fmt.Sprintf("/v2/clusters/%s/kubeconfigs", tt.clusterName), tt.activeProjectID, tt.authHeader)
@@ -389,7 +389,7 @@ func TestGetV2ClustersNameKubeconfigs500(t *testing.T) {
 				updateKubeconfigWithTokenFunc = originalFunc
 			}()
 			mockedk8sclient, _, _ := mockK8sClient(t, tt.clusterName, "", tt.mockSetup)
-			server := NewServer(mockedk8sclient)
+			server := NewServer(wrapMockInterface(mockedk8sclient))
 			server.config = &serverConfig
 			require.NotNil(t, server, "NewServer() returned nil, want not nil")
 			req, rr := createRequestAndRecorder(t, "GET", fmt.Sprintf("/v2/clusters/%s/kubeconfigs", tt.clusterName), tt.activeProjectID, tt.authHeader)
@@ -409,7 +409,7 @@ func createGetV2KubeconfigStubServer(t *testing.T) *Server {
 	mockedk8sclient := k8s.NewMockInterface(t)
 	mockedk8sclient.EXPECT().Resource(mock.Anything).Return(nsResource).Maybe()
 	return &Server{
-		k8sclient: mockedk8sclient,
+		k8sclient: wrapMockInterface(mockedk8sclient),
 	}
 }
 
@@ -769,7 +769,7 @@ func TestKubeconfigEndToEndWithTTL(t *testing.T) {
 
 			encodedKubeconfig := base64.StdEncoding.EncodeToString([]byte(exampleKubeconfig))
 			mockedk8sclient, _, _ := mockK8sClient(t, clusterName, encodedKubeconfig, nil)
-			server := NewServer(mockedk8sclient)
+			server := NewServer(wrapMockInterface(mockedk8sclient))
 			server.config = &serverConfig
 
 			req, rr := createRequestAndRecorder(t, "GET", fmt.Sprintf("/v2/clusters/%s/kubeconfigs", clusterName), activeProjectID, initialToken)
@@ -811,7 +811,7 @@ func TestKubeconfigEndToEndWithTTLM2MFailure(t *testing.T) {
 
 	encodedKubeconfig := base64.StdEncoding.EncodeToString([]byte(exampleKubeconfig))
 	mockedk8sclient, _, _ := mockK8sClient(t, clusterName, encodedKubeconfig, nil)
-	server := NewServer(mockedk8sclient)
+	server := NewServer(wrapMockInterface(mockedk8sclient))
 	server.config = &serverConfig
 
 	req, rr := createRequestAndRecorder(t, "GET", fmt.Sprintf("/v2/clusters/%s/kubeconfigs", clusterName), activeProjectID, initialToken)
@@ -871,7 +871,7 @@ func TestKubeconfigEndToEndRenewalCallExpectations(t *testing.T) {
 			serverConfig := config.Config{ClusterDomain: "kind.internal", Username: "admin", DisableAuth: tc.disableAuth, KubeconfigTTL: tc.configuredTTL}
 			encodedKubeconfig := base64.StdEncoding.EncodeToString([]byte(exampleKubeconfig))
 			mockedk8sclient, _, _ := mockK8sClient(t, clusterName, encodedKubeconfig, nil)
-			server := NewServer(mockedk8sclient)
+			server := NewServer(wrapMockInterface(mockedk8sclient))
 			server.config = &serverConfig
 
 			req, rr := createRequestAndRecorder(t, "GET", fmt.Sprintf("/v2/clusters/%s/kubeconfigs", clusterName), activeProjectID, initialToken)
