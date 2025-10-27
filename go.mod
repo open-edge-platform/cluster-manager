@@ -3,9 +3,17 @@
 
 module github.com/open-edge-platform/cluster-manager/v2
 
-go 1.24.8
+go 1.24.4
 
-replace github.com/google/cel-go => github.com/google/cel-go v0.22.1
+replace (
+	ariga.io/atlas => ariga.io/atlas v0.32.0
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go => buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.6-20250307204501-0409229c3780.1
+	github.com/google/cel-go => github.com/google/cel-go v0.22.1
+	github.com/open-edge-platform/infra-core/inventory/v2 => github.com/open-edge-platform/infra-core/inventory/v2 v2.23.0
+	github.com/open-edge-platform/orch-library/go => github.com/open-edge-platform/orch-library/go v0.5.29
+	github.com/open-edge-platform/orch-utils/tenancy-datamodel => github.com/open-edge-platform/orch-utils/tenancy-datamodel v0.0.0-20250401180309-9c2571c45857
+	github.com/open-policy-agent/opa => github.com/open-policy-agent/opa v1.4.0
+)
 
 require (
 	github.com/cenkalti/backoff/v4 v4.3.0
@@ -26,7 +34,7 @@ require (
 	github.com/rancher/cluster-api-provider-rke2 v0.20.1
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.6.0
-	google.golang.org/protobuf v1.36.9
+	google.golang.org/protobuf v1.36.10
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.34.1
 	k8s.io/apimachinery v0.34.1
@@ -34,28 +42,21 @@ require (
 	k8s.io/kubectl v0.34.1
 	sigs.k8s.io/cluster-api v1.10.7
 	sigs.k8s.io/cluster-api/test v1.10.7
-	sigs.k8s.io/controller-runtime v0.22.2
+	sigs.k8s.io/controller-runtime v0.22.3
 )
 
 require (
-	buf.build/go/protovalidate v1.0.0 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
+	github.com/bufbuild/protovalidate-go v0.9.2 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
-	github.com/lestrrat-go/dsig v1.0.0 // indirect
-	github.com/lestrrat-go/dsig-secp256k1 v1.0.0 // indirect
-	github.com/lestrrat-go/httprc/v3 v3.0.1 // indirect
-	github.com/lestrrat-go/jwx/v3 v3.0.11 // indirect
-	github.com/lestrrat-go/option/v2 v2.0.0 // indirect
 	github.com/oapi-codegen/oapi-codegen/v2 v2.4.1 // indirect
 	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037 // indirect
 	github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 // indirect
 	github.com/speakeasy-api/openapi-overlay v0.9.0 // indirect
 	github.com/spf13/cobra v1.10.1 // indirect
-	github.com/valyala/fastjson v1.6.4 // indirect
-	github.com/vektah/gqlparser/v2 v2.5.30 // indirect
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
 	github.com/woodsbury/decimal128 v1.3.0 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect

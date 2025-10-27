@@ -16,8 +16,8 @@ type: application
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
-version: 2.2.1
-appVersion: 2.2.1
+version: 2.2.3-dev
+appVersion: 2.2.3-dev
 annotations:
-  revision: 490e7d254a32fd0f91900f9a8f971dbe8ac35983
-  created: "2025-10-13T14:34:31Z"
+  revision: ad298045469e1e3933c06fff83c5b336bf593e95
+  created: "2025-10-21T11:28:01Z"
