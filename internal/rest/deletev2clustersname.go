@@ -17,19 +17,19 @@ import (
 // (DELETE /v2/clusters/{name})
 func (s *Server) DeleteV2ClustersName(ctx context.Context, request api.DeleteV2ClustersNameRequestObject) (api.DeleteV2ClustersNameResponseObject, error) {
 	name := request.Name
-	activeProjectID := request.Params.Activeprojectid.String()
 	if name == "" {
-		slog.Debug("Invalid name", "name", name)
+		slog.Error("no cluster name provided")
 		return api.DeleteV2ClustersName400JSONResponse{
 			N400BadRequestJSONResponse: api.N400BadRequestJSONResponse{
-				Message: ptr("no cluster or invalid active project id provided"),
+				Message: ptr("no cluster name provided"),
 			},
 		}, nil
 	}
 
+	activeProjectID := request.Params.Activeprojectid.String()
 	err := s.k8sclient.Resource(core.ClusterResourceSchema).Namespace(activeProjectID).Delete(ctx, name, v1.DeleteOptions{})
 	if errors.IsNotFound(err) {
-		message := fmt.Sprintf("cluster %s not found in namespace %s", name, activeProjectID)
+		message := fmt.Sprintf("cluster '%s' not found in namespace '%s'", name, activeProjectID)
 		return api.DeleteV2ClustersName404JSONResponse{N404NotFoundJSONResponse: api.N404NotFoundJSONResponse{Message: &message}}, nil
 	}
 
@@ -42,6 +42,6 @@ func (s *Server) DeleteV2ClustersName(ctx context.Context, request api.DeleteV2C
 		}, nil
 	}
 
-	slog.Debug("Cluster successfully deleted", "name", name, "activeProjectID", activeProjectID)
+	slog.Debug("cluster deleted", "namespace", activeProjectID, "name", name)
 	return api.DeleteV2ClustersName204Response{}, nil
 }
