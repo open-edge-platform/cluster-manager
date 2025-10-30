@@ -100,7 +100,7 @@ DISABLE_MT ?= true
 
 # When set to true, disables integration with keycloak oidc and opa sidecar. Should be false for production use cases
 # Should be true for CO subsystem integration tests if keycloak is not deployed
-DISABLE_AUTH ?= true
+DISABLE_AUTH ?= false
 
 # When set to true, disables integration with infra inventory. Should be false for production use cases
 # Should be true for CO subsystem integration tests if inventory is not deployed

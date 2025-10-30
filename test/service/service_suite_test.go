@@ -277,6 +277,81 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		It("Should return 404 when downloading kubeconfig for non-existent cluster", func() {
+			params := api.GetV2ClustersNameKubeconfigsParams{}
+			params.Activeprojectid = testTenantID
+
+			resp, err := cli.GetV2ClustersNameKubeconfigsWithResponse(context.Background(), "non-existent-cluster", &params)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(404))
+			Expect(resp.JSON404).ToNot(BeNil())
+			Expect(*resp.JSON404.Message).To(ContainSubstring("kubeconfig not found"))
+		})
+
+		It("Should return 200 and download kubeconfig successfully", func() {
+			// create a mock kubeconfig secret for the cluster
+			secretName := fmt.Sprintf("%s-kubeconfig", clusterName)
+			mockKubeconfig := `apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJWekNCL3FBREFnRUNBZ0VBTUFvR0NDcUdTTTQ5QkFNQ01DTXhJVEFmQmdOVkJBTU1HR3N6Y3kxelpYSjIKWlhJdFkyRkFNVGN6TlRJek5UVXpNekFlRncweU5EQXhNRFV4TmpBeE56TmFGdzB6TkRBeE1ESXhOakF4TnpOYQpNQ014SVRBZkJnTlZCQU1NR0dzemN5MXpaWEoyWlhJdFkyRkFNVGN6TlRJek5UVXpNekJaTUJNR0J5cUdTTTQ5CkFnRUdDQ3FHU000OUF3RUhBMElBQkhXRlhXSmxoS3cvK3ovRGFveUI3VDczN0NhZXhtR0xrU0tiY3lyVDBaMmEKelF0S0t0Ync5V1ZtdEhONGtZbWlSVWgvdGRjYjZmbGRxL0MweDc4eENLcWpJekFoTUE0R0ExVWREd0VCL3dRRQpBd0lDcERBUEJnTlZIUk1CQWY4RUJUQURBUUgvTUFvR0NDcUdTTTQ5QkFNQ0EwY0FNRVFDSUZIdmc5QzBkZU5ICnlCMDFTSUp2aTB1Tkx0MW9YVDJscCtncllNckkyY0x5QWlCOWxGNWg5Ty9nSUpQU0VWOC9SYlFHZG9yU0tkVWcKdXRQNTdkY09aWTV2RUE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+    server: https://test-cluster-control-plane:6443
+  name: test-cluster
+contexts:
+- context:
+    cluster: test-cluster
+    user: test-cluster-admin
+  name: test-cluster-admin@test-cluster
+current-context: test-cluster-admin@test-cluster
+users:
+- name: test-cluster-admin
+  user:
+    # NOTE: Client certificate and key data to be generated dynamically at test runtime
+    client-certificate-data: <PLACEHOLDER-GENERATE-AT-RUNTIME>
+    client-key-data: <PLACEHOLDER-GENERATE-AT-RUNTIME>`
+
+			// Delete the secret if it exists (from previous test runs)
+			deleteSecretCmd := exec.Command("kubectl", "delete", "secret", secretName,
+				"-n", testTenantID.String(), "--ignore-not-found")
+			_ = deleteSecretCmd.Run() // Ignore errors if secret doesn't exist
+
+			// Write kubeconfig to a temporary file
+			tmpFile, err := os.CreateTemp("", "kubeconfig-*.yaml")
+			Expect(err).ToNot(HaveOccurred())
+			defer os.Remove(tmpFile.Name())
+
+			_, err = tmpFile.WriteString(mockKubeconfig)
+			Expect(err).ToNot(HaveOccurred())
+			tmpFile.Close()
+
+			// Create the secret using kubectl with --from-file (not --from-literal)
+			// The cluster-manager expects the secret to contain base64-encoded kubeconfig
+			createSecretCmd := exec.Command("kubectl", "create", "secret", "generic", secretName,
+				"-n", testTenantID.String(),
+				"--from-file=value="+tmpFile.Name())
+			err = createSecretCmd.Run()
+			Expect(err).ToNot(HaveOccurred())
+
+			// Download the kubeconfig
+			params := api.GetV2ClustersNameKubeconfigsParams{}
+			params.Activeprojectid = testTenantID
+
+			resp, err := cli.GetV2ClustersNameKubeconfigsWithResponse(context.Background(), clusterName, &params)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(200))
+			Expect(resp.JSON200).ToNot(BeNil())
+			Expect(resp.JSON200.Kubeconfig).ToNot(BeNil())
+
+			// Verify the kubeconfig content
+			kubeconfig := *resp.JSON200.Kubeconfig
+			Expect(kubeconfig).ToNot(BeEmpty())
+			Expect(kubeconfig).To(ContainSubstring("apiVersion: v1"))
+			Expect(kubeconfig).To(ContainSubstring("kind: Config"))
+			Expect(kubeconfig).To(ContainSubstring("clusters:"))
+			Expect(kubeconfig).To(ContainSubstring(clusterName))
+		})
+
 		It("Should delete label", func() {
 			params := api.PutV2ClustersNameLabelsParams{}
 			params.Activeprojectid = testTenantID
