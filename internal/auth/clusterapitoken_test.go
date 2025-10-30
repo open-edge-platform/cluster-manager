@@ -3,7 +3,12 @@
 package auth
 
 import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -149,72 +154,134 @@ func TestExtractClaims(t *testing.T) {
 
 // TestJwtTokenWithM2M tests the M2M token generation function
 func TestJwtTokenWithM2M(t *testing.T) {
-	tests := []struct {
+	// Table uses an anonymous struct for brevity; no need for a named local type.
+	oneHour := 1 * time.Hour
+	twoHours := 2 * time.Hour
+	day := 24 * time.Hour
+
+	non200Handler := func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("boom"))
+	}
+
+	badJSONHandler := func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("{not-json"))
+	}
+
+	testcases := []struct {
 		name        string
 		ttl         *time.Duration
 		expectedTTL time.Duration
-		skipReason  string
+		// tolerance accounts for network/processing delay and minor clock skew
+		tolerance  time.Duration
+		vaultErr   error
+		keycloakFn func(w http.ResponseWriter, r *http.Request)
+		unsetEnv   bool
+		expectErr  string
 	}{
-		{
-			name:        "successful M2M token with 1 hour TTL",
-			ttl:         func() *time.Duration { d := 1 * time.Hour; return &d }(),
-			expectedTTL: 1 * time.Hour,
-			skipReason:  "TODO: Integration test requires Vault and Keycloak setup",
-		},
-		{
-			name:        "successful M2M token with 24 hour TTL",
-			ttl:         func() *time.Duration { d := 24 * time.Hour; return &d }(),
-			expectedTTL: 24 * time.Hour,
-			skipReason:  "TODO: Integration test requires Vault and Keycloak setup",
-		},
-		{
-			name:        "successful M2M token without TTL (use default)",
-			ttl:         nil,
-			expectedTTL: 1 * time.Hour, // Default TTL
-			skipReason:  "TODO: Integration test requires Vault and Keycloak setup",
-		},
-		{
-			name:        "M2M token with empty roles",
-			ttl:         func() *time.Duration { d := 2 * time.Hour; return &d }(),
-			expectedTTL: 2 * time.Hour,
-			skipReason:  "TODO: Integration test requires Vault and Keycloak setup",
-		},
+		{name: "default ttl", ttl: nil, expectedTTL: oneHour, tolerance: 90 * time.Second},
+		{name: "custom 2h ttl", ttl: &twoHours, expectedTTL: twoHours, tolerance: 90 * time.Second},
+		{name: "custom 24h ttl", ttl: &day, expectedTTL: day, tolerance: 2 * time.Minute},
+		{name: "missing KEYCLOAK_URL", ttl: &twoHours, unsetEnv: true, expectErr: "KEYCLOAK_URL"},
+		{name: "vault credential failure", ttl: &twoHours, vaultErr: fmt.Errorf("vault down"), expectErr: "failed to fetch M2M credentials"},
+		{name: "keycloak non-200", ttl: &twoHours, keycloakFn: non200Handler, expectErr: "status code"},
+		{name: "keycloak bad json", ttl: &twoHours, keycloakFn: badJSONHandler, expectErr: "failed to decode"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Skip integration tests if external services are not available
-			if testing.Short() {
-				t.Skip("Skipping integration test in short mode")
+	for _, tc := range testcases {
+		tc := tc // capture
+		t.Run(tc.name, func(t *testing.T) {
+			// reset cached credentials so each subtest independently triggers lazy load
+			cachedClientID = ""
+			cachedClientSecret = ""
+			// override NewVaultAuthFunc for this subtest and register cleanup
+			prev := NewVaultAuthFunc
+			NewVaultAuthFunc = func(vaultServer string, serviceAccount string) (VaultAuth, error) {
+				return &mockVaultAuth{err: tc.vaultErr}, nil
+			}
+			// ensure we always restore even on early failure
+			t.Cleanup(func() { NewVaultAuthFunc = prev })
+
+			// Setup / teardown KEYCLOAK_URL
+			origEnv := os.Getenv("KEYCLOAK_URL")
+			defer func() {
+				if origEnv == "" {
+					_ = os.Unsetenv("KEYCLOAK_URL")
+				} else {
+					_ = os.Setenv("KEYCLOAK_URL", origEnv)
+				}
+			}()
+
+			var server *httptest.Server
+			if !tc.unsetEnv {
+				h := tc.keycloakFn
+				if h == nil {
+					h = func(w http.ResponseWriter, r *http.Request) {
+						requested := oneHour
+						if tc.ttl != nil {
+							requested = *tc.ttl
+						}
+						exp := time.Now().Add(requested).Unix()
+						token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+							"exp": exp,
+							"azp": "test-client",
+						})
+						s, _ := token.SignedString([]byte("secret"))
+						w.Header().Set("Content-Type", "application/json")
+						_, _ = w.Write([]byte(fmt.Sprintf("{\"access_token\":\"%s\"}", s)))
+					}
+				}
+				server = httptest.NewServer(http.HandlerFunc(h))
+				defer server.Close()
+				_ = os.Setenv("KEYCLOAK_URL", server.URL)
+			} else if tc.unsetEnv {
+				_ = os.Unsetenv("KEYCLOAK_URL")
 			}
 
-			// Check if required environment variables are set
-			keycloakURL := os.Getenv("KEYCLOAK_URL")
-			if keycloakURL == "" {
-				t.Skip("KEYCLOAK_URL not set, skipping integration test")
+			start := time.Now()
+			token, err := JwtTokenWithM2M(context.Background(), tc.ttl)
+
+			if tc.expectErr != "" {
+				assert.Error(t, err)
+				if err != nil {
+					assert.Contains(t, err.Error(), tc.expectErr)
+				}
+				return
 			}
 
-			// TODO: Implement when external services are properly mocked or available
-			// For now, skip these tests since they require Vault and Keycloak
-			t.Skip("TODO: Integration test requires Vault and Keycloak setup")
+			assert.NoError(t, err)
+			if err != nil { // safeguard
+				return
+			}
 
-			// token, err := JwtTokenWithM2M(context.Background(), tt.ttl)
-			// require.NoError(t, err)
-			// assert.NotEmpty(t, token)
+			clientID, _, exp, claimErr := ExtractClaims(token)
+			assert.NoError(t, claimErr)
+			assert.Equal(t, "test-client", clientID)
 
-			// // Validate TTL
-			// ttl, err := helpers.ExtractTokenTTL(token)
-			// require.NoError(t, err)
-			// tolerance := 1 * time.Minute
-			// diff := ttl - tt.expectedTTL
-			// if diff < 0 {
-			//     diff = -diff
-			// }
-			// assert.True(t, diff <= tolerance,
-			//     "Token TTL %v should be within %v of expected %v",
-			//     ttl, tolerance, tt.expectedTTL)
+			actualTTL := exp.Sub(start)
+			// normalize negative (shouldn't happen but guard) and assert within tolerance
+			if actualTTL < 0 {
+				actualTTL = 0
+			}
+			delta := actualTTL - tc.expectedTTL
+			if delta < 0 {
+				delta = -delta
+			}
+			assert.LessOrEqual(t, delta, tc.tolerance, "ttl delta exceeded tolerance: expected %v got %v (delta %v)", tc.expectedTTL, actualTTL, delta)
 		})
 	}
+}
+
+// mockVaultAuth implements VaultAuth for tests
+type mockVaultAuth struct {
+	err error
+}
+
+func (m *mockVaultAuth) GetClientCredentials(ctx context.Context) (string, string, error) {
+	if m.err != nil {
+		return "", "", m.err
+	}
+	return "client-id", "client-secret", nil
 }
 
 // TestExtractUserRoles tests user role extraction from JWT tokens
@@ -341,4 +408,162 @@ func TestTokenTTLValidation(t *testing.T) {
 			assert.Equal(t, tt.expectValid, isValid, tt.description)
 		})
 	}
+}
+
+// TestJwtTokenWithM2M_LazyAndRetryScenarios covers:
+// 1. first fetch & cache reuse (only one vault call for two token requests)
+// 2. rotation retry success (401 invalid_client then success -> 2 vault calls during first token request only)
+// 3. rotation retry failure (both attempts 401 -> error surfaced, 2 vault calls)
+// 4. empty token then success (first response 200 with empty access_token triggers refresh + retry)
+func TestJwtTokenWithM2M_LazyAndRetryScenarios(t *testing.T) {
+	// helper to reset cached credentials between subtests
+	resetCache := func() {
+		credsMu.Lock()
+		cachedClientID = ""
+		cachedClientSecret = ""
+		credsMu.Unlock()
+	}
+
+	makeSuccessToken := func() string {
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"exp": time.Now().Add(time.Hour).Unix(),
+			"azp": "test-client",
+		})
+		s, _ := token.SignedString([]byte("secret"))
+		return s
+	}
+
+	tests := []struct {
+		name               string
+		keycloakHandler    func() http.Handler
+		expectErrSub       string
+		expectedVaultCalls int32
+		extraAssertion     func(t *testing.T)
+	}{
+		{
+			name: "fetch and cache reuse",
+			keycloakHandler: func() http.Handler {
+				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write([]byte(fmt.Sprintf("{\"access_token\":\"%s\"}", makeSuccessToken())))
+				})
+			},
+			expectedVaultCalls: 1,
+			extraAssertion: func(t *testing.T) {
+				// second call should NOT trigger another vault fetch
+				tok2, err2 := JwtTokenWithM2M(context.Background(), nil)
+				assert.NoError(t, err2)
+				assert.NotEmpty(t, tok2)
+			},
+		},
+		{
+			name: "rotation retry success (401 then 200)",
+			keycloakHandler: func() http.Handler {
+				var calls int
+				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					calls++
+					if calls == 1 {
+						w.WriteHeader(http.StatusUnauthorized)
+						_, _ = w.Write([]byte("invalid_client"))
+						return
+					}
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write([]byte(fmt.Sprintf("{\"access_token\":\"%s\"}", makeSuccessToken())))
+				})
+			},
+			expectedVaultCalls: 2,
+			extraAssertion: func(t *testing.T) {
+				// follow-up call should reuse refreshed credentials without additional vault call
+				prev := atomic.LoadInt32(&vaultCalls)
+				tok2, err2 := JwtTokenWithM2M(context.Background(), nil)
+				assert.NoError(t, err2)
+				assert.NotEmpty(t, tok2)
+				assert.Equal(t, prev, atomic.LoadInt32(&vaultCalls), "vault call count increased unexpectedly on cache reuse after rotation")
+			},
+		},
+		{
+			name: "rotation retry failure (two 401 responses)",
+			keycloakHandler: func() http.Handler {
+				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusUnauthorized)
+					_, _ = w.Write([]byte("invalid_client"))
+				})
+			},
+			expectedVaultCalls: 2,
+			expectErrSub:       "retry failed", // from doFinalTokenRequest
+		},
+		{
+			name: "empty token then success triggers retry",
+			keycloakHandler: func() http.Handler {
+				var calls int
+				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					calls++
+					w.Header().Set("Content-Type", "application/json")
+					if calls == 1 {
+						_, _ = w.Write([]byte("{\"access_token\":\"\"}")) // empty -> retryable
+						return
+					}
+					_, _ = w.Write([]byte(fmt.Sprintf("{\"access_token\":\"%s\"}", makeSuccessToken())))
+				})
+			},
+			expectedVaultCalls: 2,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			resetCache()
+			atomic.StoreInt32(&vaultCalls, 0)
+
+			// counting VaultAuth implementation with cleanup
+			prev := NewVaultAuthFunc
+			NewVaultAuthFunc = func(vaultServer string, serviceAccount string) (VaultAuth, error) {
+				return &countingVaultAuth{}, nil
+			}
+			t.Cleanup(func() { NewVaultAuthFunc = prev })
+
+			handler := tc.keycloakHandler()
+			server := httptest.NewServer(handler)
+			defer server.Close()
+			origEnv := os.Getenv("KEYCLOAK_URL")
+			_ = os.Setenv("KEYCLOAK_URL", server.URL)
+			defer func() {
+				if origEnv == "" {
+					_ = os.Unsetenv("KEYCLOAK_URL")
+				} else {
+					_ = os.Setenv("KEYCLOAK_URL", origEnv)
+				}
+			}()
+
+			token, err := JwtTokenWithM2M(context.Background(), nil)
+			if tc.expectErrSub != "" {
+				assert.Error(t, err)
+				if err != nil {
+					assert.Contains(t, err.Error(), tc.expectErrSub)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.NotEmpty(t, token)
+			}
+
+			assert.Equal(t, tc.expectedVaultCalls, atomic.LoadInt32(&vaultCalls), "unexpected number of Vault credential fetches")
+
+			if tc.extraAssertion != nil {
+				tc.extraAssertion(t)
+			}
+		})
+	}
+}
+
+// vaultCalls counts how many times Vault credentials were fetched (via GetClientCredentials)
+var vaultCalls int32
+
+// countingVaultAuth increments a counter every time credentials are fetched
+type countingVaultAuth struct{}
+
+func (c *countingVaultAuth) GetClientCredentials(ctx context.Context) (string, string, error) {
+	n := atomic.AddInt32(&vaultCalls, 1)
+
+	// return unique-ish credentials per call for debugging visibility
+	return fmt.Sprintf("client-id-%d", n), fmt.Sprintf("client-secret-%d", n), nil
 }

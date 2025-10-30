@@ -19,30 +19,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      with:
-        persist-credentials: false
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+        with:
+          persist-credentials: false
 
-    - name: Bootstrap CI environment
-      uses: open-edge-platform/orch-ci/.github/actions/bootstrap@a389c296f4a6dd2ff9d976007fd386950ab99605  # 0.1.49
-      with:
-        gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
+      - name: Bootstrap CI environment
+        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@c4b86434962d13f65fd7b16a33e9eecfd5849a64  # 0.1.56
+        with:
+          gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
 
-    - name: Generate OpenAPI
-      run: |
-        make generate-api
+      - name: Generate OpenAPI
+        run: |
+          make generate-api
 
-    - name: Check for changes
-      run: |
-        if [[ `git status --porcelain` ]]; then
-          echo "### Error: Changes detected after running make generate-api"
-          echo "### git status --porcelain"
-          git status --porcelain
-          echo "### git diff"
-          git diff
-          echo "### Error: Changes detected after running make generate-api" >> $GITHUB_STEP_SUMMARY
-          exit 1
-        else
-          echo "No changes detected - OpenAPI is up to date" >> $GITHUB_STEP_SUMMARY
-        fi
+      - name: Check for changes
+        run: |
+          if [[ `git status --porcelain` ]]; then
+            echo "### Error: Changes detected after running make generate-api"
+            echo "### git status --porcelain"
+            git status --porcelain
+            echo "### git diff"
+            git diff
+            echo "### Error: Changes detected after running make generate-api" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "No changes detected - OpenAPI is up to date" >> $GITHUB_STEP_SUMMARY
+          fi
