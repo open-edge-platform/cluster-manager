@@ -151,9 +151,19 @@ vet: ## Run go vet against code.
 test: ## Run unit tests.
 	make test-unit
 
+.PHONY: generate-test-keys
+generate-test-keys: ## Generate test keys for JWT authentication
+	@if [ "$(DISABLE_AUTH)" = "false" ]; then \
+		echo "Generating test keys for JWT authentication..."; \
+		bash test/helpers/generate-test-keys.sh; \
+	else \
+		echo "skipping test key generation (DISABLE_AUTH=true)"; \
+	fi
+
 .PHONY: run-service-test
 run-service-test: clusterctl ## Run service tests.
 	make kind-create
+	make generate-test-keys
 	make helm-install
 	make kind-expose-cm
 	make test-service
@@ -180,11 +190,7 @@ test-unit: envtest gocov
 # - PROMETHEUS_INSTALL_SKIP=true
 # - CERT_MANAGER_INSTALL_SKIP=true
 .PHONY: test-service
-test-service: ## Run the e2e tests. Expected an isolated environment using Kind.
-	@if [ "$(DISABLE_AUTH)" = "false" ]; then \
-		echo "Generating test keys for JWT authentication..."; \
-		bash test/helpers/generate-test-keys.sh; \
-	fi
+test-service: generate-test-keys ## Run the e2e tests. Expected an isolated environment using Kind.
 	DISABLE_AUTH=$(DISABLE_AUTH) go test ./test/service/ -v -ginkgo.v
 
 .PHONY: lint
@@ -494,11 +500,10 @@ kind-create: ## Create a development kind cluster with CAPI enabled
 
 .PHONY: kind-expose-cm
 kind-expose-cm: ## Expose the cluster manager service to the host
-	kubectl port-forward svc/cluster-manager 8080:8080 &
+	kubectl port-forward svc/cluster-manager 8080:8080 > /dev/null 2>&1 &
 	@if [ "$(DISABLE_AUTH)" = "false" ]; then \
-		kubectl port-forward svc/platform-keycloak 8081:80 -n orch-platform & \
+		kubectl port-forward svc/platform-keycloak 8081:80 -n orch-platform > /dev/null 2>&1 & \
 	fi
-	@sleep 10
 
 docker-load:
 	docker tag ${DOCKER_IMAGE_TEMPLATE_CONTROLLER} ${RS_DOCKER_IMAGE_TEMPLATE_CONTROLLER}
@@ -512,6 +517,19 @@ helm-install: docker-build docker-load helm-build ## Install helm charts to the 
 		kubectl apply -f test/helpers/keycloak-mock.yaml; \
 		echo "waiting for keycloak mock to be ready"; \
 		kubectl wait --for=condition=available --timeout=60s deployment/platform-keycloak -n orch-platform; \
+		if [ -f /tmp/cluster-manager-test-keys/test-jwk.json ]; then \
+			echo "Updating mock Keycloak ConfigMap with generated test keys..."; \
+			printf '{"data":{"jwks.json":' > /tmp/cm-patch.json; \
+			cat /tmp/cluster-manager-test-keys/test-jwk.json | jq -c . | jq -R . >> /tmp/cm-patch.json; \
+			printf '}}' >> /tmp/cm-patch.json; \
+			kubectl patch configmap mock-keycloak-config -n orch-platform --patch-file /tmp/cm-patch.json; \
+			rm /tmp/cm-patch.json; \
+			kubectl rollout restart deployment/platform-keycloak -n orch-platform; \
+			kubectl wait --for=condition=available --timeout=60s deployment/platform-keycloak -n orch-platform; \
+			echo "Mock Keycloak ConfigMap updated successfully"; \
+		else \
+			echo "Warning: Test JWK not found, using static keys from keycloak-mock.yaml"; \
+		fi; \
 	fi
 	helm upgrade --install --wait --debug cluster-template-crd $(BUILD_DIR)/cluster-template-crd-${HELM_VERSION}.tgz --set args.loglevel=DEBUG
 	helm upgrade --install --wait --debug cluster-manager $(BUILD_DIR)/cluster-manager-${HELM_VERSION}.tgz --set clusterManager.extraArgs.disable-multi-tenancy=${DISABLE_MT} --set clusterManager.extraArgs.disable-auth=${DISABLE_AUTH} --set clusterManager.extraArgs.disable-inventory=${DISABLE_INV} --set clusterManager.extraArgs.disable-metrics=${DISABLE_METRICS} 
