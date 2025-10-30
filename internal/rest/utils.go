@@ -162,11 +162,20 @@ func getClusterLifecyclePhase(cluster *capi.Cluster) (*api.GenericStatus, []erro
 		Message:   new(string),
 		Timestamp: new(uint64),
 	}
+
 	var errorReasons []error
 	if len(cluster.Status.Conditions) == 0 {
 		*status.Indicator = api.STATUSINDICATIONUNSPECIFIED
 		*status.Message = "Condition not found"
 		*status.Timestamp = 0
+		return &status, errorReasons
+	}
+
+	*status.Timestamp = uint64(cluster.Status.Conditions[0].LastTransitionTime.UTC().Unix())
+
+	if cluster.Spec.Paused {
+		*status.Indicator = api.STATUSINDICATIONIDLE
+		*status.Message = "waiting for nodes"
 		return &status, errorReasons
 	}
 	// ClusterPhase is a string representation of a Cluster Phase.
@@ -212,7 +221,6 @@ func getClusterLifecyclePhase(cluster *capi.Cluster) (*api.GenericStatus, []erro
 		return nil, errorReasons
 	}
 
-	*status.Timestamp = uint64(cluster.Status.Conditions[0].LastTransitionTime.UTC().Unix())
 	return &status, errorReasons
 }
 
@@ -279,10 +287,13 @@ func getNodeHealth(cluster *capi.Cluster, machines []unstructured.Unstructured) 
 		}
 	}
 
-	if inProgress {
+	if totalMachines == 0 {
+		*status.Indicator = api.STATUSINDICATIONUNSPECIFIED
+		*status.Message = "condition not found"
+	} else if inProgress {
 		*status.Indicator = api.STATUSINDICATIONINPROGRESS
 		*status.Message = fmt.Sprintf("node(s) health unknown (%v/%v);%s", machinesRunning, totalMachines, messages)
-	} else if allHealthy && machinesRunning == totalMachines {
+	} else if allHealthy && totalMachines > 0 && machinesRunning == totalMachines {
 		*status.Indicator = api.STATUSINDICATIONIDLE
 		*status.Message = "nodes are healthy"
 	} else if noneHealthy {
