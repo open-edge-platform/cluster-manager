@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 )
 
 // MockVaultAuth implements VaultAuth interface for testing
@@ -102,9 +101,11 @@ func (m *MockKeycloakServer) handleTokenRequest(w http.ResponseWriter, r *http.R
 	// Generate a mock JWT token with the requested TTL
 	token := m.generateMockJWT(m.TokenTTL)
 
-	response := auth.TokenResponse{
-		AccessToken:  token,
-		RefreshToken: "mock-refresh-token",
+	response := map[string]interface{}{
+		"access_token":  token, // This should now be a real JWT
+		"refresh_token": "mock-refresh-token",
+		"token_type":    "Bearer",
+		"expires_in":    int(m.TokenTTL.Seconds()),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -119,6 +120,7 @@ func (m *MockKeycloakServer) generateMockJWT(ttl time.Duration) string {
 	exp := now.Add(ttl)
 
 	claims := jwt.MapClaims{
+		"iss":                "http://platform-keycloak.orch-platform.svc/realms/master",
 		"azp":                "test-client",
 		"preferred_username": "test-user",
 		"exp":                exp.Unix(),
@@ -128,16 +130,34 @@ func (m *MockKeycloakServer) generateMockJWT(ttl time.Duration) string {
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, _ := token.SignedString([]byte("test-secret"))
-	return tokenString
-}
+	// Get the dynamically generated test private key
+	privateKey, err := GetTestPrivateKey()
+	if err != nil {
+		panic(fmt.Sprintf("failed to get test private key: %v", err))
+	}
 
-// Helper functions for testing
+	// Get the dynamically generated key ID
+	keyID, err := GetTestKeyID()
+	if err != nil {
+		panic(fmt.Sprintf("failed to get test key ID: %v", err))
+	}
+
+	// Sign with PS512 (RSA-PSS with SHA-512)
+	token := jwt.NewWithClaims(jwt.SigningMethodPS512, claims)
+	token.Header["kid"] = keyID
+
+	tokenString, err := token.SignedString(privateKey)
+	if err != nil {
+		panic(fmt.Sprintf("failed to sign token: %v", err))
+	}
+
+	return tokenString
+} // Helper functions for testing
 
 // CreateTestJWT creates a JWT token for testing with specified expiration and roles
 func CreateTestJWT(exp time.Time, roles []string) string {
 	claims := jwt.MapClaims{
+		"iss":                "http://platform-keycloak.orch-platform.svc/realms/master",
 		"azp":                "test-client",
 		"preferred_username": "test-user",
 		"exp":                exp.Unix(),
@@ -147,8 +167,27 @@ func CreateTestJWT(exp time.Time, roles []string) string {
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, _ := token.SignedString([]byte("test-secret"))
+	// Get the dynamically generated test private key
+	privateKey, err := GetTestPrivateKey()
+	if err != nil {
+		panic(fmt.Sprintf("failed to get test private key: %v", err))
+	}
+
+	// Get the dynamically generated key ID
+	keyID, err := GetTestKeyID()
+	if err != nil {
+		panic(fmt.Sprintf("failed to get test key ID: %v", err))
+	}
+
+	// Sign with PS512 (RSA-PSS with SHA-512)
+	token := jwt.NewWithClaims(jwt.SigningMethodPS512, claims)
+	token.Header["kid"] = keyID
+
+	tokenString, err := token.SignedString(privateKey)
+	if err != nil {
+		panic(fmt.Sprintf("failed to sign token: %v", err))
+	}
+
 	return tokenString
 }
 
