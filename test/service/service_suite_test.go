@@ -52,60 +52,6 @@ func init() {
 var _ = BeforeSuite(func() {
 	// Generate test keys if auth is enabled
 	if os.Getenv("DISABLE_AUTH") == "false" {
-		fmt.Println("auth is enabled - generating test keys for JWT signing")
-
-		// Run the key generation script
-		scriptPath := "../../test/helpers/generate-test-keys.sh"
-		cmd := exec.Command("bash", scriptPath)
-		cmd.Env = append(os.Environ(), "KEY_DIR=/tmp/cluster-manager-test-keys")
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("Failed to generate test keys: %v\nOutput: %s\n", err, string(output))
-			Expect(err).ToNot(HaveOccurred())
-		}
-		fmt.Printf("Test keys generated:\n%s\n", string(output))
-
-		// Update the mock Keycloak ConfigMap with the generated JWK
-		jwkPath := "/tmp/cluster-manager-test-keys/test-jwk.json"
-		jwkData, err := os.ReadFile(jwkPath)
-		if err != nil {
-			fmt.Printf("Failed to read JWK file: %v\n", err)
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		fmt.Println("Updating mock Keycloak ConfigMap with generated JWK...")
-		// Patch the ConfigMap with the new JWK
-		patchCmd := fmt.Sprintf(`{"data":{"jwks.json":%q}}`, string(jwkData))
-		cmd = exec.Command("kubectl", "patch", "configmap", "mock-keycloak-config",
-			"-n", "orch-platform",
-			"--type=merge",
-			"-p", patchCmd)
-		output, err = cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("Failed to patch ConfigMap: %v\nOutput: %s\n", err, string(output))
-		} else {
-			fmt.Println("ConfigMap patched successfully")
-		}
-
-		// Restart the mock Keycloak pod to pick up the new ConfigMap
-		fmt.Println("Restarting mock Keycloak to pick up new JWK...")
-		cmd = exec.Command("kubectl", "rollout", "restart", "deployment/platform-keycloak", "-n", "orch-platform")
-		err = cmd.Run()
-		if err != nil {
-			fmt.Printf("Failed to restart deployment: %v\n", err)
-		}
-
-		cmd = exec.Command("kubectl", "rollout", "status", "deployment/platform-keycloak", "-n", "orch-platform", "--timeout=60s")
-		err = cmd.Run()
-		if err != nil {
-			fmt.Printf("Failed waiting for deployment: %v\n", err)
-		}
-
-		// Note: We don't need to restart cluster-manager because:
-		// 1. The dynamic kid (with timestamp) forces JWKS cache refresh automatically
-		// 2. cluster-manager's GetSigningKey() auto-refreshes JWKS when kid not found
-		// 3. Restarting would break any existing port-forwards
-
 		fmt.Println("auth is enabled - waiting for mock Keycloak to be ready")
 		Eventually(func() error {
 			_, err := getTokenFromClusterKeycloak()
@@ -163,18 +109,17 @@ var _ = AfterSuite(func() {
 		fmt.Println("Deleted namespace for tenant", testTenantID.String())
 	}
 
-	// Clean up dynamically generated test keys
+	// clean up dynamically generated test keys
 	if os.Getenv("DISABLE_AUTH") == "false" {
 		keyDir := os.Getenv("KEY_DIR")
 		if keyDir == "" {
 			keyDir = "/tmp/cluster-manager-test-keys"
 		}
 
-		fmt.Printf("Cleaning up test keys from %s...\n", keyDir)
 		if err := os.RemoveAll(keyDir); err != nil {
-			fmt.Printf("Warning: Failed to clean up test keys: %v\n", err)
+			fmt.Printf("Warning: failed to clean up test keys: %v\n", err)
 		} else {
-			fmt.Println("Test keys cleaned up successfully")
+			fmt.Printf("Deleted test keys from  %s...\n", keyDir)
 		}
 	}
 })
@@ -509,28 +454,20 @@ func annotateDockerMachines(projectId, clusterName string, annotations string) e
 }
 
 func createAuthenticatedClient() (*api.ClientWithResponses, error) {
-	// If auth is disabled, use regular client
 	if os.Getenv("DISABLE_AUTH") == "true" {
-		fmt.Println("Auth disabled, using regular client")
 		return api.NewClientWithResponses("http://" + cmAddress)
 	}
 
-	fmt.Println("Auth enabled, creating authenticated client")
-	// If auth is enabled, add Bearer token to all requests
+	fmt.Println("creating authenticated client")
+	// if auth is enabled, add Bearer token to all requests
 	return api.NewClientWithResponses("http://"+cmAddress, api.WithRequestEditorFn(
 		func(ctx context.Context, req *http.Request) error {
-			// Get token from your mock Keycloak service running in the cluster
-			fmt.Println("Getting token from Keycloak...")
 			token, err := getTokenFromClusterKeycloak()
 			if err != nil {
 				fmt.Printf("Failed to get token: %v\n", err)
 				return err
 			}
-			if len(token) > 20 {
-				fmt.Printf("Got token: %s...\n", token[:20])
-			} else {
-				fmt.Printf("Got token (length %d): %s\n", len(token), token)
-			}
+
 			req.Header.Set("Authorization", "Bearer "+token)
 			return nil
 		},
@@ -538,15 +475,11 @@ func createAuthenticatedClient() (*api.ClientWithResponses, error) {
 }
 
 func getTokenFromClusterKeycloak() (string, error) {
-	// First, verify that the mock Keycloak is reachable (health check)
 	keycloakURL := "http://localhost:8081"
-
 	data := url.Values{}
 	data.Set("grant_type", "client_credentials")
 	data.Set("client_id", "test-client")
 	data.Set("client_secret", "test-secret")
-
-	fmt.Printf("Attempting to connect to Keycloak at: %s\n", keycloakURL)
 
 	resp, err := http.PostForm(keycloakURL+"/realms/master/protocol/openid-connect/token", data)
 	if err != nil {
@@ -559,14 +492,14 @@ func getTokenFromClusterKeycloak() (string, error) {
 		return "", fmt.Errorf("keycloak returned status %d: %s", resp.StatusCode, string(body))
 	}
 
-	// Generate a proper JWT token signed with our test private key
-	// This ensures the token is valid and can be verified by the cluster-manager
-	// Include project-specific roles that OPA expects
+	// generate a proper JWT token signed with the test private key to ensure
+	// the token is valid and can be verified by the cluster-manager
+	// include project-specific roles that OPA expects
 	roles := []string{
-		fmt.Sprintf("%s_cl-tpl-rw", testTenantID.String()), // Template write access
-		fmt.Sprintf("%s_cl-tpl-r", testTenantID.String()),  // Template read access
-		fmt.Sprintf("%s_cl-rw", testTenantID.String()),     // Cluster write access
-		fmt.Sprintf("%s_cl-r", testTenantID.String()),      // Cluster read access
+		fmt.Sprintf("%s_cl-tpl-rw", testTenantID.String()),
+		fmt.Sprintf("%s_cl-tpl-r", testTenantID.String()),
+		fmt.Sprintf("%s_cl-rw", testTenantID.String()),
+		fmt.Sprintf("%s_cl-r", testTenantID.String()),
 	}
 	token := helpers.CreateTestJWT(time.Now().Add(1*time.Hour), roles)
 
