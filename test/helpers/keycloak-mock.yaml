@@ -22,14 +22,17 @@ data:
 
         location /realms/master/protocol/openid-connect/token {
             add_header Content-Type application/json;
-            return 200 '{"access_token": "mock.jwt.token", "token_type": "Bearer", "expires_in": 300}';
+            return 200 '{"access_token": "dummy-token-replaced-by-test", "token_type": "Bearer", "expires_in": 3600}';
         }
 
         location /realms/master/protocol/openid-connect/certs {
             add_header Content-Type application/json;
-            return 200 '{"keys":[{"kty":"RSA","kid":"mock-key-1","n":"xwQ72P9z9OYshiQ-ntDYaPnnfwG6u9JAdLMZ5o0dmjlcyrvwQRdoFIKPnO65Q8mh6F_LDSxjxa2Yzo_wdjhbPZLjfUJXgCzm54cClXzT5twzo7lzoAfaJlkTsoZc2HFWqmcXvbK4BSfMaP6kELbLcbYqGCwQG6azRzgM1_gBXLyWfwGrwQKkeeCWzqx4TzNxzRpINL7GFRTXyF5okemRnB95gH9Fd9YmklvQpBdNKFNCe2_LmNxKku8U9LQupRsmh6Ft4wpHr_5JXTJsM7C8yMkge4bq-NwvkUAJGCoc3MFrX1VAKGUJaQLZtxeDV6hQj1hjFTSCw_v0qmFBvNqoeg","e":"AQAB","use":"sig","alg":"RS256"}]}';
+            alias /etc/keycloak-jwk/jwks.json;
         }
     }
+  # Placeholder JWK - will be replaced by init container
+  jwks.json: |
+    {"keys":[{"kty":"RSA","kid":"test-key-2024","use":"sig","alg":"PS512","n":"placeholder","e":"AQAB"}]}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -45,10 +48,10 @@ data:
       "jwks_uri": "http://platform-keycloak.orch-platform.svc/realms/master/protocol/openid-connect/certs",
       "response_types_supported": ["code"],
       "subject_types_supported": ["public"],
-      "id_token_signing_alg_values_supported": ["RS256"],
+      "id_token_signing_alg_values_supported": ["PS512"],
       "grant_types_supported": ["client_credentials", "authorization_code"],
       "token_endpoint_auth_methods_supported": ["client_secret_basic", "client_secret_post"],
-      "scopes_supported": ["openid", "profile", "email"]
+      "scopes_supported": ["openid", "profile", "email", "roles"]
     }
 ---
 apiVersion: apps/v1
@@ -77,6 +80,9 @@ spec:
           subPath: nginx.conf
         - name: content-volume
           mountPath: /usr/share/nginx/html/realms/master/.well-known
+        - name: jwk-volume
+          mountPath: /etc/keycloak-jwk/jwks.json
+          subPath: jwks.json
       volumes:
       - name: config-volume
         configMap:
@@ -84,6 +90,12 @@ spec:
       - name: content-volume
         configMap:
           name: mock-keycloak-content
+      - name: jwk-volume
+        configMap:
+          name: mock-keycloak-config
+          items:
+          - key: jwks.json
+            path: jwks.json
 ---
 apiVersion: v1
 kind: Service

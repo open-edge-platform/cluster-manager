@@ -181,7 +181,11 @@ test-unit: envtest gocov
 # - CERT_MANAGER_INSTALL_SKIP=true
 .PHONY: test-service
 test-service: ## Run the e2e tests. Expected an isolated environment using Kind.
-	go test ./test/service/ -v -ginkgo.v
+	@if [ "$(DISABLE_AUTH)" = "false" ]; then \
+		echo "Generating test keys for JWT authentication..."; \
+		bash test/helpers/generate-test-keys.sh; \
+	fi
+	DISABLE_AUTH=$(DISABLE_AUTH) go test ./test/service/ -v -ginkgo.v
 
 .PHONY: lint
 lint: fmt vet golint yamllint helmlint mdlint ## Run linters
@@ -491,6 +495,10 @@ kind-create: ## Create a development kind cluster with CAPI enabled
 .PHONY: kind-expose-cm
 kind-expose-cm: ## Expose the cluster manager service to the host
 	kubectl port-forward svc/cluster-manager 8080:8080 &
+	@if [ "$(DISABLE_AUTH)" = "false" ]; then \
+		kubectl port-forward svc/platform-keycloak 8081:80 -n orch-platform & \
+	fi
+	@sleep 10
 
 docker-load:
 	docker tag ${DOCKER_IMAGE_TEMPLATE_CONTROLLER} ${RS_DOCKER_IMAGE_TEMPLATE_CONTROLLER}
