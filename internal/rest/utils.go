@@ -5,6 +5,7 @@ package rest
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -14,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	intelv1alpha1 "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
@@ -417,4 +419,22 @@ func fetchAllMachinesList(ctx context.Context, s *Server, namespace string) ([]u
 		return nil, err
 	}
 	return unstructuredMachineList.Items, nil
+}
+
+// getPatchData will return difference between original and modified document
+func getPatchData(originalObj, modifiedObj interface{}) ([]byte, error) {
+	originalData, err := json.Marshal(originalObj)
+	if err != nil {
+		return nil, err
+	}
+	modifiedData, err := json.Marshal(modifiedObj)
+	if err != nil {
+		return nil, err
+	}
+
+	patchBytes, err := jsonpatch.CreateMergePatch(originalData, modifiedData)
+	if err != nil {
+		return nil, err
+	}
+	return patchBytes, nil
 }

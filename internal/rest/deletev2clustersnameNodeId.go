@@ -4,11 +4,9 @@ package rest
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 
-	jsonpatch "github.com/evanphx/json-patch/v5"
 	intelProvider "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
@@ -147,22 +145,4 @@ func scaleDownCluster(ctx context.Context, s *Server, capiCluster *capi.Cluster,
 	unstructuredCluster := &unstructured.Unstructured{Object: unstructuredClusterInfo}
 	_, err = s.k8sclient.Resource(core.ClusterResourceSchema).Namespace(capiCluster.Namespace).Update(ctx, unstructuredCluster, v1.UpdateOptions{})
 	return err
-}
-
-// getPatchData will return difference between original and modified document
-func getPatchData(originalObj, modifiedObj interface{}) ([]byte, error) {
-	originalData, err := json.Marshal(originalObj)
-	if err != nil {
-		return nil, err
-	}
-	modifiedData, err := json.Marshal(modifiedObj)
-	if err != nil {
-		return nil, err
-	}
-
-	patchBytes, err := jsonpatch.CreateMergePatch(originalData, modifiedData)
-	if err != nil {
-		return nil, err
-	}
-	return patchBytes, nil
 }
