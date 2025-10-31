@@ -14,7 +14,6 @@ import (
 	"github.com/getkin/kin-openapi/openapi3filter"
 	oapi_middleware "github.com/oapi-codegen/nethttp-middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"k8s.io/client-go/dynamic"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
@@ -48,12 +47,12 @@ type Inventory interface {
 type Server struct {
 	config    *config.Config
 	auth      Authenticator
-	k8sclient dynamic.Interface
+	k8sclient k8s.Client
 	inventory Inventory
 }
 
 // NewServer creates a new Server instance
-func NewServer(k8sclient dynamic.Interface, options ...func(*Server)) *Server {
+func NewServer(k8sclient k8s.Client, options ...func(*Server)) *Server {
 	svr := &Server{
 		config:    &config.Config{},
 		auth:      auth.NewNoopAuthenticator(),
@@ -205,7 +204,7 @@ func GetAuthenticator(cfg *config.Config) (Authenticator, error) {
 	return auth.NewOidcAuthenticator(provider, opa)
 }
 
-func GetInventory(cfg *config.Config, k8sClient *k8s.Client) (Inventory, error) {
+func GetInventory(cfg *config.Config, k8sClient k8s.K8sWrapperClient) (Inventory, error) {
 	if cfg.DisableInventory {
 		slog.Warn("inventory integration is disabled")
 		return inventory.NewNoopInventoryClient(), nil

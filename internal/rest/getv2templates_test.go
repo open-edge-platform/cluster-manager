@@ -154,7 +154,7 @@ func createMockServerTemplates(t *testing.T, templates []v1alpha1.ClusterTemplat
 		nsResource.EXPECT().Namespace(activeProjectId).Return(resource)
 		mockedk8sclient := k8s.NewMockInterface(t)
 		mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource)
-		return NewServer(mockedk8sclient)
+		return NewServer(wrapMockInterface(mockedk8sclient))
 	}
 
 	// Expectation for when no label selector is applied (return all templates)
@@ -176,7 +176,7 @@ func createMockServerTemplates(t *testing.T, templates []v1alpha1.ClusterTemplat
 	mockedk8sclient := k8s.NewMockInterface(t)
 	mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource).Maybe()
 
-	return NewServer(mockedk8sclient)
+	return NewServer(wrapMockInterface(mockedk8sclient))
 }
 
 func filterDefaultTemplates(templates []unstructured.Unstructured) []unstructured.Unstructured {
@@ -615,7 +615,7 @@ func TestGetV2ClustersDefault(t *testing.T) {
 func TestGetV2Templates400(t *testing.T) {
 	t.Run("No Active Project ID", func(t *testing.T) {
 		mockedk8sclient := k8s.NewMockInterface(t)
-		server := NewServer(mockedk8sclient)
+		server := NewServer(wrapMockInterface(mockedk8sclient))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -660,7 +660,7 @@ func TestGetV2Templates500(t *testing.T) {
 		mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource)
 
 		// create a new server with the mocked mockedk8sclient
-		server := NewServer(mockedk8sclient)
+		server := NewServer(wrapMockInterface(mockedk8sclient))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// create a handler with middleware
@@ -729,7 +729,7 @@ func createGetV2TemplatesStubServer(t *testing.T) *Server {
 	mockedk8sclient := k8s.NewMockInterface(t)
 	mockedk8sclient.EXPECT().Resource(core.TemplateResourceSchema).Return(nsResource).Maybe()
 	return &Server{
-		k8sclient: mockedk8sclient,
+		k8sclient: wrapMockInterface(mockedk8sclient),
 	}
 }
 

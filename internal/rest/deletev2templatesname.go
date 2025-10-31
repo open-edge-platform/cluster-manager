@@ -22,7 +22,7 @@ func (s *Server) DeleteV2TemplatesNameVersion(ctx context.Context, request api.D
 
 	templateName := request.Name + "-" + request.Version
 
-	err := s.k8sclient.Resource(core.TemplateResourceSchema).Namespace(activeProjectID).Delete(ctx, templateName, v1.DeleteOptions{})
+	err := s.k8sclient.Dynamic().Resource(core.TemplateResourceSchema).Namespace(activeProjectID).Delete(ctx, templateName, v1.DeleteOptions{})
 	switch {
 	case errors.IsBadRequest(err):
 		message := fmt.Sprintf("Template '%s' is invalid: %v", templateName, err)

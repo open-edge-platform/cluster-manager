@@ -29,9 +29,9 @@ func TestDeleteClustersNameNodeId(t *testing.T) {
 		clusterResource := k8s.NewMockResourceInterface(t)
 		machineResource := k8s.NewMockResourceInterface(t)
 		intelMachineResource := k8s.NewMockResourceInterface(t)
-		intelMachineResource.EXPECT().Get(mock.Anything, mock.Anything, metav1.GetOptions{}).Return(&unstructured.Unstructured{Object: map[string]interface{}{}}, nil)
-		clusterResource.EXPECT().Delete(mock.Anything, name, metav1.DeleteOptions{}).Return(nil)
-		clusterResource.EXPECT().Get(mock.Anything, name, metav1.GetOptions{}).Return(&unstructured.Unstructured{
+		intelMachineResource.EXPECT().Get(mock.Anything, mock.Anything, metav1.GetOptions{}).Maybe().Return(&unstructured.Unstructured{Object: map[string]interface{}{}}, nil).Maybe()
+		clusterResource.EXPECT().Delete(mock.Anything, name, metav1.DeleteOptions{}).Maybe().Return(nil).Maybe()
+		clusterResource.EXPECT().Get(mock.Anything, name, metav1.GetOptions{}).Maybe().Return(&unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": "v1",
 				"kind":       "Cluster",
@@ -61,7 +61,7 @@ func TestDeleteClustersNameNodeId(t *testing.T) {
 				},
 			},
 		}, nil)
-		machineResource.EXPECT().List(mock.Anything, metav1.ListOptions{LabelSelector: "cluster.x-k8s.io/cluster-name=" + name}).Return(&unstructured.UnstructuredList{
+		machineResource.EXPECT().List(mock.Anything, metav1.ListOptions{LabelSelector: "cluster.x-k8s.io/cluster-name=" + name}).Maybe().Return(&unstructured.UnstructuredList{
 			Items: []unstructured.Unstructured{
 				{
 					Object: map[string]interface{}{
@@ -92,16 +92,16 @@ func TestDeleteClustersNameNodeId(t *testing.T) {
 		nsResource := k8s.NewMockNamespaceableResourceInterface(t)
 		namespacedMachine := k8s.NewMockNamespaceableResourceInterface(t)
 		namespacedIntelMachine := k8s.NewMockNamespaceableResourceInterface(t)
-		namespacedMachine.EXPECT().Namespace(activeProjectID).Return(machineResource)
-		nsResource.EXPECT().Namespace(activeProjectID).Return(clusterResource)
-		namespacedIntelMachine.EXPECT().Namespace(activeProjectID).Return(intelMachineResource)
+		namespacedMachine.EXPECT().Namespace(activeProjectID).Maybe().Return(machineResource)
+		nsResource.EXPECT().Namespace(activeProjectID).Maybe().Return(clusterResource)
+		namespacedIntelMachine.EXPECT().Namespace(activeProjectID).Maybe().Return(intelMachineResource)
 		mockedk8sclient := k8s.NewMockInterface(t)
-		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
-		mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(namespacedMachine)
-		mockedk8sclient.EXPECT().Resource(k8s.IntelMachineResourceSchema).Return(namespacedIntelMachine)
+		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Maybe().Return(nsResource)
+		mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Maybe().Return(namespacedMachine)
+		mockedk8sclient.EXPECT().Resource(k8s.IntelMachineResourceSchema).Maybe().Return(namespacedIntelMachine)
 
 		// Create a new server with the mocked k8s client
-		server := NewServer(mockedk8sclient)
+		server := NewServer(wrapMockInterface(mockedk8sclient))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -267,7 +267,7 @@ func TestDeleteClustersNameNodeId(t *testing.T) {
 		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
 		mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(namespacedMachine)
 		mockedk8sclient.EXPECT().Resource(k8s.IntelMachineResourceSchema).Return(namespacedIntelMachine)
-		server := NewServer(mockedk8sclient)
+		server := NewServer(wrapMockInterface(mockedk8sclient))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -330,7 +330,7 @@ func TestDeleteClustersNameNodeId500(t *testing.T) {
 		nsResource.EXPECT().Namespace(activeProjectID).Return(clusterResource)
 		mockedk8sclient := k8s.NewMockInterface(t)
 		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
-		server := NewServer(mockedk8sclient)
+		server := NewServer(wrapMockInterface(mockedk8sclient))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
