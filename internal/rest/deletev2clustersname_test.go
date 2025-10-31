@@ -116,7 +116,7 @@ func TestDeleteV2ClustersName404(t *testing.T) {
 
 		// Check the response
 		assert.Equal(t, http.StatusNotFound, rr.Code)
-		expectedResponse := fmt.Sprintf(`{"message":"cluster %s not found in namespace %s"}`, name, activeProjectID)
+		expectedResponse := fmt.Sprintf(`{"message":"cluster '%s' not found in namespace '%s'"}`, name, activeProjectID)
 		assert.JSONEq(t, expectedResponse, rr.Body.String())
 	})
 }
