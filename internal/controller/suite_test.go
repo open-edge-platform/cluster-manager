@@ -101,7 +101,7 @@ var _ = BeforeSuite(func() {
 			filepath.Join(build.Default.GOPATH, "pkg", "mod", "sigs.k8s.io", "cluster-api@v1.10.7", "controlplane", "kubeadm", "config", "crd", "bases"),
 			filepath.Join(build.Default.GOPATH, "pkg", "mod", "sigs.k8s.io", "cluster-api@v1.10.7", "config", "crd", "bases"),
 			filepath.Join(build.Default.GOPATH, "pkg", "mod", "sigs.k8s.io", "cluster-api", "test@v1.10.7", "infrastructure", "docker", "config", "crd", "bases"),
-			filepath.Join(build.Default.GOPATH, "pkg", "mod", "github.com", "open-edge-platform", "cluster-api-provider-intel@v1.2.4", "config", "crd", "bases"),
+			filepath.Join(build.Default.GOPATH, "pkg", "mod", "github.com", "open-edge-platform", "cluster-api-provider-intel@v1.2.5", "config", "crd", "bases"),
 		},
 		ErrorIfCRDPathMissing: true,
 
