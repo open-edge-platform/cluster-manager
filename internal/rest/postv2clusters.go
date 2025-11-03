@@ -88,7 +88,7 @@ func (s *Server) PostV2Clusters(ctx context.Context, request api.PostV2ClustersR
 
 	// create cluster
 	slog.Debug("creating cluster", "namespace", namespace)
-	createdClusterName, err := s.createCluster(ctx, &s.k8sclient, namespace, clusterName, template, nodes, clusterLabels)
+	createdClusterName, err := s.createCluster(ctx, namespace, clusterName, template, nodes, clusterLabels)
 	if err != nil {
 		slog.Error("failed to create cluster", "namespace", namespace, "name", clusterName, "error", err)
 		return api.PostV2Clusters500JSONResponse{
@@ -133,12 +133,12 @@ func fetchTemplate(ctx context.Context, cli k8s.Client, namespace string, templa
 	return template, nil
 }
 
-func (s *Server) createCluster(ctx context.Context, cli *k8s.Client, namespace, clusterName string, template ct.ClusterTemplate, nodes []api.NodeSpec, labels map[string]string) (string, error) {
+func (s *Server) createCluster(ctx context.Context, namespace, clusterName string, template ct.ClusterTemplate, nodes []api.NodeSpec, labels map[string]string) (string, error) {
 	slog.Debug("creating cluster", "namespace", namespace, "name", clusterName, "nodes", nodes, "labels", labels)
 
 	// Assumes single node cluster for now, so we can use the first node's ID for air-gap installation check
 	// TODO: This will need to change when we support multi-node clusters
-	enableReadOnly, err := s.enableReadOnlyInstall(ctx, cli, namespace, clusterName, nodes[0].Id, template)
+	enableReadOnly, err := s.enableReadOnlyInstall(ctx, namespace, clusterName, nodes[0].Id, template)
 	if err != nil {
 		return "", err
 	}
@@ -214,7 +214,7 @@ func createBindings(ctx context.Context, cli k8s.Client, namespace, clusterName,
 	return nil
 }
 
-func (s *Server) enableReadOnlyInstall(ctx context.Context, cli *k8s.Client, namespace, clusterName, nodeUuid string, template ct.ClusterTemplate) (bool, error) {
+func (s *Server) enableReadOnlyInstall(ctx context.Context, namespace, clusterName, nodeUuid string, template ct.ClusterTemplate) (bool, error) {
 	// Fetch the cluster template
 	clusterTemplate, err := s.k8sclient.GetClusterTemplate(ctx, namespace, template.Name)
 	if err != nil {

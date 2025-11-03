@@ -9,7 +9,6 @@ import (
 
 	intelProvider "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
-	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,8 +47,7 @@ func (s *Server) DeleteV2ClustersNameNodesNodeId(ctx context.Context, request ap
 	if force {
 		// track down the machine binding and remove the finalizer
 		// a cluster object may not exist for it anymore so we want to do this first before erroring out
-		cli := k8s.New(s.k8sclient)
-		intelMachines, err := cli.IntelMachines(ctx, activeProjectID, clusterName)
+		intelMachines, err := s.k8sclient.IntelMachines(ctx, activeProjectID, clusterName)
 		if err != nil {
 			errMsg := "failed to retrieve intel machines"
 			slog.Error(errMsg, "error", err)
@@ -71,7 +69,7 @@ func (s *Server) DeleteV2ClustersNameNodesNodeId(ctx context.Context, request ap
 				slog.Error(errMsg, "error", err)
 				continue
 			}
-			_, err = s.k8sclient.Resource(core.IntelMachineResourceSchema).Namespace(activeProjectID).Patch(ctx, intelMachine.Name, types.MergePatchType, intelMachineBytes, v1.PatchOptions{})
+			_, err = s.k8sclient.Dynamic().Resource(core.IntelMachineResourceSchema).Namespace(activeProjectID).Patch(ctx, intelMachine.Name, types.MergePatchType, intelMachineBytes, v1.PatchOptions{})
 			if err != nil {
 				errMsg := "failed to remove finalizers"
 				slog.Error(errMsg, "error", err)

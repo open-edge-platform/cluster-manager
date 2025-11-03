@@ -136,11 +136,23 @@ func New(opts ...func(*ManagerClient)) *ManagerClient {
 	if client.Dyn == nil {
 		return client
 	}
+
+	// initialize informers now that we have a dynamic client
+	return client.initializeInformers()
+}
+
+// initializeInformers initializes the informers for a client that already has a Dyn client set up
+func (c *ManagerClient) initializeInformers() *ManagerClient {
+	if c.Dyn == nil {
+		slog.Error("cannot initialize informers without dynamic client")
+		return nil
+	}
+
 	// initialize the dynamic informer factory
-	client.Informers = dynamicinformer.NewDynamicSharedInformerFactory(client.Dyn, 10*time.Minute)
+	c.Informers = dynamicinformer.NewDynamicSharedInformerFactory(c.Dyn, 10*time.Minute)
 
 	// start informers (docker machines not in use yet)
-	if err := client.StartInformers(context.Background(), []schema.GroupVersionResource{
+	if err := c.StartInformers(context.Background(), []schema.GroupVersionResource{
 		clusterResourceSchema,
 		templateResourceSchema,
 		bindingsResourceSchema,
@@ -151,7 +163,7 @@ func New(opts ...func(*ManagerClient)) *ManagerClient {
 		return nil
 	}
 
-	return client
+	return c
 }
 
 // Dynamic allows access to the dynamic client for write operations
@@ -169,14 +181,24 @@ func (cli *ManagerClient) StartInformers(ctx context.Context, resources []schema
 	syncFuncs := []cache.InformerSynced{}
 	for _, resource := range resources {
 		slog.Info("starting informer for resource", "resource", resource)
+
+		// Test if the resource exists before starting the informer
+		_, err := cli.Dyn.Resource(resource).List(ctx, metav1.ListOptions{Limit: 1})
+		if err != nil {
+			slog.Warn("resource not available, skipping informer", "resource", resource, "error", err)
+			continue
+		}
+
 		informer := cli.Informers.ForResource(resource).Informer()
 		go informer.Run(ctx.Done())
 		syncFuncs = append(syncFuncs, informer.HasSynced)
 	}
 
 	// wait for all caches to sync
-	if !cache.WaitForCacheSync(ctx.Done(), syncFuncs...) {
-		return fmt.Errorf("failed to sync caches")
+	if len(syncFuncs) > 0 {
+		if !cache.WaitForCacheSync(ctx.Done(), syncFuncs...) {
+			return fmt.Errorf("failed to sync caches")
+		}
 	}
 	slog.Info("informers started and caches synced")
 	return nil
@@ -184,11 +206,17 @@ func (cli *ManagerClient) StartInformers(ctx context.Context, resources []schema
 
 // GetCached retrieves an object from the informer cache or falls back to the API if not found.
 func (cli *ManagerClient) GetCached(ctx context.Context, resourceSchema schema.GroupVersionResource, namespace, name string) (*unstructured.Unstructured, error) {
+	if cli.Informers == nil {
+		slog.Info("informers not initialized, falling back to API", "resource", resourceSchema.Resource)
+		return cli.Dyn.Resource(resourceSchema).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+	}
+
 	informer := cli.Informers.ForResource(resourceSchema).Informer()
 
-	// wait for the cache to sync before accessing it
-	if !cache.WaitForCacheSync(ctx.Done(), informer.HasSynced) {
-		return nil, fmt.Errorf("cache not synced for resource: %v", resourceSchema.Resource)
+	// check if the cache is synced, if not fall back to API
+	if !informer.HasSynced() {
+		slog.Info("cache not synced, falling back to API", "resource", resourceSchema.Resource)
+		return cli.Dyn.Resource(resourceSchema).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 	}
 
 	// attempt to retrieve the object from the cache
@@ -204,16 +232,22 @@ func (cli *ManagerClient) GetCached(ctx context.Context, resourceSchema schema.G
 		slog.Info("cache miss, falling back to API", "key", key)
 		return cli.Dyn.Resource(resourceSchema).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 	}
-
+	slog.Debug("cache hit", "key", key)
 	return obj.(*unstructured.Unstructured), nil
 }
 
 func (cli *ManagerClient) ListCached(ctx context.Context, resourceSchema schema.GroupVersionResource, namespace string, listOptions metav1.ListOptions) (*unstructured.UnstructuredList, error) {
+	if cli.Informers == nil {
+		slog.Info("informers not initialized, falling back to API", "resource", resourceSchema.Resource)
+		return cli.Dyn.Resource(resourceSchema).Namespace(namespace).List(ctx, listOptions)
+	}
+
 	informer := cli.Informers.ForResource(resourceSchema).Informer()
 
-	// Wait for the cache to sync before accessing it
-	if !cache.WaitForCacheSync(ctx.Done(), informer.HasSynced) {
-		return nil, fmt.Errorf("cache not synced for resource: %v", resourceSchema.Resource)
+	// Check if the cache is synced, if not fall back to API
+	if !informer.HasSynced() {
+		slog.Info("cache not synced, falling back to API", "resource", resourceSchema.Resource)
+		return cli.Dyn.Resource(resourceSchema).Namespace(namespace).List(ctx, listOptions)
 	}
 
 	// Attempt to retrieve the objects from the cache
@@ -237,9 +271,6 @@ func (cli *ManagerClient) ListCached(ctx context.Context, resourceSchema schema.
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert label selector: %w", err)
 			}
-			if err != nil {
-				return nil, fmt.Errorf("invalid label selector: %w", err)
-			}
 			if !selector.Matches(k8sLabels.Set(obj.GetLabels())) {
 				continue
 			}
@@ -262,6 +293,7 @@ func (cli *ManagerClient) ListCached(ctx context.Context, resourceSchema schema.
 	unstructuredList := &unstructured.UnstructuredList{
 		Items: filteredObjects,
 	}
+	slog.Debug("cache hit", "resource", resourceSchema.Resource, "namespace", namespace)
 	return unstructuredList, nil
 }
 
@@ -285,15 +317,24 @@ func (c *ManagerClient) WithInClusterConfig() *ManagerClient {
 		slog.Error("failed to create dynamic client", "error", err)
 		return nil
 	}
-	return c
+
+	// initialize informers now that we have a dynamic client
+	return c.initializeInformers()
 }
 
 func (c *ManagerClient) WithFakeClient() *ManagerClient {
 	c.Dyn = fake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(),
 		map[schema.GroupVersionResource]string{
-			{Group: "edge-orchestrator.intel.com", Version: "v1alpha1", Resource: "clustertemplates"}: "ClusterTemplateList",
+			{Group: "edge-orchestrator.intel.com", Version: "v1alpha1", Resource: "clustertemplates"}:         "ClusterTemplateList",
+			{Group: "cluster.x-k8s.io", Version: "v1beta1", Resource: "clusters"}:                             "ClusterList",
+			{Group: "cluster.x-k8s.io", Version: "v1beta1", Resource: "machines"}:                             "MachineList",
+			{Group: "infrastructure.cluster.x-k8s.io", Version: "v1alpha1", Resource: "intelmachinebindings"}: "IntelMachineBindingList",
+			{Group: "infrastructure.cluster.x-k8s.io", Version: "v1alpha1", Resource: "intelmachines"}:        "IntelMachineList",
+			{Group: "infrastructure.cluster.x-k8s.io", Version: "v1beta1", Resource: "dockermachines"}:        "DockerMachineList",
 		})
-	return c
+
+	// initialize informers now that we have a dynamic client
+	return c.initializeInformers()
 }
 
 // CreateNamespace creates a new namespace with the given name
