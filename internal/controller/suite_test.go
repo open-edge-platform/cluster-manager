@@ -4,11 +4,14 @@
 package controller
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"go/build"
+	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -47,6 +50,54 @@ func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	RunSpecs(t, "Controller Suite")
+}
+
+// getModuleVersionFromGoMod parses go.mod to get module version
+func getModuleVersionFromGoMod(modulePath string) string {
+	goModPath := filepath.Join("..", "..", "go.mod")
+	file, err := os.Open(goModPath)
+	if err != nil {
+		panic(fmt.Sprintf("failed to open go.mod: %v", err))
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.Contains(line, modulePath) {
+			fields := strings.Fields(line)
+			if len(fields) >= 2 {
+				// Return the version (last field)
+				return fields[len(fields)-1]
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		panic(fmt.Sprintf("error reading go.mod: %v", err))
+	}
+
+	panic(fmt.Sprintf("module %s not found in go.mod", modulePath))
+}
+
+// buildCRDPaths dynamically builds CRD paths using versions from go.mod
+func buildCRDPaths() []string {
+	capiVersion := getModuleVersionFromGoMod("sigs.k8s.io/cluster-api")
+	intelVersion := getModuleVersionFromGoMod("github.com/open-edge-platform/cluster-api-provider-intel")
+
+	modPath := filepath.Join(build.Default.GOPATH, "pkg", "mod")
+
+	paths := []string{
+		filepath.Join("..", "..", "config", "crd", "bases"),
+		filepath.Join(modPath, "github.com", "rancher", "cluster-api-provider-rke2@v0.20.1", "controlplane", "config", "crd", "bases"),
+		filepath.Join(modPath, "sigs.k8s.io", "cluster-api@"+capiVersion, "controlplane", "kubeadm", "config", "crd", "bases"),
+		filepath.Join(modPath, "sigs.k8s.io", "cluster-api@"+capiVersion, "config", "crd", "bases"),
+		// note: cluster-api/test is a separate module with different path structure
+		filepath.Join(modPath, "sigs.k8s.io", "cluster-api", "test@"+capiVersion, "infrastructure", "docker", "config", "crd", "bases"),
+		filepath.Join(modPath, "github.com", "open-edge-platform", "cluster-api-provider-intel@"+intelVersion, "config", "crd", "bases"),
+	}
+
+	return paths
 }
 
 var _ = BeforeSuite(func() {
@@ -95,14 +146,15 @@ var _ = BeforeSuite(func() {
 	// +kubebuilder:scaffold:scheme
 
 	By("bootstrapping test environment")
+
+	crdPaths := buildCRDPaths()
+	fmt.Fprintf(GinkgoWriter, "CRD paths:\n")
+	for i, path := range crdPaths {
+		fmt.Fprintf(GinkgoWriter, "  [%d] %s\n", i, path)
+	}
+
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "..", "config", "crd", "bases"),
-			filepath.Join(build.Default.GOPATH, "pkg", "mod", "github.com", "rancher", "cluster-api-provider-rke2@v0.20.1", "controlplane", "config", "crd", "bases"),
-			filepath.Join(build.Default.GOPATH, "pkg", "mod", "sigs.k8s.io", "cluster-api@v1.10.7", "controlplane", "kubeadm", "config", "crd", "bases"),
-			filepath.Join(build.Default.GOPATH, "pkg", "mod", "sigs.k8s.io", "cluster-api@v1.10.7", "config", "crd", "bases"),
-			filepath.Join(build.Default.GOPATH, "pkg", "mod", "sigs.k8s.io", "cluster-api", "test@v1.10.7", "infrastructure", "docker", "config", "crd", "bases"),
-			filepath.Join(build.Default.GOPATH, "pkg", "mod", "github.com", "open-edge-platform", "cluster-api-provider-intel@v1.2.5", "config", "crd", "bases"),
-		},
+		CRDDirectoryPaths:     crdPaths,
 		ErrorIfCRDPathMissing: true,
 
 		// The BinaryAssetsDirectory is only required if you want to run the tests directly
