@@ -165,7 +165,7 @@ func generateClusterInfo(name, version string, lifecycleIndicator api.StatusIndi
 		LifecyclePhase:      &api.GenericStatus{Indicator: statusIndicatorPtr(lifecycleIndicator), Message: ptr(lifecycleMessage), Timestamp: ptr(uint64(0))},
 		ControlPlaneReady:   &api.GenericStatus{Indicator: statusIndicatorPtr(lifecycleIndicator), Message: ptr("condition not found"), Timestamp: ptr(uint64(0))},
 		InfrastructureReady: &api.GenericStatus{Indicator: statusIndicatorPtr(lifecycleIndicator), Message: ptr("condition not found"), Timestamp: ptr(uint64(0))},
-		NodeHealth:          &api.GenericStatus{Indicator: statusIndicatorPtr(api.STATUSINDICATIONIDLE), Message: ptr("nodes are healthy"), Timestamp: ptr(uint64(0))},
+		NodeHealth:          &api.GenericStatus{Indicator: statusIndicatorPtr(api.STATUSINDICATIONUNSPECIFIED), Message: ptr("condition not found"), Timestamp: ptr(uint64(0))},
 		NodeQuantity:        ptr(0),
 		ProviderStatus:      &api.GenericStatus{Indicator: statusIndicatorPtr(api.STATUSINDICATIONUNSPECIFIED), Message: ptr("condition not found"), Timestamp: ptr(uint64(0))},
 	}

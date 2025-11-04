@@ -287,24 +287,25 @@ func getNodeHealth(cluster *capi.Cluster, machines []unstructured.Unstructured) 
 		}
 	}
 
+	if len(cluster.Status.Conditions) > 0 {
+		*status.Timestamp = uint64(cluster.Status.Conditions[0].LastTransitionTime.UTC().Unix())
+	} else {
+		*status.Timestamp = 0
+	}
+
 	if totalMachines == 0 {
 		*status.Indicator = api.STATUSINDICATIONUNSPECIFIED
 		*status.Message = "condition not found"
+		*status.Timestamp = 0
 	} else if inProgress {
 		*status.Indicator = api.STATUSINDICATIONINPROGRESS
 		*status.Message = fmt.Sprintf("node(s) health unknown (%v/%v);%s", machinesRunning, totalMachines, messages)
-	} else if allHealthy && totalMachines > 0 && machinesRunning == totalMachines {
+	} else if allHealthy && machinesRunning == totalMachines {
 		*status.Indicator = api.STATUSINDICATIONIDLE
 		*status.Message = "nodes are healthy"
 	} else if noneHealthy {
 		*status.Indicator = api.STATUSINDICATIONERROR
 		*status.Message = fmt.Sprintf("nodes are unhealthy (%v/%v);%s", machinesRunning, totalMachines, machineMessage)
-	}
-
-	if len(cluster.Status.Conditions) > 0 {
-		*status.Timestamp = uint64(cluster.Status.Conditions[0].LastTransitionTime.UTC().Unix())
-	} else {
-		*status.Timestamp = 0
 	}
 
 	return status
