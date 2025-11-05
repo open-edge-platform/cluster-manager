@@ -387,8 +387,8 @@ github.com/onsi/gomega v1.17.0/go.mod h1:HnhC7FXeEQY45zxNK3PPoIUhzk/80Xly9PcubAl
 github.com/onsi/gomega v1.19.0/go.mod h1:LY+I3pBVzYsTBU1AnDwOSxaYi9WoWiqgwooUqq9yPro=
 github.com/onsi/gomega v1.38.2 h1:eZCjf2xjZAqe+LeWvKb5weQ+NcPwX84kqJ0cZNxok2A=
 github.com/onsi/gomega v1.38.2/go.mod h1:W2MJcYxRGV63b418Ai34Ud0hEdTVXq9NW9+Sx6uXf3k=
-github.com/open-edge-platform/cluster-api-provider-intel v1.2.5 h1:OW8HgrlK18bh8cmswkUzpjYB/342069adG0iFLlnIas=
-github.com/open-edge-platform/cluster-api-provider-intel v1.2.5/go.mod h1:Ix3pqvAbazFwwOUHPibXOh7iMtDy5CHgoji6PZ9rVcg=
+github.com/open-edge-platform/cluster-api-provider-intel v1.2.6 h1:7PGTWe81hp+j6hppO9bAcvMITaeJ9Xtkk53stpF7DIA=
+github.com/open-edge-platform/cluster-api-provider-intel v1.2.6/go.mod h1:Ix3pqvAbazFwwOUHPibXOh7iMtDy5CHgoji6PZ9rVcg=
 github.com/open-edge-platform/infra-core/inventory/v2 v2.23.0 h1:fq25w9Ky6gvE5pTtqf/N9DLrfvZRnIzAJB+VzsiFSnA=
 github.com/open-edge-platform/infra-core/inventory/v2 v2.23.0/go.mod h1:mpGYnChj0Z5SNYMy8IpuQ76OVcAmKfO384J7ZI5zxFE=
 github.com/open-edge-platform/orch-library/go v0.5.29 h1:LfOaRcRYXpQdcyHrVwN4wC2l11wbdUnBLkc2P7vrZNY=
