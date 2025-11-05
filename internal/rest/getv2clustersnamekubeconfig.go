@@ -16,7 +16,6 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 
 	"gopkg.in/yaml.v2"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -75,9 +74,7 @@ func (s *Server) getClusterKubeconfig(ctx context.Context, namespace, clusterNam
 	if s.config == nil {
 		return kubeconfigParameters{}, fmt.Errorf("config is nil")
 	}
-
-	unstructuredClusterSecret, err := s.k8sclient.Resource(core.SecretResourceSchema).
-		Namespace(namespace).Get(ctx, fmt.Sprintf("%s-kubeconfig", clusterName), metav1.GetOptions{})
+	unstructuredClusterSecret, err := s.k8sclient.GetCached(ctx, core.SecretResourceSchema, namespace, fmt.Sprintf("%s-kubeconfig", clusterName))
 	if err != nil || unstructuredClusterSecret == nil {
 		return kubeconfigParameters{}, fmt.Errorf("failed to get kubeconfig secret: %w", err)
 	}

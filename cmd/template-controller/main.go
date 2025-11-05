@@ -27,6 +27,7 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/internal/controller"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
 	webhookclusterv1alpha1 "github.com/open-edge-platform/cluster-manager/v2/internal/webhook/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	// +kubebuilder:scaffold:imports
 
@@ -160,6 +161,11 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "5f4b93b4.edge-orchestrator.intel.com",
+		Client: client.Options{
+			Cache: &client.CacheOptions{
+				Unstructured: true,
+			},
+		},
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly

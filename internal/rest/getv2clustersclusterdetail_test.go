@@ -140,7 +140,7 @@ func TestGetV2ClustersClusterDetail200(t *testing.T) {
 		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(clusterNsResource)
 
 		// Create a new server with the mocked k8s client
-		server := NewServer(mockedk8sclient)
+		server := NewServer(wrapMockInterface(mockedk8sclient))
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 		// Create a new request & response recorder
@@ -212,7 +212,7 @@ func TestGetV2ClustersClusterDetail404(t *testing.T) {
 			resource := k8s.NewMockResourceInterface(t)
 			nsResource := k8s.NewMockNamespaceableResourceInterface(t)
 			tt.mockSetup(resource, nsResource, mockedk8sclient)
-			server := NewServer(mockedk8sclient)
+			server := NewServer(wrapMockInterface(mockedk8sclient))
 			require.NotNil(t, server, "NewServer() returned nil, want not nil")
 			// create request and response recorder
 			req := httptest.NewRequest("GET", fmt.Sprintf("/v2/clusters/%s/clusterdetail", tt.nodeId), nil)
@@ -278,7 +278,7 @@ func createGetV2ClusterDetailStubServer(t *testing.T) *Server {
 	mockedk8sclient := k8s.NewMockInterface(t)
 	mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(nsResource).Maybe()
 	return &Server{
-		k8sclient: mockedk8sclient,
+		k8sclient: wrapMockInterface(mockedk8sclient),
 	}
 }
 
