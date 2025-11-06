@@ -89,7 +89,8 @@ func buildCRDPaths() []string {
 
 	paths := []string{
 		filepath.Join("..", "..", "config", "crd", "bases"),
-		filepath.Join(modPath, "github.com", "rancher", "cluster-api-provider-rke2@v0.20.1", "controlplane", "config", "crd", "bases"),
+		// TODO: usage of rke2 in tests to be removed
+		filepath.Join(modPath, "github.com", "rancher", "cluster-api-provider-rke2@v0.21.0", "controlplane", "config", "crd", "bases"),
 		filepath.Join(modPath, "sigs.k8s.io", "cluster-api@"+capiVersion, "controlplane", "kubeadm", "config", "crd", "bases"),
 		filepath.Join(modPath, "sigs.k8s.io", "cluster-api@"+capiVersion, "config", "crd", "bases"),
 		// note: cluster-api/test is a separate module with different path structure
@@ -162,8 +163,14 @@ var _ = BeforeSuite(func() {
 		// default path defined in controller-runtime which is /usr/local/kubebuilder/.
 		// Note that you must have the required binaries setup under the bin directory to perform
 		// the tests directly. When we run make test it will be setup and used automatically.
-		BinaryAssetsDirectory: filepath.Join("..", "..", "bin", "k8s",
-			fmt.Sprintf("1.31.0-%s-%s", runtime.GOOS, runtime.GOARCH)),
+	}
+
+	// Use KUBEBUILDER_ASSETS if set (from make test), otherwise use relative path
+	if binPath := os.Getenv("KUBEBUILDER_ASSETS"); binPath != "" {
+		testEnv.BinaryAssetsDirectory = binPath
+	} else {
+		testEnv.BinaryAssetsDirectory = filepath.Join("..", "..", "bin", "k8s",
+			fmt.Sprintf("1.31.0-%s-%s", runtime.GOOS, runtime.GOARCH))
 	}
 
 	// cfg is defined in this file globally.
