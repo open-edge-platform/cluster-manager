@@ -50,6 +50,14 @@ func processEvents(ctx context.Context, events <-chan Event) {
 	slog.Debug("event sink started")
 
 	for {
+		// check context cancellation with priority before processing events
+		select {
+		case <-ctx.Done():
+			slog.Debug("event sink shutting down due to context cancellation")
+			return
+		default:
+		}
+
 		select {
 		case <-ctx.Done():
 			slog.Debug("event sink shutting down due to context cancellation")
