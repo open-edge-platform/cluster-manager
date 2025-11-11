@@ -18,7 +18,7 @@ import (
 
 // (GET /v2/templates)
 func (s *Server) GetV2Templates(ctx context.Context, request api.GetV2TemplatesRequestObject) (api.GetV2TemplatesResponseObject, error) {
-	slog.Debug("GetV2Templates", "default", *request.Params.Default) // todo
+	slog.Debug("GetV2Templates", "params", request.Params)
 	activeProjectID := request.Params.Activeprojectid.String()
 
 	cli := k8s.New(s.k8sclient)
