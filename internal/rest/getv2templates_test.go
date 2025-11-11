@@ -15,6 +15,7 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -486,6 +487,29 @@ func TestGetV2Templates200(t *testing.T) {
 		require.Equal(t, templateInfo2.Version, (*response.TemplateInfoList)[0].Version, "TemplateInfoList[0].Version = %v, want %v", (*response.TemplateInfoList)[0].Version, templateInfo2.Version)
 		require.Equal(t, templateInfo3.Version, (*response.TemplateInfoList)[1].Version, "TemplateInfoList[0].Version = %v, want %v", (*response.TemplateInfoList)[1].Version, templateInfo3.Version)
 		require.Empty(t, response.DefaultTemplateInfo, "DefaultTemplateInfo should be empty")
+	})
+
+	t.Run("three templates not matching filter", func(t *testing.T) {
+		server := createMockServerTemplates(t, []v1alpha1.ClusterTemplate{template1, template2, template3}, expectedActiveProjectID, nil)
+		require.NotNil(t, server)
+
+		// create request and recorer
+		req := httptest.NewRequest("GET", "/v2/templates?filter=kubernetesVersion=v1.23.0", nil)
+		req.Header.Set("Activeprojectid", expectedActiveProjectID)
+		rec := httptest.NewRecorder()
+
+		// create a handler and serve request
+		handler, err := server.ConfigureHandler()
+		require.Nil(t, err)
+		handler.ServeHTTP(rec, req)
+
+		// parse response
+		var response api.GetV2Templates200JSONResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+
+		// verify response
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Empty(t, response.TotalElements)
 	})
 }
 
