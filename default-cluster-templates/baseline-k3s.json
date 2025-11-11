@@ -1,7 +1,7 @@
 {
   "name": "baseline-k3s",
-  "version": "v0.0.9",
-  "kubernetesVersion": "v1.32.9+k3s1",
+  "version": "v0.0.10",
+  "kubernetesVersion": "v1.33.5+k3s1",
   "description": "Baseline Cluster Template for k3s",
   "controlplaneprovidertype": "k3s",
   "infraprovidertype": "intel",
@@ -73,7 +73,7 @@
                 "servicelb"
               ]
             },
-            "version": "v1.32.9+k3s1"
+            "version": "v1.33.5+k3s1"
           }
         }
       }
