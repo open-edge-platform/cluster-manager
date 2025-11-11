@@ -18,7 +18,7 @@ import (
 
 // (GET /v2/templates)
 func (s *Server) GetV2Templates(ctx context.Context, request api.GetV2TemplatesRequestObject) (api.GetV2TemplatesResponseObject, error) {
-	slog.Debug("GetV2Templates", "params", request.Params)
+	slog.Debug("GetV2Templates", "default", *request.Params.Default) // todo
 	activeProjectID := request.Params.Activeprojectid.String()
 
 	cli := k8s.New(s.k8sclient)
@@ -83,8 +83,8 @@ func getV2TemplatesAll(ctx context.Context, cli *k8s.Client, activeProjectID str
 
 	// convert to the response object
 	var templateInfo []api.TemplateInfo
-	for _, tt := range templates {
-		t, err := template.FromClusterTemplateToTemplateInfo(tt)
+	for _, t := range templates {
+		t, err := template.FromClusterTemplateToTemplateInfo(t)
 		if err != nil {
 			message := fmt.Sprintf("failed to convert template to response object: %v", err)
 			slog.Error(message)
@@ -94,8 +94,7 @@ func getV2TemplatesAll(ctx context.Context, cli *k8s.Client, activeProjectID str
 	}
 
 	if len(templateInfo) == 0 && defaultTemplate == nil {
-		message := "no templates found"
-		slog.Warn(message)
+		slog.Warn("no templates found in namespace", "namespace", activeProjectID)
 		return api.GetV2Templates200JSONResponse{
 			DefaultTemplateInfo: nil,
 			TemplateInfoList:    &[]api.TemplateInfo{},
@@ -108,6 +107,15 @@ func getV2TemplatesAll(ctx context.Context, cli *k8s.Client, activeProjectID str
 		if err != nil {
 			slog.Error("failed to apply filters", "error", err)
 			return nil, err
+		}
+
+		if len(templateInfo) == 0 {
+			slog.Warn("no templates found in namespace with filter", "namespace", activeProjectID, "filter", *filter)
+			return api.GetV2Templates200JSONResponse{
+				DefaultTemplateInfo: nil,
+				TemplateInfoList:    &[]api.TemplateInfo{},
+				TotalElements:       convert.Int32Ptr(0),
+			}, nil
 		}
 	}
 
