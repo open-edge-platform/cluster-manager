@@ -55,7 +55,8 @@
               "mkdir -p /etc/systemd/system/k3s-server.service.d",
               "echo '[Service]\nEnvironmentFile=/etc/environment' > /etc/systemd/system/k3s-server.service.d/override.conf",
               "mkdir -p /var/lib/rancher/k3s/bin",
-              "export INSTALL_K3S_BIN_DIR=/var/lib/rancher/k3s/bin"
+              "export INSTALL_K3S_BIN_DIR=/var/lib/rancher/k3s/bin",
+              "ln -sf /var/lib/rancher/k3s/bin/k3s /usr/local/bin/kubectl"
             ],
             "postK3sCommands": [],
             "serverConfig": {
