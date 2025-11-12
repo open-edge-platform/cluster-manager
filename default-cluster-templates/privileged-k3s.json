@@ -38,6 +38,11 @@
               {
                 "path": "/etc/rancher/k3s/config.yaml.d/etcd-arg.yaml",
                 "content": "etcd-arg:\n- cipher-suites=[TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384]"
+              },
+              {
+                "content": "PATH=\"/var/lib/rancher/k3s/bin:$PATH\"\nKUBECONFIG=\"/etc/rancher/k3s/k3s.yaml\"",
+                "path": "/etc/environment.d/50-k3s.conf",
+                "permissions": "0644"
               }
             ],
             "agentConfig": {
