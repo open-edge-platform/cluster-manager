@@ -1,7 +1,7 @@
 {
   "name": "privileged-k3s",
-  "version": "v0.0.9",
-  "kubernetesVersion": "v1.32.9+k3s1",
+  "version": "v0.0.10",
+  "kubernetesVersion": "v1.33.5+k3s1",
   "description": "Privileged Cluster Template for k3s",
   "controlplaneprovidertype": "k3s",
   "infraprovidertype": "intel",
@@ -38,6 +38,11 @@
               {
                 "path": "/etc/rancher/k3s/config.yaml.d/etcd-arg.yaml",
                 "content": "etcd-arg:\n- cipher-suites=[TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384]"
+              },
+              {
+                "content": "PATH=\"/var/lib/rancher/k3s/bin:$PATH\"\nKUBECONFIG=\"/etc/rancher/k3s/k3s.yaml\"",
+                "path": "/etc/environment.d/50-k3s.conf",
+                "permissions": "0644"
               }
             ],
             "agentConfig": {
@@ -55,7 +60,8 @@
               "mkdir -p /etc/systemd/system/k3s-server.service.d",
               "echo '[Service]\nEnvironmentFile=/etc/environment' > /etc/systemd/system/k3s-server.service.d/override.conf",
               "mkdir -p /var/lib/rancher/k3s/bin",
-              "export INSTALL_K3S_BIN_DIR=/var/lib/rancher/k3s/bin"
+              "export INSTALL_K3S_BIN_DIR=/var/lib/rancher/k3s/bin",
+              "ln -sf /var/lib/rancher/k3s/bin/k3s /usr/local/bin/kubectl"
             ],
             "postK3sCommands": [],
             "serverConfig": {
@@ -73,7 +79,7 @@
                 "servicelb"
               ]
             },
-            "version": "v1.32.9+k3s1"
+            "version": "v1.33.5+k3s1"
           }
         }
       }
