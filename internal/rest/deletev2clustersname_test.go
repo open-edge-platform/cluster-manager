@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
@@ -30,6 +31,7 @@ func TestDeleteV2ClustersName204(t *testing.T) {
 
 		// Mock the delete cluster to succeed
 		resource := k8s.NewMockResourceInterface(t)
+		resource.EXPECT().Get(mock.Anything, name, metav1.GetOptions{}).Return(&unstructured.Unstructured{}, nil)
 		resource.EXPECT().Delete(mock.Anything, name, metav1.DeleteOptions{}).Return(nil)
 		nsResource := k8s.NewMockNamespaceableResourceInterface(t)
 		nsResource.EXPECT().Namespace(activeProjectID).Return(resource)
@@ -93,6 +95,7 @@ func TestDeleteV2ClustersName404(t *testing.T) {
 
 		// Mock the get cluster to succeed and delete cluster to fail
 		resource := k8s.NewMockResourceInterface(t)
+		resource.EXPECT().Get(mock.Anything, name, metav1.GetOptions{}).Return(&unstructured.Unstructured{}, nil)
 		resource.EXPECT().Delete(mock.Anything, name, metav1.DeleteOptions{}).Return(errors.NewNotFound(schema.GroupResource{Group: "core", Resource: "clusters"}, name))
 		nsResource := k8s.NewMockNamespaceableResourceInterface(t)
 		nsResource.EXPECT().Namespace(activeProjectID).Return(resource)
@@ -129,6 +132,7 @@ func TestDeleteV2ClustersName500(t *testing.T) {
 
 		// Mock the get cluster to succeed and delete cluster to fail
 		resource := k8s.NewMockResourceInterface(t)
+		resource.EXPECT().Get(mock.Anything, name, metav1.GetOptions{}).Return(&unstructured.Unstructured{}, nil)
 		resource.EXPECT().Delete(mock.Anything, name, metav1.DeleteOptions{}).Return(fmt.Errorf("delete error"))
 		nsResource := k8s.NewMockNamespaceableResourceInterface(t)
 		nsResource.EXPECT().Namespace(activeProjectID).Return(resource)
@@ -158,6 +162,7 @@ func TestDeleteV2ClustersName500(t *testing.T) {
 
 func createDeleteV2ClustersNameStubServer(t *testing.T) *Server {
 	resource := k8s.NewMockResourceInterface(t)
+	resource.EXPECT().Get(mock.Anything, mock.Anything, metav1.GetOptions{}).Return(&unstructured.Unstructured{}, nil)
 	resource.EXPECT().Delete(mock.Anything, mock.Anything, metav1.DeleteOptions{}).Return(nil).Maybe()
 	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
 	nsResource.EXPECT().Namespace(mock.Anything).Return(resource).Maybe()

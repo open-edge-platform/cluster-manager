@@ -165,6 +165,12 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 				}
 				return resp.StatusCode(), nil
 			}, 30*time.Second, 3*time.Second).Should(Equal(201))
+
+			// Unpause cluster to simulate cluster-agent behaviour
+			patchData := []byte(`{"spec":{"paused":false}}`)
+			cmd := exec.Command("kubectl", "-n", testTenantID.String(), "patch", "cl", clusterName, "--type=merge", "-p", string(patchData))
+			err := cmd.Run()
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("Should return 200 and a list of clusters with one element on /v2/clusters", func() {
@@ -188,7 +194,6 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 					fmt.Printf("unexpected number of clusters: %d\n", resp.JSON200.TotalElements)
 					return false, fmt.Errorf("unexpected number of clusters: %d", resp.JSON200.TotalElements)
 				}
-
 				if *(*resp.JSON200.Clusters)[0].NodeQuantity != 1 {
 					return false, fmt.Errorf("unexpected number of nodes: %d", *(*resp.JSON200.Clusters)[0].NodeQuantity)
 				}

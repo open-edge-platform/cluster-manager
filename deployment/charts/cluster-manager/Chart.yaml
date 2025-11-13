@@ -19,5 +19,5 @@ type: application
 version: 2.2.4
 appVersion: 2.2.4
 annotations:
-  revision: ba0ca8920f3cdecf780d3bf2e73d1960a3d36bb5
-  created: "2025-10-22T14:43:03Z"
+  revision: d31fd4cf40a5420ed2f7a7a9adb86380a0768362
+  created: "2025-11-11T08:32:56Z"

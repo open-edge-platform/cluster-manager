@@ -56,6 +56,7 @@ func TestPostV2Clusters201(t *testing.T) {
 				},
 			},
 			Spec: capi.ClusterSpec{
+				Paused: true,
 				ClusterNetwork: &capi.ClusterNetwork{
 					Pods: &capi.NetworkRanges{
 						CIDRBlocks: []string{"10.0.0.0/16"},
@@ -196,6 +197,7 @@ func TestPostV2Clusters201(t *testing.T) {
 				},
 			},
 			Spec: capi.ClusterSpec{
+				Paused: true,
 				ClusterNetwork: &capi.ClusterNetwork{
 					Pods: &capi.NetworkRanges{
 						CIDRBlocks: []string{"10.0.0.0/16"},
@@ -360,6 +362,7 @@ func TestPostV2Clusters201K3sAirGap(t *testing.T) {
 				},
 			},
 			Spec: capi.ClusterSpec{
+				Paused: true,
 				ClusterNetwork: &capi.ClusterNetwork{
 					Pods: &capi.NetworkRanges{
 						CIDRBlocks: []string{"10.0.0.0/16"},
@@ -851,6 +854,7 @@ func TestPostV2Clusters500(t *testing.T) {
 				},
 			},
 			Spec: capi.ClusterSpec{
+				Paused: true,
 				ClusterNetwork: &capi.ClusterNetwork{
 					Pods: &capi.NetworkRanges{
 						CIDRBlocks: []string{"10.0.0.0/16"},

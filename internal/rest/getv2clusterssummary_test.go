@@ -83,13 +83,39 @@ var clusterStatusUnknown = capi.ClusterStatus{
 
 func createMockServer(t *testing.T, clusters []capi.Cluster, projectID string, options ...bool) *rest.Server {
 	unstructuredClusters := make([]unstructured.Unstructured, len(clusters))
+	unstructuredMachines := make([]unstructured.Unstructured, len(clusters))
 	for i, cluster := range clusters {
 		unstructuredCluster, err := convert.ToUnstructured(cluster)
 		require.NoError(t, err, "convertClusterToUnstructured() error = %v, want nil")
 		unstructuredClusters[i] = *unstructuredCluster
+
+		machine := capi.Machine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: cluster.Name,
+				Labels: map[string]string{
+					"cluster.x-k8s.io/cluster-name": cluster.Name,
+				},
+			},
+			Spec: capi.MachineSpec{ClusterName: cluster.Name},
+			Status: capi.MachineStatus{
+				Phase: "Running",
+				Conditions: []capi.Condition{
+					{Type: "HealthCheckSucceed", Status: "True"},
+					{Type: "InfrastructureReady", Status: "True"},
+					{Type: "NodeHealthy", Status: "True"},
+				},
+			},
+		}
+
+		unstructuredMachine, err := convert.ToUnstructured(machine)
+		require.NoError(t, err, "convertClusterToUnstructured() error = %v, want nil")
+		unstructuredMachines[i] = *unstructuredMachine
 	}
 	unstructuredClusterList := &unstructured.UnstructuredList{
 		Items: unstructuredClusters,
+	}
+	unstructuredMachineList := &unstructured.UnstructuredList{
+		Items: unstructuredMachines,
 	}
 	// default is to set up k8s client and machineResource mocks
 	setupK8sMocks := true
@@ -101,18 +127,6 @@ func createMockServer(t *testing.T, clusters []capi.Cluster, projectID string, o
 	var mockedk8sclient *k8s.MockInterface
 	mockedk8sclient = k8s.NewMockInterface(t)
 	if setupK8sMocks {
-		machine := capi.Machine{
-			Status: capi.MachineStatus{
-				Phase: "Running",
-				Conditions: []capi.Condition{
-					{Type: "HealthCheckSucceed", Status: "True"},
-					{Type: "InfrastructureReady", Status: "True"},
-					{Type: "NodeHealthy", Status: "True"},
-				},
-			},
-		}
-		unstructuredMachine, err := convert.ToUnstructured(machine)
-		require.NoError(t, err, "convertMachineToUnstructured() error = %v, want nil")
 		resource := k8s.NewMockResourceInterface(t)
 		resource.EXPECT().List(mock.Anything, metav1.ListOptions{}).Return(unstructuredClusterList, nil)
 		nsResource := k8s.NewMockNamespaceableResourceInterface(t)
@@ -120,12 +134,11 @@ func createMockServer(t *testing.T, clusters []capi.Cluster, projectID string, o
 		mockedk8sclient = k8s.NewMockInterface(t)
 		mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource)
 		if mockMachineResource {
-			for _, cluster := range clusters {
-				resource.EXPECT().List(mock.Anything, metav1.ListOptions{
-					LabelSelector: "cluster.x-k8s.io/cluster-name=" + cluster.Name,
-				}).Return(&unstructured.UnstructuredList{Items: []unstructured.Unstructured{*unstructuredMachine}}, nil).Maybe()
-			}
-			mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(nsResource).Maybe()
+			machineResource := k8s.NewMockResourceInterface(t)
+			machineResource.EXPECT().List(mock.Anything, metav1.ListOptions{}).Return(unstructuredMachineList, nil)
+			nsMachineResource := k8s.NewMockNamespaceableResourceInterface(t)
+			nsMachineResource.EXPECT().Namespace(projectID).Return(machineResource)
+			mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(nsMachineResource).Maybe()
 		}
 	}
 	return rest.NewServer(mockedk8sclient)
@@ -142,7 +155,7 @@ func generateClusterWithStatus(name, version *string, status capi.ClusterStatus)
 	}
 	return capi.Cluster{
 		ObjectMeta: metav1.ObjectMeta{Name: clusterName},
-		Spec:       capi.ClusterSpec{Topology: &capi.Topology{Version: clusterVersion}},
+		Spec:       capi.ClusterSpec{Paused: false, Topology: &capi.Topology{Version: clusterVersion}},
 		Status:     status,
 	}
 }
