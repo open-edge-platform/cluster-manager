@@ -1130,6 +1130,9 @@ func createPostV2ClustersStubServer(t *testing.T) *Server {
 	// Create a mock resource interface for clustertemplates
 	templateResource := k8s.NewMockResourceInterface(t)
 	templateResource.EXPECT().Get(mock.Anything, mock.Anything, metav1.GetOptions{}).Return(&unstructured.Unstructured{Object: unstructuredTemplate}, nil).Maybe()
+	// Add support for List() calls when fetching default templates
+	emptyTemplateList := &unstructured.UnstructuredList{Items: []unstructured.Unstructured{}}
+	templateResource.EXPECT().List(mock.Anything, mock.Anything).Return(emptyTemplateList, nil).Maybe()
 
 	// Create a mock namespaceable resource interface for clustertemplates
 	nsTemplateResource := k8s.NewMockNamespaceableResourceInterface(t)

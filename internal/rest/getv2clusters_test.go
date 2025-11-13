@@ -915,8 +915,20 @@ func createGetV2ClustersStubServer(t *testing.T) *Server {
 	resource.EXPECT().List(mock.Anything, metav1.ListOptions{}).Return(unstructuredClusterList, nil).Maybe()
 	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
 	nsResource.EXPECT().Namespace(mock.Anything).Return(resource).Maybe()
+
+	// Add mock for machines resource to support fetchAllMachinesList
+	unstructuredMachines := make([]unstructured.Unstructured, 0)
+	unstructuredMachineList := &unstructured.UnstructuredList{
+		Items: unstructuredMachines,
+	}
+	machineResource := k8s.NewMockResourceInterface(t)
+	machineResource.EXPECT().List(mock.Anything, mock.Anything).Return(unstructuredMachineList, nil).Maybe()
+	nsMachineResource := k8s.NewMockNamespaceableResourceInterface(t)
+	nsMachineResource.EXPECT().Namespace(mock.Anything).Return(machineResource).Maybe()
+
 	mockedk8sclient := k8s.NewMockInterface(t)
 	mockedk8sclient.EXPECT().Resource(core.ClusterResourceSchema).Return(nsResource).Maybe()
+	mockedk8sclient.EXPECT().Resource(core.MachineResourceSchema).Return(nsMachineResource).Maybe()
 	return &Server{
 		k8sclient: mockedk8sclient,
 	}

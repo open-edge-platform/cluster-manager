@@ -77,7 +77,7 @@ clusterManager:
     disable-multi-tenancy: false
     disable-inventory: false
     disable-metrics: true
-    default-template: "baseline-k3s-v0.0.9"
+    default-template: "baseline-k3s-v0.0.10"
     # TTL in hours for JWT tokens in generated kubeconfig files
     # 0 = immediate expiration (disables kubeconfig)
     # Actual TTL can be limited by Keycloak's realm-level max token lifetime settings
