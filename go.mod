@@ -17,9 +17,9 @@ require (
 	github.com/oapi-codegen/runtime v1.1.2
 	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/onsi/gomega v1.38.2
-	github.com/open-edge-platform/cluster-api-provider-intel v1.2.6
-	github.com/open-edge-platform/infra-core/inventory/v2 v2.31.1
-	github.com/open-edge-platform/orch-library/go v0.6.1
+	github.com/open-edge-platform/cluster-api-provider-intel v1.2.8
+	github.com/open-edge-platform/infra-core/inventory/v2 v2.32.0
+	github.com/open-edge-platform/orch-library/go v0.6.2
 	github.com/open-edge-platform/orch-utils/tenancy-datamodel v1.2.2
 	github.com/rancher/cluster-api-provider-rke2 v0.21.0
 	github.com/stretchr/testify v1.11.1
@@ -116,7 +116,7 @@ require (
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.1.0 // indirect
-	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.1 // indirect
+	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.3 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.2 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
@@ -153,7 +153,7 @@ require (
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/open-edge-platform/orch-library/go/dazl v0.5.4 // indirect
-	github.com/open-policy-agent/opa v1.9.0 // indirect
+	github.com/open-policy-agent/opa v1.10.1 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
