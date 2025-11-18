@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-package rest_test
+package rest
 
 import (
 	"net/http"
@@ -8,13 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/open-edge-platform/cluster-manager/v2/internal/rest"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPutV2ClustersNameTemplate(t *testing.T) {
 	// create a server with nil k8s client
-	server := rest.NewServer(nil)
+	server := NewServer(nil)
 	require.NotNil(t, server, "NewServer() returned nil, want not nil")
 
 	// call the PutV2ClustersNameTemplate method

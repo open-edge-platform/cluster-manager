@@ -8,6 +8,9 @@ issues:
   exclude-rules:
     - path: _test\.go$
       text: Exclude all test files
+    - path: internal/rest/test_utils\.go$
+      linters:
+        - unused
 
 run:
   timeout: 5m
