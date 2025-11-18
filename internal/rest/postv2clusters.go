@@ -186,6 +186,7 @@ func (s *Server) createCluster(ctx context.Context, cli *k8s.Client, namespace, 
 				},
 				Variables: variables,
 			},
+			Paused: true,
 		},
 	}
 
