@@ -151,10 +151,10 @@ func TestIsImmutable(t *testing.T) {
 		return mockClient, nil
 	}
 
-	immutableHost := &computev1.HostResource{Instance: &computev1.InstanceResource{DesiredOs: &osv1.OperatingSystemResource{OsType: osv1.OsType_OS_TYPE_IMMUTABLE}}}
-	mutableHost := &computev1.HostResource{Instance: &computev1.InstanceResource{DesiredOs: &osv1.OperatingSystemResource{OsType: osv1.OsType_OS_TYPE_MUTABLE}}}
+	immutableHost := &computev1.HostResource{Instance: &computev1.InstanceResource{Os: &osv1.OperatingSystemResource{OsType: osv1.OsType_OS_TYPE_IMMUTABLE}}}
+	mutableHost := &computev1.HostResource{Instance: &computev1.InstanceResource{Os: &osv1.OperatingSystemResource{OsType: osv1.OsType_OS_TYPE_MUTABLE}}}
 	nilInstance := &computev1.HostResource{Instance: nil}
-	desiredOsNil := &computev1.HostResource{Instance: &computev1.InstanceResource{DesiredOs: nil}}
+	osNil := &computev1.HostResource{Instance: &computev1.InstanceResource{Os: nil}}
 
 	cases := []struct {
 		name        string
@@ -203,12 +203,12 @@ func TestIsImmutable(t *testing.T) {
 			expectedErr: errors.New("host instance is nil"),
 		},
 		{
-			name: "desired OS nil",
+			name: "os nil",
 			mock: func() {
-				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(desiredOsNil, nil).Once()
+				mockClient.EXPECT().GetHostByUUID(mock.Anything, mock.Anything, mock.Anything).Return(osNil, nil).Once()
 			},
 			expectedVal: false,
-			expectedErr: errors.New("host instance desired os is nil"),
+			expectedErr: errors.New("host instance os is nil"),
 		},
 		{
 			name: "error fetching host",
