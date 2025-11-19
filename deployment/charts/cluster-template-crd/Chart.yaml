@@ -6,8 +6,8 @@ apiVersion: v2
 name: cluster-template-crd
 description: A Helm chart for the ClusterTemplate CRD
 type: application
-version: 2.2.5-dev
-appVersion: 2.2.5-dev
+version: 2.2.5
+appVersion: 2.2.5
 annotations:
-  revision: 34cd5c5097171cc078d9b19b4d67b50c81f975c7
-  created: "2025-11-14T14:34:54Z"
+  revision: 238b6da916f645b72e15c397fb2b60f1ec52497a
+  created: "2025-11-19T13:14:49Z"
