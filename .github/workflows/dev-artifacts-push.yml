@@ -12,7 +12,8 @@ on:
 env:
   VERSION_SUFFIX: -test
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   dev-artifacts-push:
