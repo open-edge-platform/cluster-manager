@@ -229,6 +229,14 @@ func TestPostV2Clusters201(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      expectedBindingName,
 				Namespace: expectedActiveProjectID,
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: capi.GroupVersion.String(),
+						Kind:       "Cluster",
+						Name:       expectedClusterName,
+						UID:        "",
+					},
+				},
 			},
 			Spec: intelv1alpha1.IntelMachineBindingSpec{
 				NodeGUID:                 expectedNodeid,
@@ -283,6 +291,7 @@ func TestPostV2Clusters201(t *testing.T) {
 		// Create a mock resource interface for clusters
 		clusterResource := k8s.NewMockResourceInterface(t)
 		clusterResource.EXPECT().Create(mock.Anything, &unstructured.Unstructured{Object: unstructuredCluster}, metav1.CreateOptions{}).Return(&unstructured.Unstructured{Object: unstructuredCluster}, nil)
+		clusterResource.EXPECT().Get(mock.Anything, expectedClusterName, metav1.GetOptions{}).Return(&unstructured.Unstructured{Object: unstructuredCluster}, nil)
 
 		// Create a mock resource interface for bindings
 		bindingResource := k8s.NewMockResourceInterface(t)
@@ -886,6 +895,14 @@ func TestPostV2Clusters500(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      expectedBindingName,
 				Namespace: expectedActiveProjectID,
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: capi.GroupVersion.String(),
+						Kind:       "Cluster",
+						Name:       expectedClusterName,
+						UID:        "",
+					},
+				},
 			},
 			Spec: intelv1alpha1.IntelMachineBindingSpec{
 				NodeGUID:                 expectedNodeid,
@@ -940,6 +957,7 @@ func TestPostV2Clusters500(t *testing.T) {
 		// Create a mock resource interface for clusters
 		clusterResource := k8s.NewMockResourceInterface(t)
 		clusterResource.EXPECT().Create(mock.Anything, &unstructured.Unstructured{Object: unstructuredCluster}, metav1.CreateOptions{}).Return(&unstructured.Unstructured{Object: unstructuredCluster}, nil)
+		clusterResource.EXPECT().Get(mock.Anything, expectedClusterName, metav1.GetOptions{}).Return(&unstructured.Unstructured{Object: unstructuredCluster}, nil)
 
 		// Create a mock resource interface for bindings
 		bindingResource := k8s.NewMockResourceInterface(t)

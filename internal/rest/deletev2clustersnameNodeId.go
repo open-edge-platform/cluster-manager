@@ -106,7 +106,12 @@ func (s *Server) DeleteV2ClustersNameNodesNodeId(ctx context.Context, request ap
 }
 
 func deleteCluster(ctx context.Context, s *Server, activeProjectID, clusterName string, options v1.DeleteOptions) error {
-	err := s.k8sclient.Resource(core.ClusterResourceSchema).Namespace(activeProjectID).Delete(ctx, clusterName, options)
+	err := s.unpauseClusterIfPaused(ctx, activeProjectID, clusterName)
+	if err != nil {
+		return fmt.Errorf("failed to unpause cluster before deletion")
+	}
+
+	err = s.k8sclient.Resource(core.ClusterResourceSchema).Namespace(activeProjectID).Delete(ctx, clusterName, options)
 	if errors.IsNotFound(err) {
 		return fmt.Errorf("cluster %s not found in namespace %s", clusterName, activeProjectID)
 	}
