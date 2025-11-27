@@ -11,7 +11,10 @@ on:
       - main
       - release-*
   workflow_dispatch:
-permissions: {}
+
+permissions:
+  contents: read
+
 jobs:
   post-merge:
     permissions:

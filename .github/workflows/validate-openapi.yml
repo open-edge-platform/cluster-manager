@@ -10,7 +10,8 @@ on:
     paths:
       - 'api/openapi/openapi.yaml'
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   check-generate:
