@@ -11,9 +11,9 @@ import (
 
 	controlplaneprovider "github.com/open-edge-platform/cluster-manager/v2/internal/providers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	intelv1alpha1 "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
 	ct "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
@@ -198,6 +198,11 @@ func (s *Server) createCluster(ctx context.Context, cli *k8s.Client, namespace, 
 }
 
 func createBindings(ctx context.Context, cli *k8s.Client, namespace, clusterName, templateName string, nodes []api.NodeSpec) error {
+	cluster, err := cli.GetCluster(ctx, namespace, clusterName)
+	if err != nil {
+		return err
+	}
+
 	for _, nodes := range nodes {
 		binding := intelv1alpha1.IntelMachineBinding{
 			TypeMeta: v1.TypeMeta{
@@ -213,6 +218,12 @@ func createBindings(ctx context.Context, cli *k8s.Client, namespace, clusterName
 				ClusterName:              clusterName,
 				IntelMachineTemplateName: fmt.Sprintf("%s-controlplane", templateName),
 			},
+		}
+
+		// Set owner reference to the cluster for garbage collection
+		err = controllerutil.SetOwnerReference(cluster, &binding, cli.Scheme)
+		if err != nil {
+			return err
 		}
 
 		err := cli.CreateMachineBinding(ctx, namespace, binding)

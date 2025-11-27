@@ -174,7 +174,7 @@ func getClusterLifecyclePhase(cluster *capi.Cluster) (*api.GenericStatus, []erro
 	*status.Timestamp = uint64(cluster.Status.Conditions[0].LastTransitionTime.UTC().Unix())
 
 	if cluster.Spec.Paused {
-		*status.Indicator = api.STATUSINDICATIONIDLE
+		*status.Indicator = api.STATUSINDICATIONUNSPECIFIED
 		*status.Message = "waiting for nodes"
 		return &status, errorReasons
 	}

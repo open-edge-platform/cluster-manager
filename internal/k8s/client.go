@@ -16,6 +16,7 @@ import (
 
 	backoff "github.com/cenkalti/backoff/v4"
 	intelProvider "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
+	intelv1alpha1 "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
 	v1alpha1 "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
@@ -87,7 +88,8 @@ var (
 )
 
 type Client struct {
-	Dyn dynamic.Interface
+	Dyn    dynamic.Interface
+	Scheme *runtime.Scheme
 }
 
 func New(dyn ...dynamic.Interface) *Client {
@@ -95,7 +97,16 @@ func New(dyn ...dynamic.Interface) *Client {
 	if len(dyn) > 0 {
 		d = dyn[0]
 	}
-	return &Client{Dyn: d}
+
+	scheme := runtime.NewScheme()
+	if err := intelv1alpha1.AddToScheme(scheme); err != nil {
+		slog.Error("failed to add intelv1alpha1 scheme", "error", err)
+	}
+	if err := capi.AddToScheme(scheme); err != nil {
+		slog.Error("failed to add capi scheme", "error", err)
+	}
+
+	return &Client{Dyn: d, Scheme: scheme}
 }
 
 func (c *Client) WithInClusterConfig() *Client {
