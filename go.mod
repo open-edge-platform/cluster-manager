@@ -17,7 +17,7 @@ require (
 	github.com/oapi-codegen/runtime v1.1.2
 	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/onsi/gomega v1.38.2
-	github.com/open-edge-platform/cluster-api-provider-intel v1.2.8
+	github.com/open-edge-platform/cluster-api-provider-intel v1.3.2
 	github.com/open-edge-platform/infra-core/inventory/v2 v2.33.2
 	github.com/open-edge-platform/orch-library/go v0.6.2
 	github.com/open-edge-platform/orch-utils/tenancy-datamodel v1.2.2
@@ -26,8 +26,8 @@ require (
 	go.uber.org/mock v0.6.0
 	google.golang.org/protobuf v1.36.10
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.34.1
-	k8s.io/apimachinery v0.34.1
+	k8s.io/api v0.34.2
+	k8s.io/apimachinery v0.34.2
 	k8s.io/client-go v0.34.1
 	k8s.io/kubectl v0.34.1
 	sigs.k8s.io/cluster-api v1.10.7
