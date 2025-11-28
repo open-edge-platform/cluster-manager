@@ -12,6 +12,9 @@ on:
       - release-*
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   integration-smoke-test:
     permissions:
@@ -27,7 +30,7 @@ jobs:
           repository: open-edge-platform/orch-ci
           path: ci
           ref: "main"
-          token: ${{ secrets.SYS_ORCH_GITHUB }}
+          token: ${{ secrets.SYS_EMF_GH_TOKEN || github.token }}
           persist-credentials: false
 
       - name: Checkout cluster-tests for integration tests
@@ -36,13 +39,13 @@ jobs:
           repository: open-edge-platform/cluster-tests
           path: cluster-tests
           ref: "main"
-          token: ${{ secrets.SYS_ORCH_GITHUB }}
+          token: ${{ secrets.SYS_EMF_GH_TOKEN || github.token }}
           persist-credentials: false
 
       - name: Bootstrap CI environment
         uses: ./ci/.github/actions/bootstrap
         with:
-          gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
+          gh_token: ${{ secrets.SYS_EMF_GH_TOKEN || github.token }}
 
       - name: Run make test with additional config
         env:
