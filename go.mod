@@ -21,7 +21,7 @@ require (
 	github.com/open-edge-platform/infra-core/inventory/v2 v2.33.3
 	github.com/open-edge-platform/orch-library/go v0.6.3
 	github.com/open-edge-platform/orch-utils/tenancy-datamodel v1.2.2
-	github.com/rancher/cluster-api-provider-rke2 v0.21.0
+	github.com/rancher/cluster-api-provider-rke2 v0.21.1
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.6.0
 	google.golang.org/protobuf v1.36.10
@@ -30,8 +30,8 @@ require (
 	k8s.io/apimachinery v0.34.2
 	k8s.io/client-go v0.34.2
 	k8s.io/kubectl v0.34.2
-	sigs.k8s.io/cluster-api v1.10.7
-	sigs.k8s.io/cluster-api/test v1.10.7
+	sigs.k8s.io/cluster-api v1.11.3
+	sigs.k8s.io/cluster-api/test v1.11.3
 	sigs.k8s.io/controller-runtime v0.22.4
 )
 
@@ -58,7 +58,6 @@ require (
 	github.com/woodsbury/decimal128 v1.3.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	k8s.io/cluster-bootstrap v0.32.3 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 )
