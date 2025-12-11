@@ -34,23 +34,24 @@ data:
         }
 
         # Admin API endpoints for client management (used by TTL enforcement)
-        # Get specific client by UUID
-        location ~ ^/admin/realms/master/clients/[a-f0-9\-]+$ {
-            add_header Content-Type application/json;
-            return 200 '{"id":"mock-client-uuid","clientId":"test-client","enabled":true,"attributes":{"access.token.lifespan":"10800"}}';
-        }
+        # Order matters in nginx - most specific first!
         
         # List clients by clientId query parameter
-        location ~ ^/admin/realms/master/clients$ {
+        location = /admin/realms/master/clients {
             add_header Content-Type application/json;
             return 200 '[{"id":"mock-client-uuid","clientId":"test-client","enabled":true,"attributes":{"access.token.lifespan":"10800"}}]';
         }
         
-        # Update client (PUT)
-        location ~ ^/admin/realms/master/clients/.+$ {
+        # Get/Update specific client by UUID
+        location ~ ^/admin/realms/master/clients/[a-z0-9\-]+$ {
+            add_header Content-Type application/json;
+            if ($request_method = GET) {
+                return 200 '{"id":"mock-client-uuid","clientId":"test-client","enabled":true,"attributes":{"access.token.lifespan":"10800"}}';
+            }
             if ($request_method = PUT) {
                 return 204;
             }
+            return 405;
         }
     }
   # Placeholder JWK - will be replaced by init container
