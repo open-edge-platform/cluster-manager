@@ -32,6 +32,12 @@ data:
             add_header Content-Type application/json;
             alias /etc/keycloak-jwk/jwks.json;
         }
+
+        # Admin API endpoint for client management (used by TTL enforcement)
+        location ~ ^/admin/realms/master/clients {
+            add_header Content-Type application/json;
+            return 200 '[{"id":"mock-client-id","clientId":"test-client","enabled":true,"attributes":{"access.token.lifespan":"10800"}}]';
+        }
     }
   # Placeholder JWK - will be replaced by init container
   jwks.json: |
