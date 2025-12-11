@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 	"github.com/open-edge-platform/cluster-manager/v2/test/helpers"
 )
@@ -57,6 +58,10 @@ var _ = BeforeSuite(func() {
 			_, err := getTokenFromClusterKeycloak()
 			return err
 		}, 60*time.Second, 5*time.Second).Should(Succeed())
+
+		// Set up mock Vault credentials to bypass Vault lookups in kubeconfig generation
+		fmt.Println("Setting up mock Vault M2M credentials")
+		auth.SetCachedM2MCredentials("test-client", "test-secret")
 	}
 
 	// create the namespace for the tenant
@@ -291,11 +296,12 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 		It("Should return 200 and download kubeconfig successfully", func() {
 			// create a mock kubeconfig secret for the cluster
 			secretName := fmt.Sprintf("%s-kubeconfig", clusterName)
+			// Use simple placeholder data (not real certificates) - following pattern from getv2clustersnamekubeconfig_test.go
 			mockKubeconfig := `apiVersion: v1
 kind: Config
 clusters:
 - cluster:
-    certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJWekNCL3FBREFnRUNBZ0VBTUFvR0NDcUdTTTQ5QkFNQ01DTXhJVEFmQmdOVkJBTU1HR3N6Y3kxelpYSjIKWlhJdFkyRkFNVGN6TlRJek5UVXpNekFlRncweU5EQXhNRFV4TmpBeE56TmFGdzB6TkRBeE1ESXhOakF4TnpOYQpNQ014SVRBZkJnTlZCQU1NR0dzemN5MXpaWEoyWlhJdFkyRkFNVGN6TlRJek5UVXpNekJaTUJNR0J5cUdTTTQ5CkFnRUdDQ3FHU000OUF3RUhBMElBQkhXRlhXSmxoS3cvK3ovRGFveUI3VDczN0NhZXhtR0xrU0tiY3lyVDBaMmEKelF0S0t0Ync5V1ZtdEhONGtZbWlSVWgvdGRjYjZmbGRxL0MweDc4eENLcWpJekFoTUE0R0ExVWREd0VCL3dRRQpBd0lDcERBUEJnTlZIUk1CQWY4RUJUQURBUUgvTUFvR0NDcUdTTTQ5QkFNQ0EwY0FNRVFDSUZIdmc5QzBkZU5ICnlCMDFTSUp2aTB1Tkx0MW9YVDJscCtncllNckkyY0x5QWlCOWxGNWg5Ty9nSUpQU0VWOC9SYlFHZG9yU0tkVWcKdXRQNTdkY09aWTV2RUE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+    certificate-authority-data: test-ca-data
     server: https://test-cluster-control-plane:6443
   name: test-cluster
 contexts:
@@ -307,9 +313,8 @@ current-context: test-cluster-admin@test-cluster
 users:
 - name: test-cluster-admin
   user:
-    # NOTE: Client certificate and key data to be generated dynamically at test runtime
-    client-certificate-data: <PLACEHOLDER-GENERATE-AT-RUNTIME>
-    client-key-data: <PLACEHOLDER-GENERATE-AT-RUNTIME>`
+    client-certificate-data: test-client-cert
+    client-key-data: test-client-key`
 
 			// Delete the secret if it exists (from previous test runs)
 			deleteSecretCmd := exec.Command("kubectl", "delete", "secret", secretName,
