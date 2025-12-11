@@ -527,6 +527,11 @@ helm-install: docker-build docker-load helm-build ## Install helm charts to the 
 			printf '}}' >> /tmp/cm-patch.json; \
 			kubectl patch configmap mock-keycloak-config -n orch-platform --patch-file /tmp/cm-patch.json; \
 			rm /tmp/cm-patch.json; \
+			echo "Generating M2M token for mock Keycloak..."; \
+			M2M_TOKEN=$$(go run test/cmd/generate-m2m-token/main.go); \
+			kubectl get configmap mock-keycloak-config -n orch-platform -o yaml | \
+				sed "s|dummy-token-replaced-by-test|$$M2M_TOKEN|g" | \
+				kubectl apply -f -; \
 			kubectl rollout restart deployment/platform-keycloak -n orch-platform; \
 			kubectl wait --for=condition=available --timeout=60s deployment/platform-keycloak -n orch-platform; \
 			echo "Mock Keycloak ConfigMap updated successfully"; \
