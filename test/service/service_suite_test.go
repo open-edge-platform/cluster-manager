@@ -295,12 +295,13 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 			// create a mock kubeconfig secret for the cluster
 			secretName := fmt.Sprintf("%s-kubeconfig", clusterName)
 			// Use simple placeholder data (not real certificates) - following pattern from getv2clustersnamekubeconfig_test.go
-			mockKubeconfig := `apiVersion: v1
+			// Server URL must include /kubernetes/{namespace}-{clustername} for connect-gateway format
+			mockKubeconfig := fmt.Sprintf(`apiVersion: v1
 kind: Config
 clusters:
 - cluster:
     certificate-authority-data: test-ca-data
-    server: https://test-cluster-control-plane:6443
+    server: http://edge-connect-gateway-cluster-connect-gateway.orch-cluster.svc:8080/kubernetes/%s-%s
   name: test-cluster
 contexts:
 - context:
@@ -312,7 +313,7 @@ users:
 - name: test-cluster-admin
   user:
     client-certificate-data: test-client-cert
-    client-key-data: test-client-key`
+    client-key-data: test-client-key`, testTenantID.String(), clusterName)
 
 			// Delete the secret if it exists (from previous test runs)
 			deleteSecretCmd := exec.Command("kubectl", "delete", "secret", secretName,
