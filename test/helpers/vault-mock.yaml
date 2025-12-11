@@ -1,0 +1,119 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+# Mock Vault service for service tests
+# Returns test M2M credentials when cluster-manager tries to authenticate
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: orch-platform
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-mock-response
+  namespace: orch-platform
+data:
+  login-response.json: |
+    {
+      "auth": {
+        "client_token": "mock-vault-token",
+        "accessor": "mock-accessor",
+        "policies": ["default"],
+        "lease_duration": 3600
+      }
+    }
+  credentials-response.json: |
+    {
+      "data": {
+        "data": {
+          "client_id": "test-client",
+          "client_secret": "test-secret"
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vault-mock
+  namespace: orch-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vault-mock
+  template:
+    metadata:
+      labels:
+        app: vault-mock
+    spec:
+      containers:
+      - name: mock-server
+        image: python:3.11-slim
+        command:
+          - python3
+          - -c
+          - |
+            from http.server import HTTPServer, BaseHTTPRequestHandler
+            import json
+            
+            login_response = {
+              "auth": {
+                "client_token": "mock-vault-token",
+                "accessor": "mock-accessor",
+                "policies": ["default"],
+                "lease_duration": 3600
+              }
+            }
+            
+            credentials_response = {
+              "data": {
+                "data": {
+                  "client_id": "test-client",
+                  "client_secret": "test-secret"
+                }
+              }
+            }
+            
+            class MockVaultHandler(BaseHTTPRequestHandler):
+                def do_POST(self):
+                    if self.path == "/v1/auth/kubernetes/login":
+                        self.send_response(200)
+                        self.send_header('Content-type', 'application/json')
+                        self.end_headers()
+                        self.wfile.write(json.dumps(login_response).encode())
+                    else:
+                        self.send_error(404)
+                
+                def do_GET(self):
+                    # Handle GET requests for credentials
+                    if "/v1/kv/data/" in self.path or "/v1/secret/data/" in self.path:
+                        self.send_response(200)
+                        self.send_header('Content-type', 'application/json')
+                        self.end_headers()
+                        self.wfile.write(json.dumps(credentials_response).encode())
+                    else:
+                        self.send_error(404)
+                
+                def log_message(self, format, *args):
+                    print(f"[Vault Mock] {format % args}")
+            
+            print("Starting mock Vault server on port 8200...")
+            server = HTTPServer(('0.0.0.0', 8200), MockVaultHandler)
+            server.serve_forever()
+        ports:
+        - containerPort: 8200
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault
+  namespace: orch-platform
+spec:
+  selector:
+    app: vault-mock
+  ports:
+  - port: 8200
+    targetPort: 8200

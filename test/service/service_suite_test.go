@@ -20,7 +20,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 	"github.com/open-edge-platform/cluster-manager/v2/test/helpers"
 )
@@ -59,9 +58,8 @@ var _ = BeforeSuite(func() {
 			return err
 		}, 60*time.Second, 5*time.Second).Should(Succeed())
 
-		// Set up mock Vault credentials to bypass Vault lookups in kubeconfig generation
-		fmt.Println("Setting up mock Vault M2M credentials")
-		auth.SetCachedM2MCredentials("test-client", "test-secret")
+		// Mock Vault is deployed in orch-platform namespace via Makefile
+		fmt.Println("Mock Vault deployed - cluster-manager will use it for M2M credentials")
 	}
 
 	// create the namespace for the tenant

@@ -513,10 +513,13 @@ docker-load:
 
 helm-install: docker-build docker-load helm-build ## Install helm charts to the K8s cluster specified in ~/.kube/config.
 	@if [ "$(DISABLE_AUTH)" = "false" ]; then \
-		echo "setting up mock keycloak"; \
+		echo "setting up mock keycloak and vault"; \
 		kubectl apply -f test/helpers/keycloak-mock.yaml; \
+		kubectl apply -f test/helpers/vault-mock.yaml; \
 		echo "waiting for keycloak mock to be ready"; \
 		kubectl wait --for=condition=available --timeout=60s deployment/platform-keycloak -n orch-platform; \
+		echo "waiting for vault mock to be ready"; \
+		kubectl wait --for=condition=available --timeout=60s deployment/vault-mock -n orch-platform; \
 		if [ -f /tmp/cluster-manager-test-keys/test-jwk.json ]; then \
 			echo "Updating mock Keycloak ConfigMap with generated test keys..."; \
 			printf '{"data":{"jwks.json":' > /tmp/cm-patch.json; \
