@@ -264,24 +264,15 @@ data:
 
     chmod +x /tmp/handle_request.sh
 
-    # Run HTTP server using nc
-    # try with -e flag first (some busybox builds have it), fall back to FIFO method
+    # Run HTTP server - use socat (installed by init container)
     echo "Mock Keycloak token server listening on port $PORT"
-    if nc -h 2>&1 | grep -q '\-e'; then
-        # nc supports -e flag - use with -k for persistent connections
-        while true; do
-            nc -lk -p $PORT -e /tmp/handle_request.sh || true
-            sleep 0.1
-        done
+    
+    if command -v socat > /dev/null 2>&1; then
+        echo "Using socat for HTTP server"
+        socat TCP-LISTEN:$PORT,fork,reuseaddr EXEC:/tmp/handle_request.sh
     else
-        # nc doesn't support -e, use FIFO
-        FIFO=/tmp/nc_fifo
-        while true; do
-            rm -f $FIFO
-            mkfifo $FIFO
-            nc -l -p $PORT < $FIFO | /tmp/handle_request.sh > $FIFO 2>&1 || true
-            sleep 0.1
-        done
+        echo "ERROR: socat not found in PATH"
+        exit 1
     fi
 ---
 apiVersion: v1
@@ -321,6 +312,28 @@ spec:
     spec:
       # to generate RSA keys at pod startup
       initContainers:
+      # install socat for HTTP server (ephemeral root init container - only installs packages)
+      - name: install-socat
+        image: alpine:3.21
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            apk add --no-cache socat
+            cp /usr/bin/socat /shared-bin/socat
+            chmod 755 /shared-bin/socat
+        volumeMounts:
+        - name: shared-bin
+          mountPath: /shared-bin
+        securityContext:
+          runAsUser: 0
+          runAsNonRoot: false
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop:
+            - ALL
       - name: keygen
         image: alpine/openssl:3.5.4
         command: ["/bin/sh", "/scripts/generate-keys.sh"]
@@ -343,6 +356,9 @@ spec:
       - name: token-server
         image: alpine/openssl:3.5.4
         command: ["/bin/sh", "/scripts/token-server.sh"]
+        env:
+        - name: PATH
+          value: "/shared-bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
         ports:
         - containerPort: 8082
         volumeMounts:
@@ -350,6 +366,8 @@ spec:
           mountPath: /scripts
         - name: shared-keys
           mountPath: /shared
+        - name: shared-bin
+          mountPath: /shared-bin
         securityContext:
           runAsNonRoot: true
           runAsUser: 65534
@@ -409,6 +427,8 @@ spec:
       - name: shared-keys
         emptyDir:
           medium: Memory  # store in RAM for extra security
+      - name: shared-bin
+        emptyDir: {}
       - name: nginx-tmp
         emptyDir: {}
       - name: nginx-run
