@@ -171,19 +171,12 @@ func requestRemoteJWT(exp time.Time, roles []string) string {
 }
 
 func createLocalTestJWT(exp time.Time, roles []string) (string, error) {
-	privateKey, err := GetTestPrivateKey()
-	kid := ""
-	if err == nil {
-		kid, err = GetTestKeyID()
-	}
-
+	// Generate ephemeral RSA key for local JWT signing
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		privateKey, err = rsa.GenerateKey(rand.Reader, 2048)
-		if err != nil {
-			return "", fmt.Errorf("failed to generate fallback private key: %w", err)
-		}
-		kid = fmt.Sprintf("local-test-%d", time.Now().UnixNano())
+		return "", fmt.Errorf("failed to generate private key: %w", err)
 	}
+	kid := fmt.Sprintf("local-test-%d", time.Now().UnixNano())
 
 	if len(roles) == 0 {
 		roles = []string{"default-role"}

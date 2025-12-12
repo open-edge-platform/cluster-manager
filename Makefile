@@ -12,8 +12,6 @@ VERSION            ?= $(shell cat VERSION | tr -d '[:space:]')
 GIT_HASH_SHORT     ?= $(shell git rev-parse --short=8 HEAD)
 VERSION_DEV_SUFFIX := ${GIT_HASH_SHORT}
 CLUSTERCTL_VERSION ?= v1.10.7
-KUBEADM_VERSION    ?= v1.9.0
-RKE2_VERSION       ?= v0.12.0
 K3s_VERSION        ?= v0.3.0
 DOCKER_INFRA_VERSION   ?= v1.10.7
 CLUSTERCTL := $(shell command -v clusterctl 2> /dev/null)
@@ -151,16 +149,10 @@ vet: ## Run go vet against code.
 test: ## Run unit tests.
 	make test-unit
 
-.PHONY: generate-test-keys
-generate-test-keys: ## DEPRECATED: Keys now generated in-pod via init container
-	@echo "Note: Test keys are now generated automatically by init container in keycloak-mock.yaml"
-	@echo "No host-side key generation needed"
-
 .PHONY: run-service-test
 run-service-test: clusterctl ## Run service tests.
 	make kind-create
-	DISABLE_AUTH=false make helm-install
-	DISABLE_AUTH=false make kind-expose-cm
+	make helm-install
 	make test-service
 
 .PHONY: mocks
@@ -186,7 +178,8 @@ test-unit: envtest gocov
 # - CERT_MANAGER_INSTALL_SKIP=true
 .PHONY: test-service
 test-service: ## Run the e2e tests. Expected an isolated environment using Kind.
-	DISABLE_AUTH=$(DISABLE_AUTH) go test ./test/service/ -v -ginkgo.v
+	DISABLE_AUTH=$(DISABLE_AUTH) make kind-expose-cm
+	DISABLE_AUTH=$(DISABLE_AUTH) go test ./test/service/ -v -ginkgo.v -timeout 5m
 
 .PHONY: lint
 lint: fmt vet golint yamllint helmlint mdlint ## Run linters
@@ -491,7 +484,7 @@ kind-create: ## Create a development kind cluster with CAPI enabled
 	echo "Creating a Kind cluster with CAPI enabled..."
 	kind create cluster --name $(KIND_CLUSTER) --config $(KIND_CONFIG)
 	@make setup-clusterctl-config	
-	CLUSTER_TOPOLOGY=true clusterctl init --core cluster-api:${CLUSTERCTL_VERSION} --bootstrap kubeadm:${KUBEADM_VERSION},rke2:${RKE2_VERSION},k3s:${K3s_VERSION} --control-plane kubeadm:${KUBEADM_VERSION},rke2:${RKE2_VERSION},k3s:${K3s_VERSION} --infrastructure docker:${DOCKER_INFRA_VERSION}
+	CLUSTER_TOPOLOGY=true clusterctl init --core cluster-api:${CLUSTERCTL_VERSION} --bootstrap k3s:${K3s_VERSION} --control-plane k3s:${K3s_VERSION} --infrastructure docker:${DOCKER_INFRA_VERSION}
 
 .PHONY: kind-expose-cm
 kind-expose-cm: ## Expose the cluster manager service to the host

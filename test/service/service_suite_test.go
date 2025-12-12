@@ -277,6 +277,9 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 		})
 
 		It("Should return 404 when downloading kubeconfig for non-existent cluster", func() {
+			if os.Getenv("DISABLE_AUTH") == "true" {
+				Skip("kubeconfig download requires auth for M2M token generation")
+			}
 			params := api.GetV2ClustersNameKubeconfigsParams{}
 			params.Activeprojectid = testTenantID
 
@@ -288,6 +291,9 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 		})
 
 		It("Should return 200 and download kubeconfig successfully", func() {
+			if os.Getenv("DISABLE_AUTH") == "true" {
+				Skip("kubeconfig download requires auth for M2M token generation")
+			}
 			// create a mock kubeconfig secret for the cluster
 			secretName := fmt.Sprintf("%s-kubeconfig", clusterName)
 			// Use simple placeholder data (not real certificates) - following pattern from getv2clustersnamekubeconfig_test.go
