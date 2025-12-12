@@ -80,7 +80,7 @@ data:
 
     # Generate JWK from private key
     # Extract modulus (n) and exponent (e) directly from private key
-    MODULUS=$(openssl rsa -in "$PRIVATE_KEY" -noout -modulus | cut -d= -f2 | xxd -r -p | base64 -w 0 | tr '+/' '-_' | tr -d '=')
+    MODULUS=$(openssl rsa -in "$PRIVATE_KEY" -noout -modulus | cut -d= -f2 | xxd -r -p | base64 | tr -d '\n' | tr '+/' '-_' | tr -d '=')
     EXPONENT=$(echo "AQAB") # RSA exponent is always 65537 = AQAB in base64
 
     # Create JWK JSON
@@ -265,11 +265,24 @@ data:
     chmod +x /tmp/handle_request.sh
 
     # Run HTTP server using nc
+    # try with -e flag first (some busybox builds have it), fall back to FIFO method
     echo "Mock Keycloak token server listening on port $PORT"
-    while true; do
-        # Use -lk for persistent server to handle multiple connections
-        nc -lk -p $PORT -e /tmp/handle_request.sh
-    done
+    if nc -h 2>&1 | grep -q '\-e'; then
+        # nc supports -e flag - use with -k for persistent connections
+        while true; do
+            nc -lk -p $PORT -e /tmp/handle_request.sh || true
+            sleep 0.1
+        done
+    else
+        # nc doesn't support -e, use FIFO
+        FIFO=/tmp/nc_fifo
+        while true; do
+            rm -f $FIFO
+            mkfifo $FIFO
+            nc -l -p $PORT < $FIFO | /tmp/handle_request.sh > $FIFO 2>&1 || true
+            sleep 0.1
+        done
+    fi
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -350,8 +363,10 @@ spec:
           httpGet:
             path: /health
             port: 8082
-          initialDelaySeconds: 10
-          periodSeconds: 5
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
 
       # main container: nginx reverse proxy
       - name: mock-keycloak
