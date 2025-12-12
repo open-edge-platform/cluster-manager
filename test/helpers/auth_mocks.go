@@ -4,10 +4,15 @@ package helpers
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -116,79 +121,103 @@ func (m *MockKeycloakServer) handleTokenRequest(w http.ResponseWriter, r *http.R
 }
 
 func (m *MockKeycloakServer) generateMockJWT(ttl time.Duration) string {
-	now := time.Now()
-	exp := now.Add(ttl)
-
-	claims := jwt.MapClaims{
-		"iss":                "http://platform-keycloak.orch-platform.svc/realms/master",
-		"azp":                "test-client",
-		"preferred_username": "test-user",
-		"exp":                exp.Unix(),
-		"iat":                now.Unix(),
-		"realm_access": map[string]interface{}{
-			"roles": m.UserRoles,
-		},
+	exp := time.Now().Add(ttl)
+	token, err := createLocalTestJWT(exp, m.UserRoles)
+	if err == nil {
+		return token
 	}
 
-	// Get the dynamically generated test private key
-	privateKey, err := GetTestPrivateKey()
-	if err != nil {
-		panic(fmt.Sprintf("failed to get test private key: %v", err))
-	}
-
-	// Get the dynamically generated key ID
-	keyID, err := GetTestKeyID()
-	if err != nil {
-		panic(fmt.Sprintf("failed to get test key ID: %v", err))
-	}
-
-	// Sign with PS512 (RSA-PSS with SHA-512)
-	token := jwt.NewWithClaims(jwt.SigningMethodPS512, claims)
-	token.Header["kid"] = keyID
-
-	tokenString, err := token.SignedString(privateKey)
-	if err != nil {
-		panic(fmt.Sprintf("failed to sign token: %v", err))
-	}
-
-	return tokenString
-} // Helper functions for testing
+	return requestRemoteJWT(exp, m.UserRoles)
+}
 
 // CreateTestJWT creates a JWT token for testing with specified expiration and roles
 func CreateTestJWT(exp time.Time, roles []string) string {
+	if os.Getenv("USE_REMOTE_TOKEN_SERVER") != "1" {
+		if token, err := createLocalTestJWT(exp, roles); err == nil {
+			return token
+		}
+	}
+
+	return requestRemoteJWT(exp, roles)
+}
+
+func requestRemoteJWT(exp time.Time, roles []string) string {
+	rolesParam := url.QueryEscape(strings.Join(roles, ","))
+	expUnix := exp.Unix()
+
+	tokenURL := "http://localhost:8081/realms/master/protocol/openid-connect/token"
+	body := fmt.Sprintf("grant_type=client_credentials&username=test-user&roles=%s&exp=%d", rolesParam, expUnix)
+
+	resp, err := http.Post(tokenURL, "application/x-www-form-urlencoded", strings.NewReader(body))
+	if err != nil {
+		panic(fmt.Sprintf("failed to get token from mock keycloak: %v", err))
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		panic(fmt.Sprintf("token endpoint returned %d: %s", resp.StatusCode, string(bodyBytes)))
+	}
+
+	var tokenResp struct {
+		AccessToken string `json:"access_token"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+		panic(fmt.Sprintf("failed to decode token response: %v", err))
+	}
+
+	return tokenResp.AccessToken
+}
+
+func createLocalTestJWT(exp time.Time, roles []string) (string, error) {
+	privateKey, err := GetTestPrivateKey()
+	kid := ""
+	if err == nil {
+		kid, err = GetTestKeyID()
+	}
+
+	if err != nil {
+		privateKey, err = rsa.GenerateKey(rand.Reader, 2048)
+		if err != nil {
+			return "", fmt.Errorf("failed to generate fallback private key: %w", err)
+		}
+		kid = fmt.Sprintf("local-test-%d", time.Now().UnixNano())
+	}
+
+	if len(roles) == 0 {
+		roles = []string{"default-role"}
+	}
+
+	now := time.Now().Unix()
 	claims := jwt.MapClaims{
 		"iss":                "http://platform-keycloak.orch-platform.svc/realms/master",
 		"azp":                "test-client",
-		"preferred_username": "test-user",
+		"sub":                "test-client",
+		"preferred_username": "service-account-test-client",
 		"exp":                exp.Unix(),
-		"iat":                time.Now().Unix(),
+		"iat":                now,
 		"realm_access": map[string]interface{}{
 			"roles": roles,
 		},
+		"resource_access": map[string]interface{}{
+			"realm-management": map[string]interface{}{
+				"roles": []string{"view-clients", "manage-clients"},
+			},
+		},
 	}
 
-	// Get the dynamically generated test private key
-	privateKey, err := GetTestPrivateKey()
-	if err != nil {
-		panic(fmt.Sprintf("failed to get test private key: %v", err))
-	}
-
-	// Get the dynamically generated key ID
-	keyID, err := GetTestKeyID()
-	if err != nil {
-		panic(fmt.Sprintf("failed to get test key ID: %v", err))
-	}
-
-	// Sign with PS512 (RSA-PSS with SHA-512)
 	token := jwt.NewWithClaims(jwt.SigningMethodPS512, claims)
-	token.Header["kid"] = keyID
-
-	tokenString, err := token.SignedString(privateKey)
-	if err != nil {
-		panic(fmt.Sprintf("failed to sign token: %v", err))
+	if kid != "" {
+		token.Header["kid"] = kid
 	}
 
-	return tokenString
+	signed, err := token.SignedString(privateKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign JWT: %w", err)
+	}
+
+	return signed, nil
 }
 
 // ExtractTokenTTL extracts the TTL from a JWT token for testing

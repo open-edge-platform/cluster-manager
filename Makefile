@@ -152,20 +152,15 @@ test: ## Run unit tests.
 	make test-unit
 
 .PHONY: generate-test-keys
-generate-test-keys: ## Generate test keys for JWT authentication
-	@if [ "$(DISABLE_AUTH)" = "false" ]; then \
-		echo "Generating test keys for JWT authentication..."; \
-		bash test/helpers/generate-test-keys.sh; \
-	else \
-		echo "skipping test key generation (DISABLE_AUTH=true)"; \
-	fi
+generate-test-keys: ## DEPRECATED: Keys now generated in-pod via init container
+	@echo "Note: Test keys are now generated automatically by init container in keycloak-mock.yaml"
+	@echo "No host-side key generation needed"
 
 .PHONY: run-service-test
 run-service-test: clusterctl ## Run service tests.
 	make kind-create
-	make generate-test-keys
-	make helm-install
-	make kind-expose-cm
+	DISABLE_AUTH=false make helm-install
+	DISABLE_AUTH=false make kind-expose-cm
 	make test-service
 
 .PHONY: mocks
@@ -190,7 +185,7 @@ test-unit: envtest gocov
 # - PROMETHEUS_INSTALL_SKIP=true
 # - CERT_MANAGER_INSTALL_SKIP=true
 .PHONY: test-service
-test-service: generate-test-keys ## Run the e2e tests. Expected an isolated environment using Kind.
+test-service: ## Run the e2e tests. Expected an isolated environment using Kind.
 	DISABLE_AUTH=$(DISABLE_AUTH) go test ./test/service/ -v -ginkgo.v
 
 .PHONY: lint
@@ -513,31 +508,16 @@ docker-load:
 
 helm-install: docker-build docker-load helm-build ## Install helm charts to the K8s cluster specified in ~/.kube/config.
 	@if [ "$(DISABLE_AUTH)" = "false" ]; then \
-		echo "setting up mock keycloak and vault"; \
+		echo "Setting up mock keycloak and vault BEFORE cluster-manager deployment"; \
 		kubectl apply -f test/helpers/keycloak-mock.yaml; \
 		kubectl apply -f test/helpers/vault-mock.yaml; \
-		echo "waiting for keycloak mock to be ready"; \
-		kubectl wait --for=condition=available --timeout=60s deployment/platform-keycloak -n orch-platform; \
-		echo "waiting for vault mock to be ready"; \
+		echo "Waiting for keycloak pod to be fully ready (init container must complete first)"; \
+		kubectl wait --for=condition=ready --timeout=120s pod -l app=platform-keycloak -n orch-platform; \
+		echo "Waiting for vault mock to be ready"; \
 		kubectl wait --for=condition=available --timeout=60s deployment/vault-mock -n orch-platform; \
-		if [ -f /tmp/cluster-manager-test-keys/test-jwk.json ]; then \
-			echo "Updating mock Keycloak ConfigMap with generated test keys..."; \
-			printf '{"data":{"jwks.json":' > /tmp/cm-patch.json; \
-			cat /tmp/cluster-manager-test-keys/test-jwk.json | jq -c . | jq -R . >> /tmp/cm-patch.json; \
-			printf '}}' >> /tmp/cm-patch.json; \
-			kubectl patch configmap mock-keycloak-config -n orch-platform --patch-file /tmp/cm-patch.json; \
-			rm /tmp/cm-patch.json; \
-			echo "Generating M2M token for mock Keycloak..."; \
-			M2M_TOKEN=$$(go run test/cmd/generate-m2m-token/main.go); \
-			kubectl get configmap mock-keycloak-config -n orch-platform -o yaml | \
-				sed "s|dummy-token-replaced-by-test|$$M2M_TOKEN|g" | \
-				kubectl apply -f -; \
-			kubectl rollout restart deployment/platform-keycloak -n orch-platform; \
-			kubectl wait --for=condition=available --timeout=60s deployment/platform-keycloak -n orch-platform; \
-			echo "Mock Keycloak ConfigMap updated successfully"; \
-		else \
-			echo "Warning: Test JWK not found, using static keys from keycloak-mock.yaml"; \
-		fi; \
+		echo "Verifying JWKS endpoint is accessible"; \
+		kubectl run jwks-test --image=curlimages/curl --rm -i --restart=Never --command -- curl -fsw "status: %{http_code} - " -o /dev/null  http://platform-keycloak.orch-platform.svc/realms/master/protocol/openid-connect/certs || true; \
+		echo "Mock services ready with fresh keys - cluster-manager can now fetch correct JWKS"; \
 	fi
 	helm upgrade --install --wait --debug cluster-template-crd $(BUILD_DIR)/cluster-template-crd-${HELM_VERSION}.tgz --set args.loglevel=DEBUG
 	helm upgrade --install --wait --debug cluster-manager $(BUILD_DIR)/cluster-manager-${HELM_VERSION}.tgz --set clusterManager.extraArgs.disable-multi-tenancy=${DISABLE_MT} --set clusterManager.extraArgs.disable-auth=${DISABLE_AUTH} --set clusterManager.extraArgs.disable-inventory=${DISABLE_INV} --set clusterManager.extraArgs.disable-metrics=${DISABLE_METRICS} 

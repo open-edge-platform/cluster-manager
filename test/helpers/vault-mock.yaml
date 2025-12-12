@@ -51,60 +51,41 @@ spec:
     spec:
       containers:
       - name: mock-server
-        image: python:3.11-slim
+        image: busybox:1.37
+        volumeMounts:
+        - name: vault-mock-data
+          mountPath: /etc/vault-mock
         command:
-          - python3
+          - /bin/sh
           - -c
           - |
-            from http.server import HTTPServer, BaseHTTPRequestHandler
-            import json
-            
-            login_response = {
-              "auth": {
-                "client_token": "mock-vault-token",
-                "accessor": "mock-accessor",
-                "policies": ["default"],
-                "lease_duration": 3600
-              }
-            }
-            
-            credentials_response = {
-              "data": {
-                "data": {
-                  "client_id": "test-client",
-                  "client_secret": "test-secret"
-                }
-              }
-            }
-            
-            class MockVaultHandler(BaseHTTPRequestHandler):
-                def do_POST(self):
-                    if self.path == "/v1/auth/kubernetes/login":
-                        self.send_response(200)
-                        self.send_header('Content-type', 'application/json')
-                        self.end_headers()
-                        self.wfile.write(json.dumps(login_response).encode())
-                    else:
-                        self.send_error(404)
-                
-                def do_GET(self):
-                    # Handle GET requests for credentials
-                    if "/v1/kv/data/" in self.path or "/v1/secret/data/" in self.path:
-                        self.send_response(200)
-                        self.send_header('Content-type', 'application/json')
-                        self.end_headers()
-                        self.wfile.write(json.dumps(credentials_response).encode())
-                    else:
-                        self.send_error(404)
-                
-                def log_message(self, format, *args):
-                    print(f"[Vault Mock] {format % args}")
-            
-            print("Starting mock Vault server on port 8200...")
-            server = HTTPServer(('0.0.0.0', 8200), MockVaultHandler)
-            server.serve_forever()
+            rm -f /tmp/pipe
+            mkfifo /tmp/pipe
+            echo "Starting mock Vault server on port 8200..."
+            while true; do
+              cat /tmp/pipe | nc -l -p 8200 | (
+                read request_line
+                echo "[Vault Mock] $request_line"
+                if echo "$request_line" | grep -q "POST /v1/auth/kubernetes/login"; then
+                   echo -ne "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n" > /tmp/pipe
+                   cat /etc/vault-mock/login-response.json >> /tmp/pipe
+                elif echo "$request_line" | grep -q "GET /v1/kv/data/"; then
+                   echo -ne "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n" > /tmp/pipe
+                   cat /etc/vault-mock/credentials-response.json >> /tmp/pipe
+                elif echo "$request_line" | grep -q "GET /v1/secret/data/"; then
+                   echo -ne "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n" > /tmp/pipe
+                   cat /etc/vault-mock/credentials-response.json >> /tmp/pipe
+                else
+                   echo -ne "HTTP/1.1 404 Not Found\r\n\r\n" > /tmp/pipe
+                fi
+              )
+            done
         ports:
         - containerPort: 8200
+      volumes:
+      - name: vault-mock-data
+        configMap:
+          name: vault-mock-response
 ---
 apiVersion: v1
 kind: Service

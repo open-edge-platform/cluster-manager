@@ -1,5 +1,8 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+#
+# mock Keycloak with init container for key generation
+# keys are stored in ephemeral emptyDir volume (never touch host filesystem)
 ---
 apiVersion: v1
 kind: Namespace
@@ -24,13 +27,19 @@ data:
         }
 
         location /realms/master/protocol/openid-connect/token {
-            add_header Content-Type application/json;
-            return 200 '{"access_token": "dummy-token-replaced-by-test", "token_type": "Bearer", "expires_in": 3600}';
+            # Proxy to token server that generates real JWT tokens dynamically
+            proxy_pass http://localhost:8082/token;
+            proxy_set_header Content-Type application/x-www-form-urlencoded;
+            proxy_set_header Host $host;
+        }
+
+        location /health {
+            proxy_pass http://localhost:8082/health;
         }
 
         location /realms/master/protocol/openid-connect/certs {
             add_header Content-Type application/json;
-            alias /etc/keycloak-jwk/jwks.json;
+            alias /shared/jwks.json;
         }
 
         # Admin API endpoints for client management (used by TTL enforcement)
@@ -54,9 +63,213 @@ data:
             return 405;
         }
     }
-  # Placeholder JWK - will be replaced by init container
-  jwks.json: |
-    {"keys":[{"kty":"RSA","kid":"test-key-2024","use":"sig","alg":"PS512","n":"placeholder","e":"AQAB"}]}
+  # generat RSA keys and JWK
+  generate-keys.sh: |
+    #!/bin/sh
+    set -e
+    
+    KEY_DIR="/shared"
+    PRIVATE_KEY="$KEY_DIR/test_private_key.pem"
+    JWK_FILE="$KEY_DIR/jwks.json"
+    KEY_ID="test-key-$(date +%s)"
+    
+    echo "Generating RSA key pair for JWT signing..."
+    
+    # Generate 2048-bit RSA private key (faster for testing)
+    openssl genpkey -algorithm RSA -out "$PRIVATE_KEY" -pkeyopt rsa_keygen_bits:2048
+    
+    # Generate JWK from private key
+    # Extract modulus (n) and exponent (e) directly from private key
+    MODULUS=$(openssl rsa -in "$PRIVATE_KEY" -noout -modulus | cut -d= -f2 | xxd -r -p | base64 -w 0 | tr '+/' '-_' | tr -d '=')
+    EXPONENT=$(echo "AQAB") # RSA exponent is always 65537 = AQAB in base64
+    
+    # Create JWK JSON
+    cat > "$JWK_FILE" <<EOF
+    {
+      "keys": [
+        {
+          "kty": "RSA",
+          "kid": "$KEY_ID",
+          "use": "sig",
+          "alg": "PS512",
+          "n": "$MODULUS",
+          "e": "$EXPONENT"
+        }
+      ]
+    }
+    EOF
+    
+    echo "$KEY_ID" > "$KEY_DIR/key_id.txt"
+    echo "Keys generated with key ID: $KEY_ID"
+  
+  # generate JWTs dynamically
+  token-server.sh: |
+    #!/bin/sh
+    set -e
+    
+    PRIVATE_KEY_PATH="/shared/test_private_key.pem"
+    KEY_ID_PATH="/shared/key_id.txt"
+    PORT=8082
+    
+    # Read key ID
+    if [ -f "$KEY_ID_PATH" ]; then
+        KEY_ID=$(cat "$KEY_ID_PATH" | tr -d '\n')
+    else
+        KEY_ID="test-key-$(date +%s)"
+    fi
+    
+    echo "Token server starting with key ID: $KEY_ID"
+    
+    # Create request handler script
+    cat > /tmp/handle_request.sh <<EOF
+    #!/bin/sh
+    PRIVATE_KEY_PATH="/shared/test_private_key.pem"
+    KEY_ID="$KEY_ID"
+    
+    base64url() {
+        openssl base64 -e | tr -d '=' | tr '/+' '_-' | tr -d '\n'
+    }
+    
+    # Generate JWT token
+    generate_token() {
+        local roles_json="\$1"
+        local requested_exp="\$2"
+        
+        local now=\$(date +%s)
+        local exp=\$((now + 86400))
+        
+        if [ -n "\$requested_exp" ]; then
+            exp=\$requested_exp
+        fi
+        
+        # JWT Header
+        local header=\$(printf '{"alg":"PS512","typ":"JWT","kid":"%s"}' "\$KEY_ID" | base64url)
+        
+        # Default roles if not provided
+        if [ -z "\$roles_json" ]; then
+            roles_json='["uma_authorization","admin"]'
+        fi
+        
+        # JWT Payload
+        local payload=\$(cat <<PAYLOAD_EOF | base64url
+    {"iss":"http://platform-keycloak.orch-platform.svc/realms/master","azp":"test-client","sub":"test-client","preferred_username":"service-account-test-client","exp":\$exp,"iat":\$now,"realm_access":{"roles":\$roles_json},"resource_access":{"realm-management":{"roles":["view-clients","manage-clients"]}}}
+    PAYLOAD_EOF
+    )
+        
+        # Create signature input
+        local signing_input="\${header}.\${payload}"
+        
+        # Sign with PS512 (RSA-PSS with SHA-512)
+        local signature=\$(printf '%s' "\$signing_input" | \\
+      openssl dgst -sha512 -sigopt rsa_padding_mode:pss -sigopt rsa_pss_saltlen:-1 -sign "\$PRIVATE_KEY_PATH" | base64url)
+        
+        # Complete JWT
+        echo "\${signing_input}.\${signature}"
+    }
+
+    # Read HTTP request
+    read -r method path protocol
+    method=\$(echo "\$method" | tr -d '\r')
+    path=\$(echo "\$path" | tr -d '\r')
+    
+    # Read headers
+    content_length=0
+    while IFS=: read -r header value; do
+        header=\$(echo "\$header" | tr -d '\r\n' | tr '[:upper:]' '[:lower:]')
+        value=\$(echo "\$value" | tr -d '\r\n' | sed 's/^ *//')
+        
+        if [ "\$header" = "content-length" ]; then
+            content_length=\$value
+        fi
+        
+        # Empty line marks end of headers
+        [ -z "\$header" ] && break
+    done
+    
+    # Read body if present
+    body=""
+    if [ "\$content_length" -gt 0 ]; then
+        echo "Reading body of length \$content_length" >&2
+        # Use dd instead of head -c for better compatibility
+        body=\$(dd bs=1 count="\$content_length" 2>/dev/null)
+        echo "Body read: \$body" >&2
+    fi
+    
+    # Handle health check
+    if [ "\$path" = "/health" ]; then
+        printf "HTTP/1.1 200 OK\r\n"
+        printf "Content-Type: text/plain\r\n"
+        printf "Content-Length: 2\r\n"
+        printf "\r\n"
+        printf "OK"
+        exit 0
+    fi
+    
+    # Handle token request
+    if [ "\$path" = "/token" ] && [ "\$method" = "POST" ]; then
+        # Check grant_type
+        if echo "\$body" | grep -q "grant_type=client_credentials\|grant_type=authorization_code"; then
+            
+            # Extract roles from body if present
+            roles_json=""
+            if echo "\$body" | grep -q "roles="; then
+                roles_encoded=\$(echo "\$body" | sed -n 's/.*roles=\([^&]*\).*/\1/p')
+                if [ -n "\$roles_encoded" ]; then
+                    # Decode %2C to , and quote for JSON
+                    roles_csv=\$(echo "\$roles_encoded" | sed 's/%2C/,/g' | sed 's/%2c/,/g')
+                    roles_quoted=\$(echo "\$roles_csv" | sed 's/,/","/g')
+                    roles_json="[\"\$roles_quoted\"]"
+                fi
+            fi
+
+            # Extract exp from body if present
+            exp_val=""
+            if echo "\$body" | grep -q "exp="; then
+                 exp_val=\$(echo "\$body" | sed -n 's/.*exp=\([^&]*\).*/\1/p')
+            fi
+
+            token=\$(generate_token "\$roles_json" "\$exp_val")
+            response=\$(printf '{"access_token":"%s","token_type":"Bearer","expires_in":86400}' "\$token")
+            response_length=\$(printf '%s' "\$response" | wc -c)
+            
+            printf "HTTP/1.1 200 OK\r\n"
+            printf "Content-Type: application/json\r\n"
+            printf "Content-Length: %d\r\n" "\$response_length"
+            printf "\r\n"
+            printf "%s" "\$response"
+        else
+            error='{"error":"unsupported_grant_type"}'
+            error_length=\$(printf '%s' "\$error" | wc -c)
+            
+            printf "HTTP/1.1 400 Bad Request\r\n"
+            printf "Content-Type: application/json\r\n"
+            printf "Content-Length: %d\r\n" "\$error_length"
+            printf "\r\n"
+            printf "%s" "\$error"
+        fi
+        # Wait for buffer flush
+        sleep 0.1
+        exit 0
+    fi
+    
+    # 404 for other paths
+    error='{"error":"not_found"}'
+    error_length=\$(printf '%s' "\$error" | wc -c)
+    printf "HTTP/1.1 404 Not Found\r\n"
+    printf "Content-Type: application/json\r\n"
+    printf "Content-Length: %d\r\n" "\$error_length"
+    printf "\r\n"
+    printf "%s" "\$error"
+    EOF
+    
+    chmod +x /tmp/handle_request.sh
+    
+    # Run HTTP server using nc
+    echo "Mock Keycloak token server listening on port $PORT"
+    while true; do
+        # Use -lk for persistent server to handle multiple connections
+        nc -lk -p $PORT -e /tmp/handle_request.sh
+    done
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -72,7 +285,7 @@ data:
       "jwks_uri": "http://platform-keycloak.orch-platform.svc/realms/master/protocol/openid-connect/certs",
       "response_types_supported": ["code"],
       "subject_types_supported": ["public"],
-      "id_token_signing_alg_values_supported": ["PS512"],
+      "id_token_signing_alg_values_supported": ["RS512"],
       "grant_types_supported": ["client_credentials", "authorization_code"],
       "token_endpoint_auth_methods_supported": ["client_secret_basic", "client_secret_post"],
       "scopes_supported": ["openid", "profile", "email", "roles"]
@@ -93,9 +306,56 @@ spec:
       labels:
         app: platform-keycloak
     spec:
+      # to generate RSA keys at pod startup
+      initContainers:
+      - name: keygen
+        image: alpine/openssl:3.5.4
+        command: ["/bin/sh", "/scripts/generate-keys.sh"]
+        volumeMounts:
+        - name: scripts
+          mountPath: /scripts
+        - name: shared-keys
+          mountPath: /shared
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
+          allowPrivilegeEscalation: false
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop:
+            - ALL
       containers:
+      # sidecar: to generate JWTs dynamically
+      - name: token-server
+        image: alpine/openssl:3.5.4
+        command: ["/bin/sh", "/scripts/token-server.sh"]
+        ports:
+        - containerPort: 8082
+        volumeMounts:
+        - name: scripts
+          mountPath: /scripts
+        - name: shared-keys
+          mountPath: /shared
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
+          allowPrivilegeEscalation: false
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop:
+            - ALL
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8082
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      
+      # main container: nginx reverse proxy
       - name: mock-keycloak
-        image: nginx:alpine
+        image: nginx:alpine-slim
         ports:
         - containerPort: 80
         volumeMounts:
@@ -104,9 +364,22 @@ spec:
           subPath: nginx.conf
         - name: content-volume
           mountPath: /usr/share/nginx/html/realms/master/.well-known
-        - name: jwk-volume
-          mountPath: /etc/keycloak-jwk/jwks.json
-          subPath: jwks.json
+        - name: shared-keys
+          mountPath: /shared
+        - name: nginx-tmp
+          mountPath: /var/cache/nginx
+        - name: nginx-run
+          mountPath: /var/run
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 101  # nginx user
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop:
+            - ALL
       volumes:
       - name: config-volume
         configMap:
@@ -114,12 +387,17 @@ spec:
       - name: content-volume
         configMap:
           name: mock-keycloak-content
-      - name: jwk-volume
+      - name: scripts
         configMap:
           name: mock-keycloak-config
-          items:
-          - key: jwks.json
-            path: jwks.json
+          defaultMode: 0555
+      - name: shared-keys
+        emptyDir:
+          medium: Memory  # store in RAM for extra security
+      - name: nginx-tmp
+        emptyDir: {}
+      - name: nginx-run
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

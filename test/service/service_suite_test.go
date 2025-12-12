@@ -10,7 +10,6 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -52,7 +51,10 @@ func init() {
 var _ = BeforeSuite(func() {
 	// Generate test keys if auth is enabled
 	if os.Getenv("DISABLE_AUTH") == "false" {
-		fmt.Println("auth is enabled - waiting for mock Keycloak to be ready")
+		fmt.Println("auth is enabled - using remote token server")
+		os.Setenv("USE_REMOTE_TOKEN_SERVER", "1")
+
+		fmt.Println("waiting for mock Keycloak to be ready")
 		Eventually(func() error {
 			_, err := getTokenFromClusterKeycloak()
 			return err
@@ -91,6 +93,9 @@ var _ = BeforeSuite(func() {
 	params.Activeprojectid = testTenantID
 	resp, err := cli.PostV2TemplatesWithResponse(context.Background(), &params, template)
 	Expect(err).ToNot(HaveOccurred())
+	if resp.StatusCode() != 201 {
+		fmt.Printf("ERROR: Expected 201, got %d. Response body: %s\n", resp.StatusCode(), string(resp.Body))
+	}
 	Expect(resp.StatusCode()).To(Equal(201))
 	fmt.Println("Created baseline template for tenant", testTenantID.String())
 
@@ -112,18 +117,9 @@ var _ = AfterSuite(func() {
 		fmt.Println("Deleted namespace for tenant", testTenantID.String())
 	}
 
-	// clean up dynamically generated test keys
+	// clean up env vars
 	if os.Getenv("DISABLE_AUTH") == "false" {
-		keyDir := os.Getenv("KEY_DIR")
-		if keyDir == "" {
-			keyDir = "/tmp/cluster-manager-test-keys"
-		}
-
-		if err := os.RemoveAll(keyDir); err != nil {
-			fmt.Printf("Warning: failed to clean up test keys: %v\n", err)
-		} else {
-			fmt.Printf("Deleted test keys from  %s...\n", keyDir)
-		}
+		os.Unsetenv("USE_REMOTE_TOKEN_SERVER")
 	}
 })
 
@@ -546,7 +542,6 @@ func createAuthenticatedClient() (*api.ClientWithResponses, error) {
 				fmt.Printf("Failed to get token: %v\n", err)
 				return err
 			}
-
 			req.Header.Set("Authorization", "Bearer "+token)
 			return nil
 		},
@@ -554,25 +549,6 @@ func createAuthenticatedClient() (*api.ClientWithResponses, error) {
 }
 
 func getTokenFromClusterKeycloak() (string, error) {
-	keycloakURL := "http://localhost:8081"
-	data := url.Values{}
-	data.Set("grant_type", "client_credentials")
-	data.Set("client_id", "test-client")
-	data.Set("client_secret", "test-secret")
-
-	resp, err := http.PostForm(keycloakURL+"/realms/master/protocol/openid-connect/token", data)
-	if err != nil {
-		return "", fmt.Errorf("failed to connect to keycloak at %s: %w", keycloakURL, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("keycloak returned status %d: %s", resp.StatusCode, string(body))
-	}
-
-	// generate a proper JWT token signed with the test private key to ensure
-	// the token is valid and can be verified by the cluster-manager
 	// include project-specific roles that OPA expects
 	roles := []string{
 		fmt.Sprintf("%s_cl-tpl-rw", testTenantID.String()),
