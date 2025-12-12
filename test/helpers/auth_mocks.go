@@ -145,7 +145,7 @@ func requestRemoteJWT(exp time.Time, roles []string) string {
 	rolesParam := url.QueryEscape(strings.Join(roles, ","))
 	expUnix := exp.Unix()
 
-	tokenURL := "http://localhost:8081/realms/master/protocol/openid-connect/token"
+	tokenURL := "http://localhost:8081/realms/master/protocol/openid-connect/token" // #nosec G101 -- This is a URL endpoint, not a credential
 	body := fmt.Sprintf("grant_type=client_credentials&username=test-user&roles=%s&exp=%d", rolesParam, expUnix)
 
 	resp, err := http.Post(tokenURL, "application/x-www-form-urlencoded", strings.NewReader(body))

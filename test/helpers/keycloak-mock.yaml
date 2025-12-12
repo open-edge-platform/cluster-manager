@@ -19,7 +19,7 @@ data:
     server {
         listen 80;
         server_name localhost;
-        
+
         location / {
             root /usr/share/nginx/html;
             try_files $uri $uri/ =404;
@@ -44,13 +44,13 @@ data:
 
         # Admin API endpoints for client management (used by TTL enforcement)
         # Order matters in nginx - most specific first!
-        
+
         # List clients by clientId query parameter
         location = /admin/realms/master/clients {
             add_header Content-Type application/json;
             return 200 '[{"id":"mock-client-uuid","clientId":"test-client","enabled":true,"attributes":{"access.token.lifespan":"10800"}}]';
         }
-        
+
         # Get/Update specific client by UUID
         location ~ ^/admin/realms/master/clients/[a-z0-9\-]+$ {
             add_header Content-Type application/json;
@@ -67,22 +67,22 @@ data:
   generate-keys.sh: |
     #!/bin/sh
     set -e
-    
+
     KEY_DIR="/shared"
     PRIVATE_KEY="$KEY_DIR/test_private_key.pem"
     JWK_FILE="$KEY_DIR/jwks.json"
     KEY_ID="test-key-$(date +%s)"
-    
+
     echo "Generating RSA key pair for JWT signing..."
-    
+
     # Generate 2048-bit RSA private key (faster for testing)
     openssl genpkey -algorithm RSA -out "$PRIVATE_KEY" -pkeyopt rsa_keygen_bits:2048
-    
+
     # Generate JWK from private key
     # Extract modulus (n) and exponent (e) directly from private key
     MODULUS=$(openssl rsa -in "$PRIVATE_KEY" -noout -modulus | cut -d= -f2 | xxd -r -p | base64 -w 0 | tr '+/' '-_' | tr -d '=')
     EXPONENT=$(echo "AQAB") # RSA exponent is always 65537 = AQAB in base64
-    
+
     # Create JWK JSON
     cat > "$JWK_FILE" <<EOF
     {
@@ -98,71 +98,71 @@ data:
       ]
     }
     EOF
-    
+
     echo "$KEY_ID" > "$KEY_DIR/key_id.txt"
     echo "Keys generated with key ID: $KEY_ID"
-  
+
   # generate JWTs dynamically
   token-server.sh: |
     #!/bin/sh
     set -e
-    
+
     PRIVATE_KEY_PATH="/shared/test_private_key.pem"
     KEY_ID_PATH="/shared/key_id.txt"
     PORT=8082
-    
+
     # Read key ID
     if [ -f "$KEY_ID_PATH" ]; then
         KEY_ID=$(cat "$KEY_ID_PATH" | tr -d '\n')
     else
         KEY_ID="test-key-$(date +%s)"
     fi
-    
+
     echo "Token server starting with key ID: $KEY_ID"
-    
+
     # Create request handler script
     cat > /tmp/handle_request.sh <<EOF
     #!/bin/sh
     PRIVATE_KEY_PATH="/shared/test_private_key.pem"
     KEY_ID="$KEY_ID"
-    
+
     base64url() {
         openssl base64 -e | tr -d '=' | tr '/+' '_-' | tr -d '\n'
     }
-    
+
     # Generate JWT token
     generate_token() {
         local roles_json="\$1"
         local requested_exp="\$2"
-        
+
         local now=\$(date +%s)
         local exp=\$((now + 86400))
-        
+
         if [ -n "\$requested_exp" ]; then
             exp=\$requested_exp
         fi
-        
+
         # JWT Header
         local header=\$(printf '{"alg":"PS512","typ":"JWT","kid":"%s"}' "\$KEY_ID" | base64url)
-        
+
         # Default roles if not provided
         if [ -z "\$roles_json" ]; then
             roles_json='["uma_authorization","admin"]'
         fi
-        
+
         # JWT Payload
         local payload=\$(cat <<PAYLOAD_EOF | base64url
     {"iss":"http://platform-keycloak.orch-platform.svc/realms/master","azp":"test-client","sub":"test-client","preferred_username":"service-account-test-client","exp":\$exp,"iat":\$now,"realm_access":{"roles":\$roles_json},"resource_access":{"realm-management":{"roles":["view-clients","manage-clients"]}}}
     PAYLOAD_EOF
     )
-        
+
         # Create signature input
         local signing_input="\${header}.\${payload}"
-        
+
         # Sign with PS512 (RSA-PSS with SHA-512)
         local signature=\$(printf '%s' "\$signing_input" | \\
       openssl dgst -sha512 -sigopt rsa_padding_mode:pss -sigopt rsa_pss_saltlen:-1 -sign "\$PRIVATE_KEY_PATH" | base64url)
-        
+
         # Complete JWT
         echo "\${signing_input}.\${signature}"
     }
@@ -171,21 +171,21 @@ data:
     read -r method path protocol
     method=\$(echo "\$method" | tr -d '\r')
     path=\$(echo "\$path" | tr -d '\r')
-    
+
     # Read headers
     content_length=0
     while IFS=: read -r header value; do
         header=\$(echo "\$header" | tr -d '\r\n' | tr '[:upper:]' '[:lower:]')
         value=\$(echo "\$value" | tr -d '\r\n' | sed 's/^ *//')
-        
+
         if [ "\$header" = "content-length" ]; then
             content_length=\$value
         fi
-        
+
         # Empty line marks end of headers
         [ -z "\$header" ] && break
     done
-    
+
     # Read body if present
     body=""
     if [ "\$content_length" -gt 0 ]; then
@@ -194,7 +194,7 @@ data:
         body=\$(dd bs=1 count="\$content_length" 2>/dev/null)
         echo "Body read: \$body" >&2
     fi
-    
+
     # Handle health check
     if [ "\$path" = "/health" ]; then
         printf "HTTP/1.1 200 OK\r\n"
@@ -204,12 +204,12 @@ data:
         printf "OK"
         exit 0
     fi
-    
+
     # Handle token request
     if [ "\$path" = "/token" ] && [ "\$method" = "POST" ]; then
         # Check grant_type
         if echo "\$body" | grep -q "grant_type=client_credentials\|grant_type=authorization_code"; then
-            
+
             # Extract roles from body if present
             roles_json=""
             if echo "\$body" | grep -q "roles="; then
@@ -231,7 +231,7 @@ data:
             token=\$(generate_token "\$roles_json" "\$exp_val")
             response=\$(printf '{"access_token":"%s","token_type":"Bearer","expires_in":86400}' "\$token")
             response_length=\$(printf '%s' "\$response" | wc -c)
-            
+
             printf "HTTP/1.1 200 OK\r\n"
             printf "Content-Type: application/json\r\n"
             printf "Content-Length: %d\r\n" "\$response_length"
@@ -240,7 +240,7 @@ data:
         else
             error='{"error":"unsupported_grant_type"}'
             error_length=\$(printf '%s' "\$error" | wc -c)
-            
+
             printf "HTTP/1.1 400 Bad Request\r\n"
             printf "Content-Type: application/json\r\n"
             printf "Content-Length: %d\r\n" "\$error_length"
@@ -251,7 +251,7 @@ data:
         sleep 0.1
         exit 0
     fi
-    
+
     # 404 for other paths
     error='{"error":"not_found"}'
     error_length=\$(printf '%s' "\$error" | wc -c)
@@ -261,9 +261,9 @@ data:
     printf "\r\n"
     printf "%s" "\$error"
     EOF
-    
+
     chmod +x /tmp/handle_request.sh
-    
+
     # Run HTTP server using nc
     echo "Mock Keycloak token server listening on port $PORT"
     while true; do
@@ -352,7 +352,7 @@ spec:
             port: 8082
           initialDelaySeconds: 10
           periodSeconds: 5
-      
+
       # main container: nginx reverse proxy
       - name: mock-keycloak
         image: nginx:alpine-slim
