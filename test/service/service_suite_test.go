@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
+	"github.com/open-edge-platform/cluster-manager/v2/test/helpers"
 )
 
 func TestService(t *testing.T) {
@@ -48,6 +49,21 @@ func init() {
 
 // we need to simulate multi-tenancy, as it is disabled in service tests because it requires a real tenant service to work
 var _ = BeforeSuite(func() {
+	// Generate test keys if auth is enabled
+	if os.Getenv("DISABLE_AUTH") == "false" {
+		fmt.Println("auth is enabled - using remote token server")
+		os.Setenv("USE_REMOTE_TOKEN_SERVER", "1")
+
+		fmt.Println("waiting for mock Keycloak to be ready")
+		Eventually(func() error {
+			_, err := getTokenFromClusterKeycloak()
+			return err
+		}, 60*time.Second, 5*time.Second).Should(Succeed())
+
+		// Mock Vault is deployed in orch-platform namespace via Makefile
+		fmt.Println("Mock Vault deployed - cluster-manager will use it for M2M credentials")
+	}
+
 	// create the namespace for the tenant
 	fmt.Println("Creating namespace for tenant", testTenantID.String())
 	cmd := exec.Command("kubectl", "create", "namespace", testTenantID.String())
@@ -70,13 +86,16 @@ var _ = BeforeSuite(func() {
 	template.Infraprovidertype = &infraProviderr
 	Expect(err).ToNot(HaveOccurred())
 
-	cli, err := api.NewClientWithResponses("http://" + cmAddress)
+	cli, err := createAuthenticatedClient()
 	Expect(err).ToNot(HaveOccurred())
 
 	params := api.PostV2TemplatesParams{}
 	params.Activeprojectid = testTenantID
 	resp, err := cli.PostV2TemplatesWithResponse(context.Background(), &params, template)
 	Expect(err).ToNot(HaveOccurred())
+	if resp.StatusCode() != 201 {
+		fmt.Printf("ERROR: Expected 201, got %d. Response body: %s\n", resp.StatusCode(), string(resp.Body))
+	}
 	Expect(resp.StatusCode()).To(Equal(201))
 	fmt.Println("Created baseline template for tenant", testTenantID.String())
 
@@ -97,11 +116,16 @@ var _ = AfterSuite(func() {
 		Expect(err).ToNot(HaveOccurred())
 		fmt.Println("Deleted namespace for tenant", testTenantID.String())
 	}
+
+	// clean up env vars
+	if os.Getenv("DISABLE_AUTH") == "false" {
+		os.Unsetenv("USE_REMOTE_TOKEN_SERVER")
+	}
 })
 
 // Cluster create/delete flow test
 var _ = Describe("Cluster create/delete flow", Ordered, func() {
-	cli, err := api.NewClientWithResponses("http://" + cmAddress)
+	cli, err := createAuthenticatedClient()
 	Expect(err).ToNot(HaveOccurred())
 
 	Context("CM is deployed to Kubernetes cluster and is starting up", func() {
@@ -250,6 +274,88 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 				fmt.Sprintf("edge-orchestrator.intel.com/project-id:%v", testTenantID.String()),
 			})
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("Should return 404 when downloading kubeconfig for non-existent cluster", func() {
+			if os.Getenv("DISABLE_AUTH") == "true" {
+				Skip("kubeconfig download requires auth for M2M token generation")
+			}
+			params := api.GetV2ClustersNameKubeconfigsParams{}
+			params.Activeprojectid = testTenantID
+
+			resp, err := cli.GetV2ClustersNameKubeconfigsWithResponse(context.Background(), "non-existent-cluster", &params)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(404))
+			Expect(resp.JSON404).ToNot(BeNil())
+			Expect(*resp.JSON404.Message).To(ContainSubstring("kubeconfig not found"))
+		})
+
+		It("Should return 200 and download kubeconfig successfully", func() {
+			if os.Getenv("DISABLE_AUTH") == "true" {
+				Skip("kubeconfig download requires auth for M2M token generation")
+			}
+			// create a mock kubeconfig secret for the cluster
+			secretName := fmt.Sprintf("%s-kubeconfig", clusterName)
+			// Use simple placeholder data (not real certificates) - following pattern from getv2clustersnamekubeconfig_test.go
+			// Server URL must include /kubernetes/{namespace}-{clustername} for connect-gateway format
+			mockKubeconfig := fmt.Sprintf(`apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    certificate-authority-data: test-ca-data
+    server: http://edge-connect-gateway-cluster-connect-gateway.orch-cluster.svc:8080/kubernetes/%s-%s
+  name: test-cluster
+contexts:
+- context:
+    cluster: test-cluster
+    user: test-cluster-admin
+  name: test-cluster-admin@test-cluster
+current-context: test-cluster-admin@test-cluster
+users:
+- name: test-cluster-admin
+  user:
+    client-certificate-data: test-client-cert
+    client-key-data: test-client-key`, testTenantID.String(), clusterName)
+
+			// Delete the secret if it exists (from previous test runs)
+			deleteSecretCmd := exec.Command("kubectl", "delete", "secret", secretName,
+				"-n", testTenantID.String(), "--ignore-not-found")
+			_ = deleteSecretCmd.Run() // Ignore errors if secret doesn't exist
+
+			// Write kubeconfig to a temporary file
+			tmpFile, err := os.CreateTemp("", "kubeconfig-*.yaml")
+			Expect(err).ToNot(HaveOccurred())
+			defer os.Remove(tmpFile.Name())
+
+			_, err = tmpFile.WriteString(mockKubeconfig)
+			Expect(err).ToNot(HaveOccurred())
+			tmpFile.Close()
+
+			// Create the secret using kubectl with --from-file (not --from-literal)
+			// The cluster-manager expects the secret to contain base64-encoded kubeconfig
+			createSecretCmd := exec.Command("kubectl", "create", "secret", "generic", secretName,
+				"-n", testTenantID.String(),
+				"--from-file=value="+tmpFile.Name())
+			err = createSecretCmd.Run()
+			Expect(err).ToNot(HaveOccurred())
+
+			// Download the kubeconfig
+			params := api.GetV2ClustersNameKubeconfigsParams{}
+			params.Activeprojectid = testTenantID
+
+			resp, err := cli.GetV2ClustersNameKubeconfigsWithResponse(context.Background(), clusterName, &params)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(200))
+			Expect(resp.JSON200).ToNot(BeNil())
+			Expect(resp.JSON200.Kubeconfig).ToNot(BeNil())
+
+			// Verify the kubeconfig content
+			kubeconfig := *resp.JSON200.Kubeconfig
+			Expect(kubeconfig).ToNot(BeEmpty())
+			Expect(kubeconfig).To(ContainSubstring("apiVersion: v1"))
+			Expect(kubeconfig).To(ContainSubstring("kind: Config"))
+			Expect(kubeconfig).To(ContainSubstring("clusters:"))
+			Expect(kubeconfig).To(ContainSubstring(clusterName))
 		})
 
 		It("Should delete label", func() {
@@ -426,4 +532,37 @@ func annotateDockerMachines(projectId, clusterName string, annotations string) e
 		return err
 	}
 	return nil
+}
+
+func createAuthenticatedClient() (*api.ClientWithResponses, error) {
+	if os.Getenv("DISABLE_AUTH") == "true" {
+		return api.NewClientWithResponses("http://" + cmAddress)
+	}
+
+	fmt.Println("creating authenticated client")
+	// if auth is enabled, add Bearer token to all requests
+	return api.NewClientWithResponses("http://"+cmAddress, api.WithRequestEditorFn(
+		func(ctx context.Context, req *http.Request) error {
+			token, err := getTokenFromClusterKeycloak()
+			if err != nil {
+				fmt.Printf("Failed to get token: %v\n", err)
+				return err
+			}
+			req.Header.Set("Authorization", "Bearer "+token)
+			return nil
+		},
+	))
+}
+
+func getTokenFromClusterKeycloak() (string, error) {
+	// include project-specific roles that OPA expects
+	roles := []string{
+		fmt.Sprintf("%s_cl-tpl-rw", testTenantID.String()),
+		fmt.Sprintf("%s_cl-tpl-r", testTenantID.String()),
+		fmt.Sprintf("%s_cl-rw", testTenantID.String()),
+		fmt.Sprintf("%s_cl-r", testTenantID.String()),
+	}
+	token := helpers.CreateTestJWT(time.Now().Add(1*time.Hour), roles)
+
+	return token, nil
 }
