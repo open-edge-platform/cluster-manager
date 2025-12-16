@@ -12,8 +12,6 @@ VERSION            ?= $(shell cat VERSION | tr -d '[:space:]')
 GIT_HASH_SHORT     ?= $(shell git rev-parse --short=8 HEAD)
 VERSION_DEV_SUFFIX := ${GIT_HASH_SHORT}
 CLUSTERCTL_VERSION ?= v1.10.7
-KUBEADM_VERSION    ?= v1.9.0
-RKE2_VERSION       ?= v0.12.0
 K3s_VERSION        ?= v0.3.0
 DOCKER_INFRA_VERSION   ?= v1.10.7
 CLUSTERCTL := $(shell command -v clusterctl 2> /dev/null)
@@ -100,7 +98,7 @@ DISABLE_MT ?= true
 
 # When set to true, disables integration with keycloak oidc and opa sidecar. Should be false for production use cases
 # Should be true for CO subsystem integration tests if keycloak is not deployed
-DISABLE_AUTH ?= true
+DISABLE_AUTH ?= false
 
 # When set to true, disables integration with infra inventory. Should be false for production use cases
 # Should be true for CO subsystem integration tests if inventory is not deployed
@@ -155,7 +153,6 @@ test: ## Run unit tests.
 run-service-test: clusterctl ## Run service tests.
 	make kind-create
 	make helm-install
-	make kind-expose-cm
 	make test-service
 
 .PHONY: mocks
@@ -181,7 +178,8 @@ test-unit: envtest gocov
 # - CERT_MANAGER_INSTALL_SKIP=true
 .PHONY: test-service
 test-service: ## Run the e2e tests. Expected an isolated environment using Kind.
-	go test ./test/service/ -v -ginkgo.v
+	DISABLE_AUTH=$(DISABLE_AUTH) make kind-expose-cm
+	DISABLE_AUTH=$(DISABLE_AUTH) go test ./test/service/ -v -ginkgo.v -timeout 5m
 
 .PHONY: lint
 lint: fmt vet golint yamllint helmlint mdlint ## Run linters
@@ -486,11 +484,14 @@ kind-create: ## Create a development kind cluster with CAPI enabled
 	echo "Creating a Kind cluster with CAPI enabled..."
 	kind create cluster --name $(KIND_CLUSTER) --config $(KIND_CONFIG)
 	@make setup-clusterctl-config	
-	CLUSTER_TOPOLOGY=true clusterctl init --core cluster-api:${CLUSTERCTL_VERSION} --bootstrap kubeadm:${KUBEADM_VERSION},rke2:${RKE2_VERSION},k3s:${K3s_VERSION} --control-plane kubeadm:${KUBEADM_VERSION},rke2:${RKE2_VERSION},k3s:${K3s_VERSION} --infrastructure docker:${DOCKER_INFRA_VERSION}
+	CLUSTER_TOPOLOGY=true clusterctl init --core cluster-api:${CLUSTERCTL_VERSION} --bootstrap k3s:${K3s_VERSION} --control-plane k3s:${K3s_VERSION} --infrastructure docker:${DOCKER_INFRA_VERSION}
 
 .PHONY: kind-expose-cm
 kind-expose-cm: ## Expose the cluster manager service to the host
-	kubectl port-forward svc/cluster-manager 8080:8080 &
+	kubectl port-forward svc/cluster-manager 8080:8080 > /dev/null 2>&1 &
+	@if [ "$(DISABLE_AUTH)" = "false" ]; then \
+		kubectl port-forward svc/platform-keycloak 8081:80 -n orch-platform > /dev/null 2>&1 & \
+	fi
 
 docker-load:
 	docker tag ${DOCKER_IMAGE_TEMPLATE_CONTROLLER} ${RS_DOCKER_IMAGE_TEMPLATE_CONTROLLER}
@@ -499,6 +500,16 @@ docker-load:
 	kind load docker-image ${RS_DOCKER_IMAGE_CLUSTER_MANAGER} -n $(KIND_CLUSTER)
 
 helm-install: docker-build docker-load helm-build ## Install helm charts to the K8s cluster specified in ~/.kube/config.
+	@if [ "$(DISABLE_AUTH)" = "false" ]; then \
+		echo "Setting up mock keycloak and vault BEFORE cluster-manager deployment"; \
+		sed "s|CLUSTER_MANAGER_IMAGE_PLACEHOLDER|${RS_DOCKER_IMAGE_CLUSTER_MANAGER}|g" test/helpers/keycloak-mock.yaml | kubectl apply -f -; \
+		sed "s|CLUSTER_MANAGER_IMAGE_PLACEHOLDER|${RS_DOCKER_IMAGE_CLUSTER_MANAGER}|g" test/helpers/vault-mock.yaml | kubectl apply -f -; \
+		echo "Waiting for keycloak pod to be fully ready"; \
+		kubectl wait --for=condition=ready --timeout=120s pod -l app=platform-keycloak -n orch-platform; \
+		echo "Waiting for vault mock to be ready"; \
+		kubectl wait --for=condition=available --timeout=60s deployment/vault-mock -n orch-platform; \
+		echo "Mock services ready - cluster-manager can now fetch JWKS"; \
+	fi
 	helm upgrade --install --wait --debug cluster-template-crd $(BUILD_DIR)/cluster-template-crd-${HELM_VERSION}.tgz --set args.loglevel=DEBUG
 	helm upgrade --install --wait --debug cluster-manager $(BUILD_DIR)/cluster-manager-${HELM_VERSION}.tgz --set clusterManager.extraArgs.disable-multi-tenancy=${DISABLE_MT} --set clusterManager.extraArgs.disable-auth=${DISABLE_AUTH} --set clusterManager.extraArgs.disable-inventory=${DISABLE_INV} --set clusterManager.extraArgs.disable-metrics=${DISABLE_METRICS} 
 
