@@ -13,9 +13,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -356,6 +358,76 @@ users:
 			Expect(kubeconfig).To(ContainSubstring("kind: Config"))
 			Expect(kubeconfig).To(ContainSubstring("clusters:"))
 			Expect(kubeconfig).To(ContainSubstring(clusterName))
+		})
+
+		It("Should respect custom kubeconfig TTL when configured", func() {
+			if os.Getenv("DISABLE_AUTH") == "true" {
+				Skip("kubeconfig download requires auth for M2M token generation")
+			}
+
+			By("Patching cluster-manager deployment to set kubeconfig-ttl-hours=5")
+			// Patch the deployment to add the argument
+			patchCmd := exec.Command("kubectl", "patch", "deployment", "cluster-manager", "-n", "default",
+				"--type=json", "-p", `[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--kubeconfig-ttl-hours=5"}]`)
+			output, err := patchCmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred(), "Failed to patch deployment: %s", string(output))
+
+			By("Waiting for cluster-manager rollout")
+			rolloutCmd := exec.Command("kubectl", "rollout", "status", "deployment/cluster-manager", "-n", "default", "--timeout=60s")
+			output, err = rolloutCmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred(), "Failed to wait for rollout: %s", string(output))
+
+			// Ensure we revert the change even if the test fails
+			defer func() {
+				By("Reverting cluster-manager deployment changes")
+				undoCmd := exec.Command("kubectl", "rollout", "undo", "deployment/cluster-manager", "-n", "default")
+				output, err := undoCmd.CombinedOutput()
+				if err != nil {
+					fmt.Printf("Failed to undo rollout: %s\n", string(output))
+				}
+				// Wait for rollout to complete
+				waitCmd := exec.Command("kubectl", "rollout", "status", "deployment/cluster-manager", "-n", "default", "--timeout=60s")
+				_ = waitCmd.Run()
+			}()
+
+			By("Downloading kubeconfig with new TTL")
+			params := api.GetV2ClustersNameKubeconfigsParams{}
+			params.Activeprojectid = testTenantID
+
+			resp, err := cli.GetV2ClustersNameKubeconfigsWithResponse(context.Background(), clusterName, &params)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(200))
+
+			kubeconfig := *resp.JSON200.Kubeconfig
+
+			// Extract token from kubeconfig
+			tokenStart := strings.Index(kubeconfig, "token: ")
+			Expect(tokenStart).To(BeNumerically(">", 0), "Token not found in kubeconfig")
+
+			tokenSub := kubeconfig[tokenStart+7:]
+			tokenEnd := strings.Index(tokenSub, "\n")
+			if tokenEnd == -1 {
+				tokenEnd = len(tokenSub)
+			}
+			tokenString := strings.TrimSpace(tokenSub[:tokenEnd])
+
+			By("Verifying token expiration")
+			token, _, err := jwt.NewParser().ParseUnverified(tokenString, jwt.MapClaims{})
+			Expect(err).ToNot(HaveOccurred())
+
+			claims, ok := token.Claims.(jwt.MapClaims)
+			Expect(ok).To(BeTrue())
+
+			exp, ok := claims["exp"].(float64)
+			Expect(ok).To(BeTrue(), "exp claim not found")
+
+			iat, ok := claims["iat"].(float64)
+			Expect(ok).To(BeTrue(), "iat claim not found")
+
+			duration := time.Duration(exp-iat) * time.Second
+			// 5 hours = 18000 seconds
+			expectedDuration := 5 * time.Hour
+			Expect(duration).To(BeNumerically("~", expectedDuration, 1*time.Minute), "Token TTL should be 5 hours")
 		})
 
 		It("Should delete label", func() {
