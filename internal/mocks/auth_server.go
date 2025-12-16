@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -41,9 +42,10 @@ func RunAuthServer() {
 
 // Keycloak Mock
 var (
-	mockKeycloakPrivateKey *rsa.PrivateKey
-	mockKeycloakPublicKey  *rsa.PublicKey
-	mockKeycloakKID        = "mock-key-id"
+	mockKeycloakPrivateKey        *rsa.PrivateKey
+	mockKeycloakPublicKey         *rsa.PublicKey
+	mockKeycloakKID               = "mock-key-id"
+	mockClientAccessTokenLifespan = "3600"
 )
 
 func runKeycloakMock(port int) {
@@ -94,8 +96,19 @@ func handleClients(w http.ResponseWriter, r *http.Request) {
 func handleClientDetail(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if r.Method == http.MethodGet {
-		w.Write([]byte(`{"id":"mock-client-uuid","clientId":"test-client","enabled":true,"attributes":{"access.token.lifespan":"10800"}}`))
+		w.Write([]byte(fmt.Sprintf(`{"id":"mock-client-uuid","clientId":"test-client","enabled":true,"attributes":{"access.token.lifespan":"%s"}}`, mockClientAccessTokenLifespan)))
 	} else if r.Method == http.MethodPut {
+		var client struct {
+			Attributes struct {
+				AccessTokenLifespan string `json:"access.token.lifespan"`
+			} `json:"attributes"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&client); err == nil {
+			if client.Attributes.AccessTokenLifespan != "" {
+				mockClientAccessTokenLifespan = client.Attributes.AccessTokenLifespan
+				slog.Info("Updated mock client access token lifespan", "lifespan", mockClientAccessTokenLifespan)
+			}
+		}
 		w.WriteHeader(http.StatusNoContent)
 	} else {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -140,12 +153,17 @@ func handleToken(w http.ResponseWriter, r *http.Request) {
 		roles = []string{"admin"}
 	}
 
+	lifespan, _ := strconv.Atoi(mockClientAccessTokenLifespan)
+	if lifespan == 0 {
+		lifespan = 3600
+	}
+
 	// Simple mock: always return a valid token
 	token := jwt.NewWithClaims(jwt.SigningMethodPS512, jwt.MapClaims{
 		"iss": "http://platform-keycloak.orch-platform.svc/realms/master",
 		"sub": "mock-user",
 		"aud": "cluster-manager",
-		"exp": time.Now().Add(1 * time.Hour).Unix(),
+		"exp": time.Now().Add(time.Duration(lifespan) * time.Second).Unix(),
 		"iat": time.Now().Unix(),
 		"realm_access": map[string]interface{}{
 			"roles": roles,
