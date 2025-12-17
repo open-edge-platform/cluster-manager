@@ -31,12 +31,6 @@ spec:
         fsGroup: 1000
       containers:
       - name: mock-keycloak
-        securityContext:
-          readOnlyRootFilesystem: true
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
         # CLUSTER_MANAGER_IMAGE_PLACEHOLDER is replaced by Makefile with the actual image tag
         image: CLUSTER_MANAGER_IMAGE_PLACEHOLDER
         imagePullPolicy: IfNotPresent

@@ -85,18 +85,18 @@ func handleOIDCConfig(w http.ResponseWriter, r *http.Request) {
 		"subject_types_supported":               []string{"public", "pairwise"},
 		"id_token_signing_alg_values_supported": []string{"PS512", "RS256"},
 	}
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func handleClients(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`[{"id":"mock-client-uuid","clientId":"test-client","enabled":true,"attributes":{"access.token.lifespan":"10800"}}]`))
+	_, _ = w.Write([]byte(`[{"id":"mock-client-uuid","clientId":"test-client","enabled":true,"attributes":{"access.token.lifespan":"10800"}}]`))
 }
 
 func handleClientDetail(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if r.Method == http.MethodGet {
-		w.Write([]byte(fmt.Sprintf(`{"id":"mock-client-uuid","clientId":"test-client","enabled":true,"attributes":{"access.token.lifespan":"%s"}}`, mockClientAccessTokenLifespan)))
+		_, _ = w.Write([]byte(fmt.Sprintf(`{"id":"mock-client-uuid","clientId":"test-client","enabled":true,"attributes":{"access.token.lifespan":"%s"}}`, mockClientAccessTokenLifespan)))
 	} else if r.Method == http.MethodPut {
 		var client struct {
 			Attributes struct {
@@ -122,15 +122,15 @@ func handleJWKS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key.Set(jwk.KeyIDKey, mockKeycloakKID)
-	key.Set(jwk.AlgorithmKey, "PS512")
-	key.Set(jwk.KeyUsageKey, "sig")
+	_ = key.Set(jwk.KeyIDKey, mockKeycloakKID)
+	_ = key.Set(jwk.AlgorithmKey, "PS512")
+	_ = key.Set(jwk.KeyUsageKey, "sig")
 
 	set := jwk.NewSet()
-	set.AddKey(key)
+	_ = set.AddKey(key)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(set)
+	_ = json.NewEncoder(w).Encode(set)
 }
 
 func handleToken(w http.ResponseWriter, r *http.Request) {
@@ -188,7 +188,7 @@ func handleToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 // Vault Mock
@@ -219,7 +219,7 @@ func handleVaultLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func handleVaultSecret(w http.ResponseWriter, r *http.Request) {
@@ -244,10 +244,10 @@ func handleVaultSecret(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	_, _ = w.Write([]byte("OK"))
 }

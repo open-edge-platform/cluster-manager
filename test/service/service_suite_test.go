@@ -413,7 +413,7 @@ users:
 			originalSelector := svc["spec"].(map[string]interface{})["selector"].(map[string]interface{})
 
 			defer func() {
-				By("Reverting traffic to main cluster-manager")
+				// By("Reverting traffic to main cluster-manager")
 				patch := map[string]interface{}{
 					"spec": map[string]interface{}{
 						"selector": originalSelector,
@@ -423,14 +423,14 @@ users:
 				_ = exec.Command("kubectl", "patch", "service", "cluster-manager", "-n", "default", "-p", string(patchJson)).Run()
 
 				// delete the temporary deployment
-				By("Cleaning up temporary deployment")
+				// By("Cleaning up temporary deployment")
 				_ = exec.Command("kubectl", "delete", "deployment", tempDeploymentName, "-n", "default", "--wait=false").Run()
 
 				// restore port forward to main cluster-manager continues tests
 				restartPF()
 			}()
 
-			By("Creating a temporary cluster-manager deployment with custom TTL")
+			// By("Creating a temporary cluster-manager deployment with custom TTL")
 			// get current deployment JSON
 			out, err = exec.Command("kubectl", "get", "deployment", "cluster-manager", "-n", "default", "-o", "json").Output()
 			Expect(err).ToNot(HaveOccurred(), "Failed to get base deployment")
@@ -488,12 +488,12 @@ users:
 			out, err = cmd.CombinedOutput()
 			Expect(err).ToNot(HaveOccurred(), "Failed to apply temp deployment: %s", string(out))
 
-			By("Waiting for temporary deployment to be ready")
+			// By("Waiting for temporary deployment to be ready")
 			waitCmd := exec.Command("kubectl", "rollout", "status", "deployment/"+tempDeploymentName, "-n", "default", "--timeout=60s")
 			out, err = waitCmd.CombinedOutput()
 			Expect(err).ToNot(HaveOccurred(), "Temp deployment failed to start: %s", string(out))
 
-			By("Switching traffic to temporary deployment")
+			// By("Switching traffic to temporary deployment")
 			// patch Service to point to temp deployment
 			patch := map[string]interface{}{
 				"spec": map[string]interface{}{
@@ -507,7 +507,7 @@ users:
 			// restart Port Forward to pick up the new pod for temp deployment
 			restartPF()
 
-			By("Downloading kubeconfig with new TTL")
+			// By("Downloading kubeconfig with new TTL")
 			params := api.GetV2ClustersNameKubeconfigsParams{}
 			params.Activeprojectid = testTenantID
 
@@ -528,7 +528,7 @@ users:
 			}
 			tokenString := strings.TrimSpace(tokenSub[:tokenEnd])
 
-			By("Verifying token expiration")
+			// By("Verifying token expiration")
 			token, _, err := jwt.NewParser().ParseUnverified(tokenString, jwt.MapClaims{})
 			Expect(err).ToNot(HaveOccurred())
 
