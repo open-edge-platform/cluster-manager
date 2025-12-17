@@ -30,7 +30,7 @@ jobs:
       - name: Bootstrap CI environment
         uses: open-edge-platform/orch-ci/.github/actions/bootstrap@d3fe218ea585fb390b73c87f9e482cbe1424829c  # 0.1.68
         with:
-          gh_token: ${{ secrets.SYS_ORCH_GITHUB }}
+          gh_token: ${{ secrets.SYS_EMF_GH_TOKEN }}
 
       - name: Run service test
         run: make run-service-test
