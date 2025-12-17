@@ -502,8 +502,8 @@ docker-load:
 helm-install: docker-build docker-load helm-build ## Install helm charts to the K8s cluster specified in ~/.kube/config.
 	@if [ "$(DISABLE_AUTH)" = "false" ]; then \
 		echo "Setting up mock keycloak and vault BEFORE cluster-manager deployment"; \
-		sed "s|CLUSTER_MANAGER_IMAGE_PLACEHOLDER|${RS_DOCKER_IMAGE_CLUSTER_MANAGER}|g" test/helpers/keycloak-mock.yaml | kubectl apply -f -; \
-		sed "s|CLUSTER_MANAGER_IMAGE_PLACEHOLDER|${RS_DOCKER_IMAGE_CLUSTER_MANAGER}|g" test/helpers/vault-mock.yaml | kubectl apply -f -; \
+		sed "s|CLUSTER_MANAGER_IMAGE_PLACEHOLDER:0.0.0|${RS_DOCKER_IMAGE_CLUSTER_MANAGER}|g" test/helpers/keycloak-mock.yaml | kubectl apply -f -; \
+		sed "s|CLUSTER_MANAGER_IMAGE_PLACEHOLDER:0.0.0|${RS_DOCKER_IMAGE_CLUSTER_MANAGER}|g" test/helpers/vault-mock.yaml | kubectl apply -f -; \
 		echo "Waiting for keycloak pod to be fully ready"; \
 		kubectl wait --for=condition=ready --timeout=120s pod -l app=platform-keycloak -n orch-platform; \
 		echo "Waiting for vault mock to be ready"; \

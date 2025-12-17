@@ -35,13 +35,13 @@ spec:
         app: vault-mock
     spec:
       securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
       containers:
       - name: vault-mock
         # CLUSTER_MANAGER_IMAGE_PLACEHOLDER is replaced by Makefile with the actual image tag
-        image: CLUSTER_MANAGER_IMAGE_PLACEHOLDER
+        image: CLUSTER_MANAGER_IMAGE_PLACEHOLDER:0.0.0
         imagePullPolicy: IfNotPresent
         command: ["/cluster-manager", "mock-server", "-type=vault", "-port=8200"]
         ports:
@@ -69,6 +69,7 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
+          runAsNonRoot: true
           capabilities:
             drop:
             - ALL
