@@ -360,9 +360,35 @@ users:
 			Expect(kubeconfig).To(ContainSubstring(clusterName))
 		})
 
+		It("Should generate metrics for initial operations", func() {
+			resp, err := http.Get("http://" + cmAddress + "/metrics")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(200))
+			defer resp.Body.Close()
+			body, err := io.ReadAll(resp.Body)
+			Expect(err).ToNot(HaveOccurred())
+
+			// check if the body contains the expected metrics that will be reset after pod restart
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"200\",method=\"GET\",path=\"/v2/templates\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"201\",method=\"POST\",path=\"/v2/clusters\"}"))
+			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"201\",method=\"POST\",path=\"/v2/templates\"}"))
+		})
+
 		It("Should respect custom kubeconfig TTL when configured", func() {
 			if os.Getenv("DISABLE_AUTH") == "true" {
 				Skip("kubeconfig download requires auth for M2M token generation")
+			}
+
+			restartPF := func() {
+				By("Restarting port-forwarding")
+				_ = exec.Command("pkill", "-f", "kubectl port-forward svc/cluster-manager").Run()
+				time.Sleep(1 * time.Second)
+				pfCmd := exec.Command("kubectl", "port-forward", "svc/cluster-manager", "8080:8080")
+				pfCmd.Stdout = nil
+				pfCmd.Stderr = nil
+				err := pfCmd.Start()
+				Expect(err).ToNot(HaveOccurred(), "Failed to start port-forward")
+				time.Sleep(3 * time.Second)
 			}
 
 			By("Patching cluster-manager deployment to set kubeconfig-ttl-hours=5")
@@ -377,6 +403,8 @@ users:
 			output, err = rolloutCmd.CombinedOutput()
 			Expect(err).ToNot(HaveOccurred(), "Failed to wait for rollout: %s", string(output))
 
+			restartPF()
+
 			// Ensure we revert the change even if the test fails
 			defer func() {
 				By("Reverting cluster-manager deployment changes")
@@ -388,6 +416,7 @@ users:
 				// Wait for rollout to complete
 				waitCmd := exec.Command("kubectl", "rollout", "status", "deployment/cluster-manager", "-n", "default", "--timeout=60s")
 				_ = waitCmd.Run()
+				restartPF()
 			}()
 
 			By("Downloading kubeconfig with new TTL")
@@ -522,9 +551,6 @@ users:
 			// check if the body contains the expected metrics
 			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"200\",method=\"GET\",path=\"/v2/clusters\"}"))
 			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"200\",method=\"GET\",path=\"/v2/clusters/test-cluster\"}"))
-			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"200\",method=\"GET\",path=\"/v2/templates\"}"))
-			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"201\",method=\"POST\",path=\"/v2/clusters\"}"))
-			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"201\",method=\"POST\",path=\"/v2/templates\"}"))
 			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"204\",method=\"DELETE\",path=\"/v2/clusters/test-cluster\"}"))
 			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"204\",method=\"DELETE\",path=\"/v2/templates/baseline-k3s/v0.0.10\"}"))
 			Expect(string(body)).To(ContainSubstring("cluster_manager_http_response_codes_counter{code=\"409\",method=\"DELETE\",path=\"/v2/templates/baseline-k3s/v0.0.10\"}"))
