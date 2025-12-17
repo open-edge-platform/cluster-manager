@@ -391,10 +391,14 @@ users:
 				time.Sleep(3 * time.Second)
 			}
 
-			By("Patching cluster-manager deployment to set kubeconfig-ttl-hours=5")
-			// Patch the deployment to add the argument
+			By("Patching cluster-manager deployment to set kubeconfig-ttl-hours=5 and speed up readiness probe")
+			// Patch the deployment to add the argument and speed up readiness probe
 			patchCmd := exec.Command("kubectl", "patch", "deployment", "cluster-manager", "-n", "default",
-				"--type=json", "-p", `[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--kubeconfig-ttl-hours=5"}]`)
+				"--type=json", "-p", `[
+					{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--kubeconfig-ttl-hours=5"},
+					{"op": "replace", "path": "/spec/template/spec/containers/0/readinessProbe/initialDelaySeconds", "value": 1},
+					{"op": "replace", "path": "/spec/template/spec/containers/0/readinessProbe/periodSeconds", "value": 1}
+				]`)
 			output, err := patchCmd.CombinedOutput()
 			Expect(err).ToNot(HaveOccurred(), "Failed to patch deployment: %s", string(output))
 
@@ -408,11 +412,46 @@ users:
 			// Ensure we revert the change even if the test fails
 			defer func() {
 				By("Reverting cluster-manager deployment changes")
-				undoCmd := exec.Command("kubectl", "rollout", "undo", "deployment/cluster-manager", "-n", "default")
+				// Get current deployment
+				out, err := exec.Command("kubectl", "get", "deployment", "cluster-manager", "-n", "default", "-o", "json").Output()
+				if err != nil {
+					fmt.Printf("Failed to get deployment: %v\n", err)
+					return
+				}
+
+				var deploy map[string]interface{}
+				if err := json.Unmarshal(out, &deploy); err != nil {
+					fmt.Printf("Failed to unmarshal deployment: %v\n", err)
+					return
+				}
+
+				// Navigate to args
+				spec := deploy["spec"].(map[string]interface{})
+				tmpl := spec["template"].(map[string]interface{})
+				podSpec := tmpl["spec"].(map[string]interface{})
+				containers := podSpec["containers"].([]interface{})
+				container := containers[0].(map[string]interface{})
+				args := container["args"].([]interface{})
+
+				// Filter out the added arg
+				newArgs := []string{}
+				for _, a := range args {
+					s := a.(string)
+					if s != "--kubeconfig-ttl-hours=5" {
+						newArgs = append(newArgs, s)
+					}
+				}
+
+				// Patch back the args
+				argsJson, _ := json.Marshal(newArgs)
+				patch := fmt.Sprintf(`[{"op": "replace", "path": "/spec/template/spec/containers/0/args", "value": %s}]`, string(argsJson))
+
+				undoCmd := exec.Command("kubectl", "patch", "deployment", "cluster-manager", "-n", "default", "--type=json", "-p", patch)
 				output, err := undoCmd.CombinedOutput()
 				if err != nil {
-					fmt.Printf("Failed to undo rollout: %s\n", string(output))
+					fmt.Printf("Failed to revert args: %s\n", string(output))
 				}
+
 				// Wait for rollout to complete
 				waitCmd := exec.Command("kubectl", "rollout", "status", "deployment/cluster-manager", "-n", "default", "--timeout=60s")
 				_ = waitCmd.Run()
