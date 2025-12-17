@@ -510,8 +510,14 @@ helm-install: docker-build docker-load helm-build ## Install helm charts to the 
 		kubectl wait --for=condition=available --timeout=60s deployment/vault-mock -n orch-platform; \
 		echo "Mock services ready - cluster-manager can now fetch JWKS"; \
 	fi
-	helm upgrade --install --wait --debug cluster-template-crd $(BUILD_DIR)/cluster-template-crd-${HELM_VERSION}.tgz --set args.loglevel=DEBUG
-	helm upgrade --install --wait --debug cluster-manager $(BUILD_DIR)/cluster-manager-${HELM_VERSION}.tgz --set clusterManager.extraArgs.disable-multi-tenancy=${DISABLE_MT} --set clusterManager.extraArgs.disable-auth=${DISABLE_AUTH} --set clusterManager.extraArgs.disable-inventory=${DISABLE_INV} --set clusterManager.extraArgs.disable-metrics=${DISABLE_METRICS}
+	helm upgrade --install --wait cluster-template-crd $(BUILD_DIR)/cluster-template-crd-${HELM_VERSION}.tgz
+	# Install cluster-manager without waiting, then patch probes for speed, then wait
+	helm upgrade --install cluster-manager $(BUILD_DIR)/cluster-manager-${HELM_VERSION}.tgz --set clusterManager.extraArgs.disable-multi-tenancy=${DISABLE_MT} --set clusterManager.extraArgs.disable-auth=${DISABLE_AUTH} --set clusterManager.extraArgs.disable-inventory=${DISABLE_INV} --set clusterManager.extraArgs.disable-metrics=${DISABLE_METRICS}
+	# TODO: Remove probe patching when we have a better way to speed up readiness checks in helm templates
+	kubectl patch deployment cluster-manager-template-controller -n default --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/readinessProbe/initialDelaySeconds", "value": 1}, {"op": "replace", "path": "/spec/template/spec/containers/0/readinessProbe/periodSeconds", "value": 1}]'
+	kubectl patch deployment cluster-manager -n default --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/readinessProbe/initialDelaySeconds", "value": 1}, {"op": "replace", "path": "/spec/template/spec/containers/0/readinessProbe/periodSeconds", "value": 1}]'
+	kubectl rollout status deployment/cluster-manager-template-controller -n default --timeout=60s
+	kubectl rollout status deployment/cluster-manager -n default --timeout=60s
 
 helm-uninstall: # Uninstall helm charts from the K8s cluster specified in ~/.kube/config.
 	helm uninstall cluster-manager cluster-template-crd
