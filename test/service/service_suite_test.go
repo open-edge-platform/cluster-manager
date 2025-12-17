@@ -113,7 +113,8 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	if deleteCluster {
 		// delete the namespace for the tenant
-		cmd := exec.Command("kubectl", "delete", "namespace", testTenantID.String())
+		// use --wait=false to avoid waiting for the namespace to be deleted, which can take a long time if the cluster is not healthy
+		cmd := exec.Command("kubectl", "delete", "namespace", testTenantID.String(), "--wait=false")
 		err := cmd.Run()
 		Expect(err).ToNot(HaveOccurred())
 		fmt.Println("Deleted namespace for tenant", testTenantID.String())
