@@ -1,0 +1,90 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+# mock Vault using cluster-manager mock-server command
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-mock-response
+  namespace: orch-platform
+data:
+  response.json: |
+    {
+      "auth": {
+        "client_token": "mock-vault-token",
+        "lease_duration": 3600
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vault-mock
+  namespace: orch-platform
+  labels:
+    app: vault-mock
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vault-mock
+  template:
+    metadata:
+      labels:
+        app: vault-mock
+    spec:
+      securityContext:
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+      - name: vault-mock
+        # CLUSTER_MANAGER_IMAGE_PLACEHOLDER is replaced by Makefile with the actual image tag
+        image: CLUSTER_MANAGER_IMAGE_PLACEHOLDER:0.0.0
+        imagePullPolicy: IfNotPresent
+        command: ["/cluster-manager", "mock-server", "-type=vault", "-port=8200"]
+        ports:
+        - containerPort: 8200
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8200
+          initialDelaySeconds: 1
+          periodSeconds: 1
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8200
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault
+  namespace: orch-platform
+spec:
+  selector:
+    app: vault-mock
+  ports:
+  - port: 8200
+    targetPort: 8200
+    name: http

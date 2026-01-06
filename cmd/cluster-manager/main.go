@@ -12,6 +12,7 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/logger"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/mocks"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/multitenancy"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/rest"
 )
@@ -20,6 +21,11 @@ import (
 var version string
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "mock-server" {
+		mocks.RunAuthServer()
+		return
+	}
+
 	slog.Info("Cluster Manager started", "version", version)
 
 	config := config.ParseConfig()

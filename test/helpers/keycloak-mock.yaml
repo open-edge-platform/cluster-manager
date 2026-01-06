@@ -1,0 +1,81 @@
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+# mock Keycloak using cluster-manager mock-server command
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: orch-platform
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: platform-keycloak
+  namespace: orch-platform
+  labels:
+    app: platform-keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: platform-keycloak
+  template:
+    metadata:
+      labels:
+        app: platform-keycloak
+    spec:
+      securityContext:
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+      - name: mock-keycloak
+        # CLUSTER_MANAGER_IMAGE_PLACEHOLDER is replaced by Makefile with the actual image tag
+        image: CLUSTER_MANAGER_IMAGE_PLACEHOLDER:0.0.0
+        imagePullPolicy: IfNotPresent
+        command: ["/cluster-manager", "mock-server", "-type=keycloak", "-port=8080"]
+        ports:
+        - containerPort: 8080
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 1
+          periodSeconds: 1
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        resources:
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: platform-keycloak
+  namespace: orch-platform
+spec:
+  selector:
+    app: platform-keycloak
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
