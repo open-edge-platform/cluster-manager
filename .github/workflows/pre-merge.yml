@@ -39,7 +39,7 @@ jobs:
           echo "GOMODCACHE=$(go env GOMODCACHE)" >> $GITHUB_ENV
 
       - name: Cache build artifact
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4.3.0
+        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7  # v5.0.2
         with:
           path: |
             ${{ env.GOCACHE }}
@@ -73,7 +73,7 @@ jobs:
           echo "GOMODCACHE=$(go env GOMODCACHE)" >> $GITHUB_ENV
 
       - name: Cache build artifact
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4.3.0
+        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7  # v5.0.2
         with:
           path: |
             ${{ env.GOCACHE }}
@@ -106,7 +106,7 @@ jobs:
           echo "GOMODCACHE=$(go env GOMODCACHE)" >> $GITHUB_ENV
 
       - name: Cache build artifact
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4.3.0
+        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7  # v5.0.2
         with:
           path: |
             ${{ env.GOCACHE }}
@@ -120,7 +120,7 @@ jobs:
     permissions:
       contents: read
     needs: [lint, build, test]
-    uses: open-edge-platform/orch-ci/.github/workflows/pre-merge.yml@c6a01b803d3c045de1b1b2f788a47eaaefed3f07  # 2026.0.4
+    uses: open-edge-platform/orch-ci/.github/workflows/pre-merge.yml@df0fb4811ad79e43b47bf62c28f0bf5d89df4ce6  # 2026.0.4
     with:
       bootstrap_tools: "base,go"
       cache_go: true
@@ -137,4 +137,5 @@ jobs:
       run_helm_build: true
       run_helm_push: false
       version_suffix: "-pr-${{ github.event.number }}"
+      trivy_image_skip: "envoyproxy/envoy:v1.36.2"
     secrets: inherit
