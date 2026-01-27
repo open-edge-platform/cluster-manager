@@ -63,9 +63,9 @@ VENV_NAME = venv-env
 
 BUILD_DIR ?= build
 
-# GoCov versions
-GOLANG_GOCOV_VERSION := latest
-GOLANG_GOCOV_XML_VERSION := latest
+# GoCov versions - pinned to avoid golang.org/x/tools@v0.13.0 incompatibility with Go 1.25+
+GOLANG_GOCOV_VERSION := v1.1.0
+GOLANG_GOCOV_XML_VERSION := v1.2.0
 PKG := github.com/open-edge-platform/cluster-manager
 # FIXME: The integration test in "./test" folder is failing. Commenting it for now
 TEST_PATHS := ./internal/... ./pkg/... ./cmd/... # ./test/...
@@ -166,7 +166,7 @@ coverage: ## Generate test coverage report.
 
 .PHONY: test-unit
 test-unit: envtest gocov 
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $$(go list ${TEST_PATHS}) -v -race -gcflags -l -coverprofile cover.out -covermode atomic -short
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(abspath $(LOCALBIN)) -p path)" go test $$(go list ${TEST_PATHS}) -v -race -gcflags -l -coverprofile cover.out -covermode atomic -short
 	${GOBIN}/gocov convert cover.out | ${GOBIN}/gocov-xml > coverage.xml
 	go tool cover -html=cover.out -o coverage.html
 
@@ -426,8 +426,8 @@ cobertura:
 
 .PHONY: gocov
 gocov:
-	go install github.com/axw/gocov/gocov@${GOLANG_GOCOV_VERSION}
-	go install github.com/AlekSi/gocov-xml@${GOLANG_GOCOV_XML_VERSION}
+	@which gocov > /dev/null 2>&1 || go install github.com/axw/gocov/gocov@${GOLANG_GOCOV_VERSION}
+	@which gocov-xml > /dev/null 2>&1 || go install github.com/AlekSi/gocov-xml@${GOLANG_GOCOV_XML_VERSION}
 
 $(VENV_NAME): requirements.txt
 	echo "Creating virtualenv $@"
