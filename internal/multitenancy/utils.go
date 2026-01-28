@@ -45,6 +45,9 @@ func (t *TenancyDatamodel) deleteProjectWatcher() error {
 	return err
 }
 
+// verifySyncedFunc allows tests to bypass sync verification when using fake clients.
+var verifySyncedFunc = verifySynced
+
 func verifySynced(handler cache.ResourceEventHandlerRegistration) error {
 	var attempts int
 	if err := backoff.Retry(func() error {

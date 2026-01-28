@@ -97,7 +97,8 @@ func (t *TenancyDatamodel) Start() error {
 		RegisterAddCallback(t.processRuntimeProjectsAdd); err != nil {
 		slog.Error("failed to register project add callback", "error", err)
 		return err
-	} else if err = verifySynced(handler); err != nil {
+		// used for the overrideable sync check to allow fake clients in tests.
+	} else if err = verifySyncedFunc(handler); err != nil {
 		slog.Error("failed to verify project add handler synced", "error", err)
 		return err
 	}
@@ -107,7 +108,7 @@ func (t *TenancyDatamodel) Start() error {
 		RegisterUpdateCallback(t.processRuntimeProjectsUpdate); err != nil {
 		slog.Error("failed to register project update callback", "error", err)
 		return err
-	} else if err = verifySynced(handler); err != nil {
+	} else if err = verifySyncedFunc(handler); err != nil {
 		slog.Error("failed to verify project update handler synced", "error", err)
 		return err
 	}

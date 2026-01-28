@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
@@ -38,6 +39,11 @@ func TestTenancyDatamodelSuite(t *testing.T) {
 }
 
 func (suite *TenancyDatamodelTestSuite) SetupTest() {
+	// fake nexus client never syncs; disable sync verification in unit tests.
+	originalVerifySynced := verifySyncedFunc
+	verifySyncedFunc = func(cache.ResourceEventHandlerRegistration) error { return nil }
+	suite.T().Cleanup(func() { verifySyncedFunc = originalVerifySynced })
+
 	nexus := nexus.NewFakeClient()
 	require.NotNil(suite.T(), nexus)
 
