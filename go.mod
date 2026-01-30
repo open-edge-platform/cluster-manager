@@ -18,7 +18,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.27.5
 	github.com/onsi/gomega v1.39.0
 	github.com/open-edge-platform/cluster-api-provider-intel v1.3.4
-	github.com/open-edge-platform/infra-core/inventory/v2 v2.33.4
+	github.com/open-edge-platform/infra-core/inventory/v2 v2.34.2
 	github.com/open-edge-platform/orch-library/go v0.6.3
 	github.com/open-edge-platform/orch-utils/tenancy-datamodel v1.2.2
 	github.com/rancher/cluster-api-provider-rke2 v0.21.0
