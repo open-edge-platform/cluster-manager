@@ -120,7 +120,7 @@ jobs:
     permissions:
       contents: read
     needs: [lint, build, test]
-    uses: open-edge-platform/orch-ci/.github/workflows/pre-merge.yml@12a4f1247fb5ffa9591f4ee52444cc66663facc0  # 2026.0.8
+    uses: open-edge-platform/orch-ci/.github/workflows/pre-merge.yml@70798ccece8a5856e220f1a6c250337628fc658e  # 2026.0.8
     with:
       bootstrap_tools: "base,go"
       cache_go: true
