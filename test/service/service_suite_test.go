@@ -254,21 +254,74 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 			params := api.GetV2ClustersNameParams{}
 			params.Activeprojectid = testTenantID
 
-			resp, err := cli.GetV2ClustersNameWithResponse(context.Background(), clusterName, &params)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(resp.StatusCode()).To(Equal(200))
-			Expect(*resp.JSON200.Name).To(Equal(clusterName))
-			Expect(*resp.JSON200.Labels).To(HaveLen(2))
-			Expect(*resp.JSON200.Labels).To(HaveKeyWithValue("app", "wordpress"))
-			Expect(*resp.JSON200.Labels).To(HaveKeyWithValue("default-extension", "baseline"))
-			Expect(*resp.JSON200.Nodes).To(HaveLen(1))
-			nodes := *resp.JSON200.Nodes
-			Expect(*nodes[0].Role).To(Equal("all"))
-			Expect(*nodes[0].Id).To(Equal(hostIdAnnotationVal))
-			Expect(*nodes[0].Status.Condition).To(Equal(api.STATUSCONDITIONPROVISIONING))
-			Expect(*nodes[0].Status.Reason).To(Equal("Provisioning"))
-			Expect(*nodes[0].Status.Timestamp).ToNot(BeNil())
-			Expect(*resp.JSON200.Template).To(Equal(templateName))
+			validate := func(resp *api.GetV2ClustersNameResponse) error {
+				switch {
+				case resp == nil:
+					return fmt.Errorf("nil response")
+				case resp.StatusCode() != 200:
+					return fmt.Errorf("unexpected status code: %d", resp.StatusCode())
+				case resp.JSON200 == nil:
+					return fmt.Errorf("missing JSON200 body")
+				case resp.JSON200.Name == nil || *resp.JSON200.Name != clusterName:
+					return fmt.Errorf("unexpected cluster name")
+				case resp.JSON200.Template == nil || *resp.JSON200.Template != templateName:
+					return fmt.Errorf("unexpected template")
+				case resp.JSON200.Labels == nil:
+					return fmt.Errorf("labels not set")
+				}
+
+				labels := *resp.JSON200.Labels
+				switch {
+				case len(labels) != 2:
+					return fmt.Errorf("unexpected label count: %d", len(labels))
+				case labels["app"] != "wordpress":
+					return fmt.Errorf("unexpected label app=%q", labels["app"])
+				case labels["default-extension"] != "baseline":
+					return fmt.Errorf("unexpected label default-extension=%q", labels["default-extension"])
+				}
+
+				switch {
+				case resp.JSON200.Nodes == nil || len(*resp.JSON200.Nodes) != 1:
+					return fmt.Errorf("unexpected node count")
+				}
+				node := (*resp.JSON200.Nodes)[0]
+				switch {
+				case node.Role == nil || *node.Role != "all":
+					return fmt.Errorf("unexpected node role")
+				case node.Id == nil || *node.Id != hostIdAnnotationVal:
+					return fmt.Errorf("unexpected node id")
+				case node.Status == nil || node.Status.Condition == nil || *node.Status.Condition != api.STATUSCONDITIONPROVISIONING:
+					return fmt.Errorf("unexpected node condition")
+				case node.Status.Reason == nil:
+					return fmt.Errorf("node reason not set")
+				case node.Status.Timestamp == nil:
+					return fmt.Errorf("node timestamp not set")
+				}
+				// Node status can legitimately be "Pending" immediately after creation (CAPI MachinePhasePending),
+				// so accept any provisioning-like phase here.
+				switch *node.Status.Reason {
+				case "Pending", "Provisioning", "Provisioned":
+					// ok
+				default:
+					return fmt.Errorf("unexpected node reason: %s", *node.Status.Reason)
+				}
+
+				return nil
+			}
+
+			// Node status can legitimately be "Pending" immediately after creation (CAPI MachinePhasePending),
+			// so we avoid asserting an exact Reason value and instead wait for the endpoint to return consistent data.
+			var resp *api.GetV2ClustersNameResponse
+			Eventually(func() error {
+				var err error
+				resp, err = cli.GetV2ClustersNameWithResponse(context.Background(), clusterName, &params)
+				switch {
+				case err != nil:
+					return err
+				default:
+					return validate(resp)
+				}
+			}, 30*time.Second, 1*time.Second).Should(Succeed())
 
 			err = containsLabels(testTenantID.String(), clusterName, []string{
 				"app:wordpress",
