@@ -39,7 +39,8 @@ var controlPlaneTemplateTypes = map[string]func() interface{}{
 
 // SetupClusterTemplateWebhookWithManager registers the webhook for ClusterTemplate in the manager.
 func (v *ClusterTemplateCustomValidator) SetupClusterTemplateWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&clusterv1alpha1.ClusterTemplate{}).
+	return ctrl.NewWebhookManagedBy(mgr).
+		For(&clusterv1alpha1.ClusterTemplate{}).
 		WithValidator(v).
 		Complete()
 }

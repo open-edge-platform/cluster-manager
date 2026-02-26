@@ -17,7 +17,7 @@ require (
 	github.com/oapi-codegen/runtime v1.1.2
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
-	github.com/open-edge-platform/cluster-api-provider-intel v1.3.5
+	github.com/open-edge-platform/cluster-api-provider-intel v1.3.4
 	github.com/open-edge-platform/infra-core/inventory/v2 v2.34.4
 	github.com/open-edge-platform/orch-library/go v0.6.3
 	github.com/open-edge-platform/orch-utils/tenancy-datamodel v1.2.2
@@ -32,7 +32,7 @@ require (
 	k8s.io/kubectl v0.35.1
 	sigs.k8s.io/cluster-api v1.10.10
 	sigs.k8s.io/cluster-api/test v1.10.10
-	sigs.k8s.io/controller-runtime v0.23.1
+	sigs.k8s.io/controller-runtime v0.22.5
 )
 
 require (
