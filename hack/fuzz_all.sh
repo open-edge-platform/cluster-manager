@@ -33,7 +33,7 @@ do
         {
             echo "Fuzzing $func in $file"
             parentDir="$(dirname "$file")"
-            go test "./$parentDir" -fuzz="$func" -run="$func" -fuzztime="${fuzzTime}" -v -parallel 4
+            go test "./$parentDir" -fuzz="^${func}$" -run="^${func}$" -fuzztime="${fuzzTime}" -v -parallel 4
         } &
     done
 done
