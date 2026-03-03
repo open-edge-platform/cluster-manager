@@ -162,7 +162,7 @@ func TestDeleteV2ClustersName500(t *testing.T) {
 
 func createDeleteV2ClustersNameStubServer(t *testing.T) *Server {
 	resource := k8s.NewMockResourceInterface(t)
-	resource.EXPECT().Get(mock.Anything, mock.Anything, metav1.GetOptions{}).Return(&unstructured.Unstructured{}, nil)
+	resource.EXPECT().Get(mock.Anything, mock.Anything, metav1.GetOptions{}).Return(&unstructured.Unstructured{}, nil).Maybe()
 	resource.EXPECT().Delete(mock.Anything, mock.Anything, metav1.DeleteOptions{}).Return(nil).Maybe()
 	nsResource := k8s.NewMockNamespaceableResourceInterface(t)
 	nsResource.EXPECT().Namespace(mock.Anything).Return(resource).Maybe()
