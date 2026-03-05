@@ -33,6 +33,11 @@ jobs:
           gh_token: ${{ secrets.SYS_EMF_GH_TOKEN }}
           bootstrap_tools: "go,gotools,nodejs"
 
+      - name: Pin Node.js to LTS 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Configure cache locations
         run: |
           echo "GOCACHE=$(go env GOCACHE)" >> $GITHUB_ENV
