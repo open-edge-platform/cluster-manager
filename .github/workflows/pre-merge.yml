@@ -36,7 +36,7 @@ jobs:
       - name: Pin Node.js to LTS 20
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 18
 
       - name: Configure cache locations
         run: |
