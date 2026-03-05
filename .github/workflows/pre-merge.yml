@@ -33,10 +33,10 @@ jobs:
           gh_token: ${{ secrets.SYS_EMF_GH_TOKEN }}
           bootstrap_tools: "go,gotools,nodejs"
 
-      - name: Pin Node.js to LTS 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
+      - name: Install compatible markdownlint-cli
+        run: |
+          npm install -g markdownlint-cli@0.33.0
+          echo "Installed markdownlint-cli $(markdownlint -v)"
 
       - name: Configure cache locations
         run: |
