@@ -96,7 +96,24 @@ func handleClients(w http.ResponseWriter, r *http.Request) {
 func handleClientDetail(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if r.Method == http.MethodGet {
-		_, _ = w.Write([]byte(fmt.Sprintf(`{"id":"mock-client-uuid","clientId":"test-client","enabled":true,"attributes":{"access.token.lifespan":"%s"}}`, mockClientAccessTokenLifespan)))
+		type clientAttributes struct {
+			AccessTokenLifespan string `json:"access.token.lifespan"`
+		}
+		type clientDetail struct {
+			ID         string           `json:"id"`
+			ClientID   string           `json:"clientId"`
+			Enabled    bool             `json:"enabled"`
+			Attributes clientAttributes `json:"attributes"`
+		}
+		resp := clientDetail{
+			ID:       "mock-client-uuid",
+			ClientID: "test-client",
+			Enabled:  true,
+			Attributes: clientAttributes{
+				AccessTokenLifespan: mockClientAccessTokenLifespan,
+			},
+		}
+		_ = json.NewEncoder(w).Encode(resp)
 	} else if r.Method == http.MethodPut {
 		var client struct {
 			Attributes struct {
