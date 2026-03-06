@@ -138,4 +138,4 @@ jobs:
       run_helm_push: false
       version_suffix: "-pr-${{ github.event.number }}"
       trivy_image_skip: "envoyproxy/envoy:v1.36.2"
-    secrets: inherit
+    secrets: inherit  # zizmor: ignore[secrets-inherit]
