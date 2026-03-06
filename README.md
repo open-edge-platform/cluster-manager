@@ -59,9 +59,9 @@ This code requires the following tools to be installed on your development machi
 
 - [Go\* programming language](https://go.dev) - check [Makefile](./Makefile) on usage
 - [golangci-lint](https://github.com/golangci/golangci-lint) - check [Makefile](./Makefile)  on usage
-- [mockery](github.com/vektra/mockery) - check [Makefile](./Makefile)  on usage
+- [mockery](https://github.com/vektra/mockery) - check [Makefile](./Makefile)  on usage
 - Python\* programming language version 3.10 or later
-- [gocover-cobertura](github.com/boumenot/gocover-cobertura) - check [Makefile](./Makefile)  on usage
+- [gocover-cobertura](https://github.com/boumenot/gocover-cobertura) - check [Makefile](./Makefile)  on usage
 - [Docker](https://docs.docker.com/engine/install/) to build containers
 - [KinD](https://kind.sigs.k8s.io/docs/user/quick-start/) based cluster for end-to-end tests
 - [Helm](https://helm.sh/docs/intro/install/) for install helm charts for end-to-end tests
@@ -93,7 +93,7 @@ The basic workflow to make changes to the code, verify those changes, and create
 CM supports the following REST APIs:
 
 | API                                 | Method | Description                                                       |
-|-------------------------------------|--------|-------------------------------------------------------------------|
+| ----------------------------------- | ------ | ----------------------------------------------------------------- |
 | /v2/clusters                        | GET    | Get all clusters' information                                     |
 | /v2/clusters                        | POST   | Create a cluster                                                  |
 | /v2/clusters/{name}                 | GET    | Get the cluster {name} information                                |
@@ -104,7 +104,7 @@ CM supports the following REST APIs:
 | /v2/clusters/{name}/labels          | PUT    | Update cluster {name} labels                                      |
 | /v2/clusters/{name}/template        | PUT    | Update the cluster {name} template                                |
 | /v2/clusters/{name}/kubeconfigs     | GET    | Get the cluster's kubeconfig file by its name {name}              |
-| /v2/healthz                         | GET    | Get the Cluster Manager REST API healthz status              |
+| /v2/healthz                         | GET    | Get the Cluster Manager REST API healthz status                   |
 | /v2/templates                       | GET    | Get all templates' information                                    |
 | /v2/templates                       | POST   | Import templates                                                  |
 | /v2/templates/{name}/{version}      | GET    | Get information on a specific template                            |
