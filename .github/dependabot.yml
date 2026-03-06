@@ -11,7 +11,7 @@ updates:
       interval: daily
     open-pull-requests-limit: 3
     cooldown:
-      default: 7
+      default-days: 7
     commit-message:
       prefix: "[gomod] "
     groups:
@@ -30,6 +30,6 @@ updates:
       interval: daily
     open-pull-requests-limit: 10
     cooldown:
-      default: 7
+      default-days: 7
     commit-message:
       prefix: "[gha] "
