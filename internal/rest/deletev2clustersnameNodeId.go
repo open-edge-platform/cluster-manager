@@ -4,6 +4,7 @@ package rest
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"log/slog"
 
@@ -51,6 +52,11 @@ func (s *Server) DeleteV2ClustersNameNodesNodeId(ctx context.Context, request ap
 		cli := k8s.New(s.k8sclient)
 		intelMachines, err := cli.IntelMachines(ctx, activeProjectID, clusterName)
 		if err != nil {
+			if errors.IsNotFound(err) {
+				errMsg := fmt.Sprintf("cluster or project not found: %s/%s", activeProjectID, clusterName)
+				slog.Error(errMsg, "error", err)
+				return api.DeleteV2ClustersNameNodesNodeId404JSONResponse{N404NotFoundJSONResponse: api.N404NotFoundJSONResponse{Message: &errMsg}}, nil
+			}
 			errMsg := "failed to retrieve intel machines"
 			slog.Error(errMsg, "error", err)
 			return api.DeleteV2ClustersNameNodesNodeId500JSONResponse{N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{Message: &errMsg}}, nil
@@ -83,6 +89,11 @@ func (s *Server) DeleteV2ClustersNameNodesNodeId(ctx context.Context, request ap
 	// retrieve the cluster
 	cluster, err := s.getCluster(ctx, activeProjectID, clusterName)
 	if err != nil {
+		if stderrors.Is(err, k8s.ErrClusterNotFound) {
+			errMsg := fmt.Sprintf("cluster not found: %s/%s", activeProjectID, clusterName)
+			slog.Warn(errMsg)
+			return api.DeleteV2ClustersNameNodesNodeId404JSONResponse{N404NotFoundJSONResponse: api.N404NotFoundJSONResponse{Message: &errMsg}}, nil
+		}
 		errMsg := "failed to retrieve cluster"
 		slog.Error(errMsg, "error", err)
 		return api.DeleteV2ClustersNameNodesNodeId500JSONResponse{N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{Message: &errMsg}}, nil
