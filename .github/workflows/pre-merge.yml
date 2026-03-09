@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 ---
@@ -28,7 +28,7 @@ jobs:
           persist-credentials: false
 
       - name: "Setup"
-        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@582cb262491c89e19904164eb24887b01f6925b2  # 2026.0.15
+        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@949cac3030f55e2d822802946c97fb297535ff46  # 2026.0.17
         with:
           gh_token: ${{ secrets.SYS_EMF_GH_TOKEN }}
           bootstrap_tools: "go,gotools,nodejs"
@@ -62,7 +62,7 @@ jobs:
           persist-credentials: false
 
       - name: "Setup"
-        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@582cb262491c89e19904164eb24887b01f6925b2  # 2026.0.15
+        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@949cac3030f55e2d822802946c97fb297535ff46  # 2026.0.17
         with:
           gh_token: ${{ secrets.SYS_EMF_GH_TOKEN }}
           bootstrap_tools: "go,gotools"
@@ -95,7 +95,7 @@ jobs:
           persist-credentials: false
 
       - name: "Setup"
-        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@582cb262491c89e19904164eb24887b01f6925b2  # 2026.0.15
+        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@949cac3030f55e2d822802946c97fb297535ff46  # 2026.0.17
         with:
           gh_token: ${{ secrets.SYS_EMF_GH_TOKEN }}
           bootstrap_tools: "go,gotools"
@@ -120,7 +120,7 @@ jobs:
     permissions:
       contents: read
     needs: [lint, build, test]
-    uses: open-edge-platform/orch-ci/.github/workflows/pre-merge.yml@949cac3030f55e2d822802946c97fb297535ff46  # 2026.0.15
+    uses: open-edge-platform/orch-ci/.github/workflows/pre-merge.yml@949cac3030f55e2d822802946c97fb297535ff46  # 2026.0.17
     with:
       bootstrap_tools: "base,go"
       cache_go: true
