@@ -21,7 +21,6 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 	clusterv1alpha1 "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
-	rke2cpv1beta1 "github.com/rancher/cluster-api-provider-rke2/controlplane/api/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	kubeadmcp "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
@@ -33,7 +32,6 @@ var clustertemplatelog = logf.Log.WithName("clustertemplate-resource")
 
 var controlPlaneTemplateTypes = map[string]func() interface{}{
 	string(api.Kubeadm): func() interface{} { return &kubeadmcp.KubeadmControlPlaneTemplate{} },
-	string(api.Rke2):    func() interface{} { return &rke2cpv1beta1.RKE2ControlPlaneTemplate{} },
 	string(api.K3s):     func() interface{} { return &kthreescpv1beta2.KThreesControlPlaneTemplate{} },
 }
 

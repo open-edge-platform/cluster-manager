@@ -19,7 +19,6 @@ const (
 	IntelClusterTemplate = "IntelClusterTemplate"
 
 	KubeadmControlPlaneTemplate = "KubeadmControlPlaneTemplate"
-	RKE2ControlPlaneTemplate    = "RKE2ControlPlaneTemplate"
 	KThreesControlPlaneTemplate = "KThreesControlPlaneTemplate"
 
 	DefaultProvider = "k3s"
@@ -46,11 +45,8 @@ var (
 	connectAgentEnabledIf = "{{ if .connectAgentManifest.path }}true{{ end }}"
 	readOnlyEnabledIf     = "{{ .readOnly }}"
 
-	// TODO: deprecate rke2
 	providerRegistry = map[string]Provider{
 		"kubeadm:docker": kubeadmdocker{},
-		"rke2:docker":    rke2docker{},
-		"rke2:intel":     rke2intel{},
 		"k3s:intel":      k3sintel{},
 		"k3s:docker":     k3sdocker{},
 	}
