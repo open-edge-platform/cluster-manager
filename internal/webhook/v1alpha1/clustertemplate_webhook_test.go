@@ -57,6 +57,17 @@ var _ = Describe("ClusterTemplate Webhook", func() {
 			By("validating the kubeadm template")
 			_, err = validator.ValidateCreate(ctx, kubeadmTemplate)
 			Expect(err).To(BeNil(), "Expected kubeadm template to be valid")
+
+			By("reading the k3s template from file")
+			k3sTemplate := &clusterv1alpha1.ClusterTemplate{}
+			k3sTemplateFile, err := os.ReadFile("../../../examples/cluster_v1alpha1_clustertemplate_k3s.yaml")
+			Expect(err).NotTo(HaveOccurred(), "Failed to read k3s template file")
+			err = yaml.Unmarshal(k3sTemplateFile, k3sTemplate)
+			Expect(err).NotTo(HaveOccurred(), "Failed to unmarshal k3s template")
+
+			By("validating the k3s template")
+			_, err = validator.ValidateCreate(ctx, k3sTemplate)
+			Expect(err).To(BeNil(), "Expected k3s template to be valid")
 		})
 
 		It("Should only allow deletion of ClusterTemplates not in use", func() {})

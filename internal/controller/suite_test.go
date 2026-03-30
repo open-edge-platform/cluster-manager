@@ -29,6 +29,8 @@ import (
 
 	// Imports for CAPI resources
 	intelv1alpha1 "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
+	kthreesbootstrapv1beta2 "github.com/k3s-io/cluster-api-k3s/bootstrap/api/v1beta2"
+	kthreescpv1beta2 "github.com/k3s-io/cluster-api-k3s/controlplane/api/v1beta2"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	kubeadmbootstrapv1beta1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	kubeadmcp "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
@@ -82,6 +84,7 @@ func getModuleVersionFromGoMod(modulePath string) string {
 func buildCRDPaths() []string {
 	capiVersion := getModuleVersionFromGoMod("sigs.k8s.io/cluster-api")
 	intelVersion := getModuleVersionFromGoMod("github.com/open-edge-platform/cluster-api-provider-intel")
+	k3sVersion := getModuleVersionFromGoMod("github.com/k3s-io/cluster-api-k3s")
 
 	modPath := filepath.Join(build.Default.GOPATH, "pkg", "mod")
 
@@ -92,6 +95,9 @@ func buildCRDPaths() []string {
 		// note: cluster-api/test is a separate module with different path structure
 		filepath.Join(modPath, "sigs.k8s.io", "cluster-api", "test@"+capiVersion, "infrastructure", "docker", "config", "crd", "bases"),
 		filepath.Join(modPath, "github.com", "open-edge-platform", "cluster-api-provider-intel@"+intelVersion, "config", "crd", "bases"),
+		// K3s control plane and bootstrap provider CRDs
+		filepath.Join(modPath, "github.com", "k3s-io", "cluster-api-k3s@"+k3sVersion, "controlplane", "config", "crd", "bases"),
+		filepath.Join(modPath, "github.com", "k3s-io", "cluster-api-k3s@"+k3sVersion, "bootstrap", "config", "crd", "bases"),
 	}
 
 	return paths
@@ -124,6 +130,15 @@ var _ = BeforeSuite(func() {
 
 	// Add scheme for Kubeadm control plane provider
 	err = kubeadmcp.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	// ---- K3S CONTROL PLANE PROVIDER ----
+	// Add scheme for K3s bootstrap provider
+	err = kthreesbootstrapv1beta2.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	// Add scheme for K3s control plane provider
+	err = kthreescpv1beta2.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	// ----  CAPI ----
