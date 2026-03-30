@@ -29,8 +29,6 @@ import (
 
 	// Imports for CAPI resources
 	intelv1alpha1 "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
-	rke2bootstrapv1beta1 "github.com/rancher/cluster-api-provider-rke2/bootstrap/api/v1beta1"
-	rke2cpv1beta1 "github.com/rancher/cluster-api-provider-rke2/controlplane/api/v1beta1"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	kubeadmbootstrapv1beta1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	kubeadmcp "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
@@ -89,8 +87,6 @@ func buildCRDPaths() []string {
 
 	paths := []string{
 		filepath.Join("..", "..", "config", "crd", "bases"),
-		// TODO: usage of rke2 in tests to be removed
-		filepath.Join(modPath, "github.com", "rancher", "cluster-api-provider-rke2@v0.21.0", "controlplane", "config", "crd", "bases"),
 		filepath.Join(modPath, "sigs.k8s.io", "cluster-api@"+capiVersion, "controlplane", "kubeadm", "config", "crd", "bases"),
 		filepath.Join(modPath, "sigs.k8s.io", "cluster-api@"+capiVersion, "config", "crd", "bases"),
 		// note: cluster-api/test is a separate module with different path structure
@@ -128,15 +124,6 @@ var _ = BeforeSuite(func() {
 
 	// Add scheme for Kubeadm control plane provider
 	err = kubeadmcp.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	// ---- RKE2 CONTROL PLANE PROVIDER ----
-	// Add scheme for RKE2 bootstrap provider
-	err = rke2bootstrapv1beta1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	// Add scheme for RKE2 control plane provider
-	err = rke2cpv1beta1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	// ----  CAPI ----

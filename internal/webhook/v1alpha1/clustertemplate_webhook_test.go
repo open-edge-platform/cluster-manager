@@ -57,17 +57,6 @@ var _ = Describe("ClusterTemplate Webhook", func() {
 			By("validating the kubeadm template")
 			_, err = validator.ValidateCreate(ctx, kubeadmTemplate)
 			Expect(err).To(BeNil(), "Expected kubeadm template to be valid")
-
-			By("reading the rke2 template from file")
-			rke2Template := &clusterv1alpha1.ClusterTemplate{}
-			rke2TemplateFile, err := os.ReadFile("../../../examples/cluster_v1alpha1_clustertemplate_rke2.yaml")
-			Expect(err).NotTo(HaveOccurred(), "Failed to read rke2 template file")
-			err = yaml.Unmarshal(rke2TemplateFile, rke2Template)
-			Expect(err).NotTo(HaveOccurred(), "Failed to unmarshal rke2 template")
-
-			By("validating the rke2 template")
-			_, err = validator.ValidateCreate(ctx, rke2Template)
-			Expect(err).To(BeNil(), "Expected rke2 template to be valid")
 		})
 
 		It("Should only allow deletion of ClusterTemplates not in use", func() {})
