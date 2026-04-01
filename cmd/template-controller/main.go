@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/tls"
 	"flag"
+	"net/http"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -77,6 +78,18 @@ func init() {
 var version string
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		url := "http://localhost:8081/healthz"
+		if len(os.Args) > 2 {
+			url = os.Args[2]
+		}
+		resp, err := http.Get(url) //nolint:gosec,noctx // health probe to fixed local endpoint
+		if err != nil || resp.StatusCode/100 != 2 {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
