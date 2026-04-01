@@ -40,6 +40,8 @@ type ClusterTemplateReconciler struct {
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=intelmachinetemplates,verbs=get;list;watch;create;delete
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=intelclustertemplates,verbs=get;list;watch;create;delete
 // +kubebuilder:rbac:groups=controlplane.cluster.x-k8s.io,resources=kubeadmcontrolplanetemplates,verbs=get;list;watch;create;delete
+// +kubebuilder:rbac:groups=controlplane.cluster.x-k8s.io,resources=kthreescontrolplanes,verbs=get;list;watch;create;delete
+// +kubebuilder:rbac:groups=controlplane.cluster.x-k8s.io,resources=kthreescontrolplanetemplates,verbs=get;list;watch;create;delete
 // +kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusterclasses,verbs=get;list;watch;create;delete
 // +kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters,verbs=get;list;watch;create;delete
 
