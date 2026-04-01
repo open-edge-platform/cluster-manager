@@ -208,7 +208,7 @@ func TestGetV2Clusters200(t *testing.T) {
 	})
 	t.Run("Single Cluster", func(t *testing.T) {
 		clusters := []capi.Cluster{
-			generateCluster(ptr("example-cluster"), ptr("v1.30.6+rke2r1")),
+			generateCluster(ptr("example-cluster"), ptr("v1.33.5+k3s1")),
 		}
 		server := createMockServer(t, clusters, expectedActiveProjectID, true, true)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
@@ -234,7 +234,7 @@ func TestGetV2Clusters200(t *testing.T) {
 		// check the response content
 		expectedResponse := api.GetV2Clusters200JSONResponse{
 			Clusters: &[]api.ClusterInfo{
-				generateClusterInfo("example-cluster", "v1.30.6+rke2r1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found")},
+				generateClusterInfo("example-cluster", "v1.33.5+k3s1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found")},
 			TotalElements: 1,
 		}
 		require.Equal(t, expectedResponse, actualResponse, "GetV2Clusters() response = %v, want %v", actualResponse, expectedResponse)
@@ -242,8 +242,8 @@ func TestGetV2Clusters200(t *testing.T) {
 
 	t.Run("Two Clusters", func(t *testing.T) {
 		clusters := []capi.Cluster{
-			generateCluster(ptr("example-cluster-1"), ptr("v1.30.6+rke2r1")),
-			generateCluster(ptr("example-cluster-2"), ptr("v1.20.4+rke2r1")),
+			generateCluster(ptr("example-cluster-1"), ptr("v1.33.5+k3s1")),
+			generateCluster(ptr("example-cluster-2"), ptr("v1.30.6+k3s1")),
 		}
 		server := createMockServer(t, clusters, expectedActiveProjectID)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
@@ -269,8 +269,8 @@ func TestGetV2Clusters200(t *testing.T) {
 		// check the response content
 		expectedResponse := api.GetV2Clusters200JSONResponse{
 			Clusters: &[]api.ClusterInfo{
-				generateClusterInfo("example-cluster-1", "v1.30.6+rke2r1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
-				generateClusterInfo("example-cluster-2", "v1.20.4+rke2r1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
+				generateClusterInfo("example-cluster-1", "v1.33.5+k3s1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
+				generateClusterInfo("example-cluster-2", "v1.30.6+k3s1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
 			},
 			TotalElements: 2,
 		}
@@ -279,8 +279,8 @@ func TestGetV2Clusters200(t *testing.T) {
 
 	t.Run("Three Clusters with One Without Name", func(t *testing.T) {
 		clusters := []capi.Cluster{
-			generateCluster(ptr("example-cluster-1"), ptr("v1.30.6+rke2r1")),
-			generateCluster(ptr("example-cluster-2"), ptr("v1.20.4+rke2r1")),
+			generateCluster(ptr("example-cluster-1"), ptr("v1.33.5+k3s1")),
+			generateCluster(ptr("example-cluster-2"), ptr("v1.30.6+k3s1")),
 			generateCluster(ptr("example-cluster-2"), nil),
 		}
 		server := createMockServer(t, clusters, expectedActiveProjectID)
@@ -307,8 +307,8 @@ func TestGetV2Clusters200(t *testing.T) {
 		// check the response content
 		expectedResponse := api.GetV2Clusters200JSONResponse{
 			Clusters: &[]api.ClusterInfo{
-				generateClusterInfo("example-cluster-1", "v1.30.6+rke2r1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
-				generateClusterInfo("example-cluster-2", "v1.20.4+rke2r1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
+				generateClusterInfo("example-cluster-1", "v1.33.5+k3s1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
+				generateClusterInfo("example-cluster-2", "v1.30.6+k3s1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
 			},
 			TotalElements: 2,
 		}
@@ -316,8 +316,8 @@ func TestGetV2Clusters200(t *testing.T) {
 	})
 	t.Run("filtered Clusters", func(t *testing.T) {
 		clusters := []capi.Cluster{
-			generateCluster(ptr("example-cluster-1"), ptr("v1.30.6+rke2r1")),
-			generateCluster(ptr("example-cluster-2"), ptr("v1.20.4+rke2r1")),
+			generateCluster(ptr("example-cluster-1"), ptr("v1.33.5+k3s1")),
+			generateCluster(ptr("example-cluster-2"), ptr("v1.30.6+k3s1")),
 		}
 		server := createMockServer(t, clusters, expectedActiveProjectID)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
@@ -343,7 +343,7 @@ func TestGetV2Clusters200(t *testing.T) {
 		// check the response content
 		expectedResponse := api.GetV2Clusters200JSONResponse{
 			Clusters: &[]api.ClusterInfo{
-				generateClusterInfo("example-cluster-1", "v1.30.6+rke2r1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
+				generateClusterInfo("example-cluster-1", "v1.33.5+k3s1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
 			},
 			TotalElements: 1,
 		}
@@ -351,8 +351,8 @@ func TestGetV2Clusters200(t *testing.T) {
 	})
 	t.Run("ordered clusters - asc (default)", func(t *testing.T) {
 		clusters := []capi.Cluster{
-			generateCluster(ptr("example-cluster-2"), ptr("v1.20.4+rke2r1")),
-			generateCluster(ptr("example-cluster-1"), ptr("v1.30.6+rke2r1")),
+			generateCluster(ptr("example-cluster-2"), ptr("v1.30.6+k3s1")),
+			generateCluster(ptr("example-cluster-1"), ptr("v1.33.5+k3s1")),
 		}
 		server := createMockServer(t, clusters, expectedActiveProjectID)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
@@ -373,8 +373,8 @@ func TestGetV2Clusters200(t *testing.T) {
 		// check the response content
 		expectedResponse := api.GetV2Clusters200JSONResponse{
 			Clusters: &[]api.ClusterInfo{
-				generateClusterInfo("example-cluster-1", "v1.30.6+rke2r1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
-				generateClusterInfo("example-cluster-2", "v1.20.4+rke2r1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
+				generateClusterInfo("example-cluster-1", "v1.33.5+k3s1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
+				generateClusterInfo("example-cluster-2", "v1.30.6+k3s1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
 			},
 			TotalElements: 2,
 		}
@@ -382,8 +382,8 @@ func TestGetV2Clusters200(t *testing.T) {
 	})
 	t.Run("ordered clusters by desc", func(t *testing.T) {
 		clusters := []capi.Cluster{
-			generateCluster(ptr("example-cluster-1"), ptr("v1.30.6+rke2r1")),
-			generateCluster(ptr("example-cluster-2"), ptr("v1.20.4+rke2r1")),
+			generateCluster(ptr("example-cluster-1"), ptr("v1.33.5+k3s1")),
+			generateCluster(ptr("example-cluster-2"), ptr("v1.30.6+k3s1")),
 		}
 		server := createMockServer(t, clusters, expectedActiveProjectID)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
@@ -404,8 +404,8 @@ func TestGetV2Clusters200(t *testing.T) {
 		// check the response content
 		expectedResponse := api.GetV2Clusters200JSONResponse{
 			Clusters: &[]api.ClusterInfo{
-				generateClusterInfo("example-cluster-2", "v1.20.4+rke2r1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
-				generateClusterInfo("example-cluster-1", "v1.30.6+rke2r1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
+				generateClusterInfo("example-cluster-2", "v1.30.6+k3s1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
+				generateClusterInfo("example-cluster-1", "v1.33.5+k3s1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
 			},
 			TotalElements: 2,
 		}
@@ -414,8 +414,8 @@ func TestGetV2Clusters200(t *testing.T) {
 
 	t.Run("paginated clusters", func(t *testing.T) {
 		clusters := []capi.Cluster{
-			generateCluster(ptr("example-cluster-1"), ptr("v1.30.6+rke2r1")),
-			generateCluster(ptr("example-cluster-2"), ptr("v1.20.4+rke2r1")),
+			generateCluster(ptr("example-cluster-1"), ptr("v1.33.5+k3s1")),
+			generateCluster(ptr("example-cluster-2"), ptr("v1.30.6+k3s1")),
 			generateCluster(ptr("example-cluster-3"), ptr("v1.18.0")),
 		}
 		server := createMockServer(t, clusters, expectedActiveProjectID)
@@ -437,7 +437,7 @@ func TestGetV2Clusters200(t *testing.T) {
 		// check the response content
 		expectedResponse := api.GetV2Clusters200JSONResponse{
 			Clusters: &[]api.ClusterInfo{
-				generateClusterInfo("example-cluster-2", "v1.20.4+rke2r1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
+				generateClusterInfo("example-cluster-2", "v1.30.6+k3s1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
 				generateClusterInfo("example-cluster-3", "v1.18.0", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
 			},
 			TotalElements: 3,
@@ -446,8 +446,8 @@ func TestGetV2Clusters200(t *testing.T) {
 	})
 	t.Run("filtered clusters by name OR kubernetes version", func(t *testing.T) {
 		clusters := []capi.Cluster{
-			generateCluster(ptr("example-cluster-1"), ptr("v1.30.6+rke2r1")),
-			generateCluster(ptr("example-cluster-2"), ptr("v1.20.4+rke2r1")),
+			generateCluster(ptr("example-cluster-1"), ptr("v1.33.5+k3s1")),
+			generateCluster(ptr("example-cluster-2"), ptr("v1.30.6+k3s1")),
 			generateCluster(ptr("example-cluster-3"), ptr("v1.18.0")),
 		}
 		server := createMockServer(t, clusters, expectedActiveProjectID)
@@ -465,7 +465,7 @@ func TestGetV2Clusters200(t *testing.T) {
 		require.Equal(t, http.StatusOK, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, 200)
 		expectedResponse := api.GetV2Clusters200JSONResponse{
 			Clusters: &[]api.ClusterInfo{
-				generateClusterInfo("example-cluster-1", "v1.30.6+rke2r1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
+				generateClusterInfo("example-cluster-1", "v1.33.5+k3s1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
 				generateClusterInfo("example-cluster-3", "v1.18.0", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
 			},
 			TotalElements: 2,
@@ -474,8 +474,8 @@ func TestGetV2Clusters200(t *testing.T) {
 	})
 	t.Run("filtered clusters by name OR kubernetes version", func(t *testing.T) {
 		clusters := []capi.Cluster{
-			generateCluster(ptr("example-cluster-1"), ptr("v1.30.6+rke2r1")),
-			generateCluster(ptr("example-cluster-2"), ptr("v1.20.4+rke2r1")),
+			generateCluster(ptr("example-cluster-1"), ptr("v1.33.5+k3s1")),
+			generateCluster(ptr("example-cluster-2"), ptr("v1.28.5+k3s1")),
 			generateCluster(ptr("cluster-example"), ptr("v1.18.0")),
 		}
 		server := createMockServer(t, clusters, expectedActiveProjectID)
@@ -493,7 +493,7 @@ func TestGetV2Clusters200(t *testing.T) {
 		require.Equal(t, http.StatusOK, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, 200)
 		expectedResponse := api.GetV2Clusters200JSONResponse{
 			Clusters: &[]api.ClusterInfo{
-				generateClusterInfo("example-cluster-2", "v1.20.4+rke2r1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
+				generateClusterInfo("example-cluster-2", "v1.28.5+k3s1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
 				generateClusterInfo("cluster-example", "v1.18.0", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
 			},
 			TotalElements: 2,
@@ -502,16 +502,16 @@ func TestGetV2Clusters200(t *testing.T) {
 	})
 	t.Run("filtered clusters by name AND specific kubernetes version", func(t *testing.T) {
 		clusters := []capi.Cluster{
-			generateCluster(ptr("example-cluster-1"), ptr("v1.30.6+rke2r1")),
-			generateCluster(ptr("example-cluster-2"), ptr("v1.20.4+rke2r1")),
+			generateCluster(ptr("example-cluster-1"), ptr("v1.33.5+k3s1")),
+			generateCluster(ptr("example-cluster-2"), ptr("v1.30.6+k3s1")),
 			generateCluster(ptr("example-cluster-3"), ptr("v1.18.0")),
-			generateCluster(ptr("example-cluster-4"), ptr("v1.20.4+rke2r1")),
+			generateCluster(ptr("example-cluster-4"), ptr("v1.30.6+k3s1")),
 		}
 		server := createMockServer(t, clusters, expectedActiveProjectID)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")
 		// Create a new request & response recorder with filter by name prefix and kubernetes version
 		// note: the space in the query string is %20 and + is %2B
-		req := httptest.NewRequest("GET", "/v2/clusters?filter=name=example-cluster%20AND%20kubernetesVersion=v1.20.4%2Brke2r1", nil)
+		req := httptest.NewRequest("GET", "/v2/clusters?filter=name=example-cluster%20AND%20kubernetesVersion=v1.30.6%2Bk3s1", nil)
 		req.Header.Set("Activeprojectid", expectedActiveProjectID)
 		rr := httptest.NewRecorder()
 		handler, err := server.ConfigureHandler()
@@ -523,8 +523,8 @@ func TestGetV2Clusters200(t *testing.T) {
 		require.Equal(t, http.StatusOK, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, 200)
 		expectedResponse := api.GetV2Clusters200JSONResponse{
 			Clusters: &[]api.ClusterInfo{
-				generateClusterInfo("example-cluster-2", "v1.20.4+rke2r1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
-				generateClusterInfo("example-cluster-4", "v1.20.4+rke2r1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
+				generateClusterInfo("example-cluster-2", "v1.30.6+k3s1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
+				generateClusterInfo("example-cluster-4", "v1.30.6+k3s1", api.STATUSINDICATIONUNSPECIFIED, "Condition not found"),
 			},
 			TotalElements: 2,
 		}
@@ -541,13 +541,13 @@ func TestGetV2Clusters200(t *testing.T) {
 			{
 				name: "filtered clusters by providerStatus",
 				clusters: []capi.Cluster{
-					generateClusterWithStatus(ptr("example-cluster-1"), ptr("v1.30.6+rke2r1"), clusterStatusReady),
-					generateClusterWithStatus(ptr("example-cluster-2"), ptr("v1.20.4+rke2r1"), clusterStatusFailed),
+					generateClusterWithStatus(ptr("example-cluster-1"), ptr("v1.33.5+k3s1"), clusterStatusReady),
+					generateClusterWithStatus(ptr("example-cluster-2"), ptr("v1.30.6+k3s1"), clusterStatusFailed),
 				},
 				filter: "providerStatus=ready",
 				expectedResult: api.GetV2Clusters200JSONResponse{
 					Clusters: &[]api.ClusterInfo{
-						generateClusterInfo("example-cluster-1", "v1.30.6+rke2r1", api.STATUSINDICATIONIDLE, "active"),
+						generateClusterInfo("example-cluster-1", "v1.33.5+k3s1", api.STATUSINDICATIONIDLE, "active"),
 					},
 					TotalElements: 1,
 				},
@@ -555,13 +555,13 @@ func TestGetV2Clusters200(t *testing.T) {
 			{
 				name: "filtered clusters by lifecyclePhase",
 				clusters: []capi.Cluster{
-					generateClusterWithStatus(ptr("example-cluster-1"), ptr("v1.30.6+rke2r1"), clusterStatusReady),
-					generateClusterWithStatus(ptr("example-cluster-2"), ptr("v1.20.4+rke2r1"), clusterStatusInProgressControlPlane),
+					generateClusterWithStatus(ptr("example-cluster-1"), ptr("v1.33.5+k3s1"), clusterStatusReady),
+					generateClusterWithStatus(ptr("example-cluster-2"), ptr("v1.30.6+k3s1"), clusterStatusInProgressControlPlane),
 				},
 				filter: "lifecyclePhase=active",
 				expectedResult: api.GetV2Clusters200JSONResponse{
 					Clusters: &[]api.ClusterInfo{
-						generateClusterInfo("example-cluster-1", "v1.30.6+rke2r1", api.STATUSINDICATIONIDLE, "active"),
+						generateClusterInfo("example-cluster-1", "v1.33.5+k3s1", api.STATUSINDICATIONIDLE, "active"),
 					},
 					TotalElements: 1,
 				},
@@ -614,8 +614,8 @@ func TestGetV2Clusters200(t *testing.T) {
 
 	t.Run("no clusters after filter criteria", func(t *testing.T) {
 		clusters := []capi.Cluster{
-			generateCluster(ptr("example-cluster-1"), ptr("v1.30.6+rke2r1")),
-			generateCluster(ptr("example-cluster-2"), ptr("v1.20.4+rke2r1")),
+			generateCluster(ptr("example-cluster-1"), ptr("v1.33.5+k3s1")),
+			generateCluster(ptr("example-cluster-2"), ptr("v1.30.6+k3s1")),
 		}
 		server := createMockServer(t, clusters, expectedActiveProjectID)
 		require.NotNil(t, server, "NewServer() returned nil, want not nil")

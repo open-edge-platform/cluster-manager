@@ -21,7 +21,6 @@ require (
 	github.com/open-edge-platform/infra-core/inventory/v2 v2.34.3
 	github.com/open-edge-platform/orch-library/go v0.6.3
 	github.com/open-edge-platform/orch-utils/tenancy-datamodel v1.2.2
-	github.com/rancher/cluster-api-provider-rke2 v0.21.0
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.6.0
 	google.golang.org/protobuf v1.36.11
@@ -37,6 +36,7 @@ require (
 
 require (
 	buf.build/go/protovalidate v1.0.0 // indirect
+	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 // indirect
@@ -58,6 +58,7 @@ require (
 	github.com/woodsbury/decimal128 v1.3.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	google.golang.org/genproto v0.0.0-20250603155806-513f23925822 // indirect
 	k8s.io/cluster-bootstrap v0.32.3 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
@@ -79,13 +80,6 @@ require (
 	github.com/bmatcuk/doublestar v1.3.4 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/clarketm/json v1.17.1 // indirect
-	github.com/coreos/butane v0.25.1 // indirect
-	github.com/coreos/go-json v0.0.0-20230131223807-18775e0fb4fb // indirect
-	github.com/coreos/go-semver v0.3.1 // indirect
-	github.com/coreos/go-systemd/v22 v22.6.0 // indirect
-	github.com/coreos/ignition/v2 v2.24.0 // indirect
-	github.com/coreos/vcontext v0.0.0-20230201181013-d72178a18687 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
 	github.com/elliotchance/orderedmap v1.8.0 // indirect
@@ -112,7 +106,6 @@ require (
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/cel-go v0.26.1 // indirect
 	github.com/google/gnostic-models v0.7.0 // indirect
-	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20260115054156-294ebfa9ad83 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 // indirect
@@ -173,7 +166,6 @@ require (
 	github.com/tchap/go-patricia/v2 v2.3.3 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
-	github.com/vincent-petithory/dataurl v1.0.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect

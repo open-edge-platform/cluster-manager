@@ -9,19 +9,16 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	rke2cpv1beta1 "github.com/rancher/cluster-api-provider-rke2/controlplane/api/v1beta1"
 	capiv1beta1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	kubeadmcpv1beta1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	dockerv1beta1 "sigs.k8s.io/cluster-api/test/infrastructure/docker/api/v1beta1"
 
-	intelv1alpha1 "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
 	clusterv1alpha1 "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 )
 
@@ -134,55 +131,6 @@ var _ = Describe("ClusterTemplate Controller", func() {
 
 				By("validating the KubeadmControlPlaneTemplate is created")
 				err = k8sClient.Get(ctx, typeNamespacedName, &kubeadmcpv1beta1.KubeadmControlPlaneTemplate{})
-				Expect(err).NotTo(HaveOccurred())
-			},
-		),
-
-		Entry("for RKE2 CP and Docker Infra",
-			"rke2", "docker", "v1.30.6+rke2r1",
-			"{\"kind\":\"RKE2ControlPlaneTemplate\",\"apiVersion\":\"controlplane.cluster.x-k8s.io/v1beta1\",\"spec\":{\"template\":{\"spec\":{\"serverConfig\":{\"cni\":\"calico\",\"disableComponents\":{\"kubernetesComponents\":[\"cloudController\"]}},\"nodeDrainTimeout\":\"2m\",\"rolloutStrategy\":{\"type\":\"RollingUpdate\",\"rollingUpdate\":{\"maxSurge\":1}}}}}}",
-			func() {
-				By("validating the DockerMachineTemplate is created")
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name:      fmt.Sprintf("%s-controlplane", typeNamespacedName.Name),
-					Namespace: typeNamespacedName.Namespace,
-				}, &dockerv1beta1.DockerMachineTemplate{})
-				Expect(err).NotTo(HaveOccurred())
-
-				By("validating the Prerequisites ConfigMap is created")
-				err = k8sClient.Get(ctx, types.NamespacedName{
-					Name:      fmt.Sprintf("%s-rke2-class-lb-config", typeNamespacedName.Name),
-					Namespace: typeNamespacedName.Namespace,
-				}, &corev1.ConfigMap{})
-				Expect(err).NotTo(HaveOccurred())
-
-				By("validating the DockerClusterTemplate is created")
-				err = k8sClient.Get(ctx, typeNamespacedName, &dockerv1beta1.DockerClusterTemplate{})
-				Expect(err).NotTo(HaveOccurred())
-
-				By("validating the RKE2ControlPlaneTemplate is created")
-				err = k8sClient.Get(ctx, typeNamespacedName, &rke2cpv1beta1.RKE2ControlPlaneTemplate{})
-				Expect(err).NotTo(HaveOccurred())
-			},
-		),
-
-		Entry("for RKE2 CP and Intel Infra",
-			"rke2", "intel", "v1.30.6+rke2r1",
-			"{\"kind\":\"RKE2ControlPlaneTemplate\",\"apiVersion\":\"controlplane.cluster.x-k8s.io/v1beta1\",\"spec\":{\"template\":{\"spec\":{\"serverConfig\":{\"cni\":\"calico\",\"disableComponents\":{\"kubernetesComponents\":[\"cloudController\"]}},\"nodeDrainTimeout\":\"2m\",\"rolloutStrategy\":{\"type\":\"RollingUpdate\",\"rollingUpdate\":{\"maxSurge\":1}}}}}}",
-			func() {
-				By("validating the IntelMachineTemplate is created")
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name:      fmt.Sprintf("%s-controlplane", typeNamespacedName.Name),
-					Namespace: typeNamespacedName.Namespace,
-				}, &intelv1alpha1.IntelMachineTemplate{})
-				Expect(err).NotTo(HaveOccurred())
-
-				By("validating the IntelClusterTemplate is created")
-				err = k8sClient.Get(ctx, typeNamespacedName, &intelv1alpha1.IntelClusterTemplate{})
-				Expect(err).NotTo(HaveOccurred())
-
-				By("validating the RKE2ControlPlaneTemplate is created")
-				err = k8sClient.Get(ctx, typeNamespacedName, &rke2cpv1beta1.RKE2ControlPlaneTemplate{})
 				Expect(err).NotTo(HaveOccurred())
 			},
 		),

@@ -107,7 +107,7 @@ func getComponentReady(cluster *capi.Cluster, conditionType capi.ConditionType, 
 		case intelv1alpha1.SecureTunnelNotEstablishedReason:
 			*status.Indicator = api.STATUSINDICATIONERROR
 			*status.Message = fmt.Sprintf("%s;%s", *status.Message, "connect agent is disconnected")
-		case "WaitingForRKE2Server", "WaitingForKThreesServer":
+		case "WaitingForKThreesServer":
 			*status.Message = fmt.Sprintf("%s;%s", *status.Message, "waiting for control plane provider to indicate the control plane has been initialized")
 		default:
 			*status.Message = fmt.Sprintf("%s;%s", *status.Message, componentCondition.Reason)
