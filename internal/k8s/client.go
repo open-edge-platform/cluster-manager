@@ -135,6 +135,10 @@ func (c *Client) WithInClusterConfig() *Client {
 func (c *Client) WithFakeClient() *Client {
 	c.Dyn = fake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(),
 		map[schema.GroupVersionResource]string{
+			{Group: "cluster.x-k8s.io", Version: "v1beta1", Resource: "clusters"}:                 "ClusterList",
+			{Group: "cluster.x-k8s.io", Version: "v1beta1", Resource: "machines"}:                 "MachineList",
+			{Group: intelProvider.GroupVersion.Group, Version: intelProvider.GroupVersion.Version, Resource: "intelmachines"}: "IntelMachineList",
+			{Group: intelProvider.GroupVersion.Group, Version: intelProvider.GroupVersion.Version, Resource: "intelmachinebindings"}: "IntelMachineBindingList",
 			{Group: "edge-orchestrator.intel.com", Version: "v1alpha1", Resource: "clustertemplates"}: "ClusterTemplateList",
 		})
 	return c

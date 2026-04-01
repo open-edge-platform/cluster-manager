@@ -38,7 +38,7 @@ func TestPostV2Clusters201(t *testing.T) {
 		expectedCluster := capi.Cluster{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: "cluster.x-k8s.io/v1beta1",
-				Kind:       "clusters",
+				Kind:       "Cluster",
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "example-cluster",
@@ -179,7 +179,7 @@ func TestPostV2Clusters201(t *testing.T) {
 		expectedCluster := capi.Cluster{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: "cluster.x-k8s.io/v1beta1",
-				Kind:       "clusters",
+				Kind:       "Cluster",
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      expectedClusterName,
@@ -353,7 +353,7 @@ func TestPostV2Clusters201K3sAirGap(t *testing.T) {
 		expectedCluster := capi.Cluster{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: "cluster.x-k8s.io/v1beta1",
-				Kind:       "clusters",
+				Kind:       "Cluster",
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "example-cluster",
@@ -488,7 +488,7 @@ func TestPostV2Clusters201NoNameNoTemplate(t *testing.T) {
 	expectedCluster := capi.Cluster{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "cluster.x-k8s.io/v1beta1",
-			Kind:       "clusters",
+			Kind:       "Cluster",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "example-cluster",
@@ -846,7 +846,7 @@ func TestPostV2Clusters500(t *testing.T) {
 		expectedCluster := capi.Cluster{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: "cluster.x-k8s.io/v1beta1",
-				Kind:       "clusters",
+				Kind:       "Cluster",
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      expectedClusterName,
