@@ -19,6 +19,8 @@ import (
 	kubeadmcpv1beta1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	dockerv1beta1 "sigs.k8s.io/cluster-api/test/infrastructure/docker/api/v1beta1"
 
+	intelv1alpha1 "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
+	kthreescpv1beta2 "github.com/k3s-io/cluster-api-k3s/controlplane/api/v1beta2"
 	clusterv1alpha1 "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 )
 
@@ -131,6 +133,48 @@ var _ = Describe("ClusterTemplate Controller", func() {
 
 				By("validating the KubeadmControlPlaneTemplate is created")
 				err = k8sClient.Get(ctx, typeNamespacedName, &kubeadmcpv1beta1.KubeadmControlPlaneTemplate{})
+				Expect(err).NotTo(HaveOccurred())
+			},
+		),
+
+		Entry("for K3s CP and Docker Infra",
+			"k3s", "docker", "v1.33.5+k3s1",
+			"{\"kind\":\"KThreesControlPlaneTemplate\",\"apiVersion\":\"controlplane.cluster.x-k8s.io/v1beta2\",\"spec\":{\"template\":{\"spec\":{\"kthreesConfigSpec\":{\"agentConfig\":{\"airGapped\":false},\"preK3sCommands\":[\"echo hello\"]}}}}}",
+			func() {
+				By("validating the DockerMachineTemplate is created")
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      fmt.Sprintf("%s-controlplane", typeNamespacedName.Name),
+					Namespace: typeNamespacedName.Namespace,
+				}, &dockerv1beta1.DockerMachineTemplate{})
+				Expect(err).NotTo(HaveOccurred())
+
+				By("validating the DockerClusterTemplate is created")
+				err = k8sClient.Get(ctx, typeNamespacedName, &dockerv1beta1.DockerClusterTemplate{})
+				Expect(err).NotTo(HaveOccurred())
+
+				By("validating the KThreesControlPlaneTemplate is created")
+				err = k8sClient.Get(ctx, typeNamespacedName, &kthreescpv1beta2.KThreesControlPlaneTemplate{})
+				Expect(err).NotTo(HaveOccurred())
+			},
+		),
+
+		Entry("for K3s CP and Intel Infra",
+			"k3s", "intel", "v1.33.5+k3s1",
+			"{\"kind\":\"KThreesControlPlaneTemplate\",\"apiVersion\":\"controlplane.cluster.x-k8s.io/v1beta2\",\"spec\":{\"template\":{\"spec\":{\"kthreesConfigSpec\":{\"agentConfig\":{\"airGapped\":false},\"preK3sCommands\":[\"echo hello\"]}}}}}",
+			func() {
+				By("validating the IntelMachineTemplate is created")
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      fmt.Sprintf("%s-controlplane", typeNamespacedName.Name),
+					Namespace: typeNamespacedName.Namespace,
+				}, &intelv1alpha1.IntelMachineTemplate{})
+				Expect(err).NotTo(HaveOccurred())
+
+				By("validating the IntelClusterTemplate is created")
+				err = k8sClient.Get(ctx, typeNamespacedName, &intelv1alpha1.IntelClusterTemplate{})
+				Expect(err).NotTo(HaveOccurred())
+
+				By("validating the KThreesControlPlaneTemplate is created")
+				err = k8sClient.Get(ctx, typeNamespacedName, &kthreescpv1beta2.KThreesControlPlaneTemplate{})
 				Expect(err).NotTo(HaveOccurred())
 			},
 		),
