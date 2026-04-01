@@ -166,7 +166,7 @@ func (s *Server) createCluster(ctx context.Context, cli *k8s.Client, namespace, 
 	cluster := capi.Cluster{
 		TypeMeta: v1.TypeMeta{
 			APIVersion: core.ClusterResourceSchema.GroupVersion().String(),
-			Kind:       core.ClusterResourceSchema.Resource,
+			Kind:       "Cluster",
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      clusterName,

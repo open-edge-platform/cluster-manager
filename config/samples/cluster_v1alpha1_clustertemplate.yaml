@@ -6,9 +6,9 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: clustertemplate-sample-v1.0.0
 spec:
-  controlPlaneProviderType: rke2
+  controlPlaneProviderType: k3s
   infraProviderType: intel
-  kubernetesVersion: v1.30.6+rke2r1
+  kubernetesVersion: v1.33.5+k3s1
   clusterConfiguration: ""
   clusterNetwork:
     pods:

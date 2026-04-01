@@ -6,7 +6,7 @@ openapi: 3.0.3
 info:
   title: Cluster Manager 2.0
   description: This document defines the schema for the Cluster Manager 2.0 REST API.
-  version: 2.1.1
+  version: 2.1.2
 
 security:
   - HTTP: []
@@ -945,9 +945,8 @@ components:
           type: string
           enum:
             - kubeadm
-            - rke2
             - k3s
-          default: rke2
+          default: k3s
         infraprovidertype:
           type: string
           enum:
@@ -958,48 +957,23 @@ components:
           type: object
           example:
             {
-              "apiVersion": "controlplane.cluster.x-k8s.io/v1beta1",
-              "kind": "RKE2ControlPlaneTemplate",
+              "apiVersion": "controlplane.cluster.x-k8s.io/v1beta2",
+              "kind": "KThreesControlPlaneTemplate",
               "metadata": {
                 "name": "baseline"
               },
               "spec": {
-                "version": "v1.30.6+rke2r1",
-                "agentConfig": {
-                  "kubelet": {
-                    "extraArgs": [
-                      "--topology-manager-policy=best-effort",
-                      "--cpu-manager-policy=static",
-                      "--reserved-cpus=1",
-                      "--max-pods=250",
-                      "--tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"
-                    ]
-                  }
-                },
-                "serverConfig": {
-                  "cni": "calico",
-                  "disableComponents": {
-                    "kubernetesComponents": [
-                      "cloudController"
-                    ]
-                  },
-                  "kubeApiServer": {
-                    "extraArgs": [
-                      "--feature-gates=PortForwardWebsockets=true",
-                      "--tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"
-                    ]
-                  },
-                  "kubeControllerManager": {
-                    "extraArg": null
-                  },
-                  "kubeScheduler": {
-                    "extraArg": null
-                  },
-                  "etcd": {
-                    "backupConfig": {},
-                    "extraArgs": [
-                      "--cipher-suites=[TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_AES_128_GCM_SHA256,TLS_CHACHA20_POLY1305_SHA256]"
-                    ]
+                "template": {
+                  "spec": {
+                    "kthreesConfigSpec": {
+                      "serverConfig": {
+                        "tlsSan": [
+                          "localhost",
+                          "127.0.0.1",
+                          "0.0.0.0"
+                        ]
+                      }
+                    }
                   }
                 }
               }
