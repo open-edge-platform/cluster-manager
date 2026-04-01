@@ -167,10 +167,10 @@ func TestPostV2Clusters201(t *testing.T) {
 		expectedResponse := fmt.Sprintf("successfully created cluster %s", "example-cluster")
 		assert.Contains(t, rr.Body.String(), expectedResponse)
 	})
-	t.Run("Create RKE2 Cluster and IntelMachineBindings", func(t *testing.T) {
+	t.Run("Create K3s Cluster and IntelMachineBindings", func(t *testing.T) {
 		// Prepare test data
 		expectedActiveProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
-		expectedTemplateName := "baseline-rke2"
+		expectedTemplateName := "baseline-k3s"
 		expectedIntelMachineTemplateName := fmt.Sprintf("%s-controlplane", expectedTemplateName)
 		expectedNodeid := "27b4e138-ea0b-11ef-8552-8b663d95bc01"
 		expectedClusterName := "example-cluster"
@@ -193,7 +193,7 @@ func TestPostV2Clusters201(t *testing.T) {
 					"test2":                                   "true",
 				},
 				Annotations: map[string]string{
-					"edge-orchestrator.intel.com/template": "baseline-rke2",
+					"edge-orchestrator.intel.com/template": "baseline-k3s",
 				},
 			},
 			Spec: capi.ClusterSpec{
@@ -208,7 +208,7 @@ func TestPostV2Clusters201(t *testing.T) {
 				},
 				Topology: &capi.Topology{
 					Class:   "example-cluster-class",
-					Version: "v1.30.6+rke2r1",
+					Version: "v1.33.5+k3s1",
 					ControlPlane: capi.ControlPlaneTopology{
 						Replicas: ptr(int32(1)),
 					},
@@ -256,9 +256,9 @@ func TestPostV2Clusters201(t *testing.T) {
 				Name: expectedTemplateName,
 			},
 			Spec: clusterv1alpha1.ClusterTemplateSpec{
-				ControlPlaneProviderType: "rke2",
+				ControlPlaneProviderType: "k3s",
 				InfraProviderType:        "intel",
-				KubernetesVersion:        "v1.30.6+rke2r1",
+				KubernetesVersion:        "v1.33.5+k3s1",
 				ClusterConfiguration:     "",
 				ClusterNetwork: clusterv1alpha1.ClusterNetwork{
 					Services: &clusterv1alpha1.NetworkRanges{
@@ -829,7 +829,7 @@ func TestPostV2Clusters500(t *testing.T) {
 	t.Run("Failed to create Binding", func(t *testing.T) {
 		// Prepare test data
 		expectedActiveProjectID := "655a6892-4280-4c37-97b1-31161ac0b99e"
-		expectedTemplateName := "baseline-rke2"
+		expectedTemplateName := "baseline-k3s"
 		expectedIntelMachineTemplateName := fmt.Sprintf("%s-controlplane", expectedTemplateName)
 		expectedNodeid := "27b4e138-ea0b-11ef-8552-8b663d95bc01"
 		expectedClusterName := "example-cluster"
@@ -859,7 +859,7 @@ func TestPostV2Clusters500(t *testing.T) {
 					"default-extension":                       "restricted",
 				},
 				Annotations: map[string]string{
-					"edge-orchestrator.intel.com/template": "baseline-rke2",
+					"edge-orchestrator.intel.com/template": "baseline-k3s",
 				},
 			},
 			Spec: capi.ClusterSpec{
@@ -874,7 +874,7 @@ func TestPostV2Clusters500(t *testing.T) {
 				},
 				Topology: &capi.Topology{
 					Class:   "example-cluster-class",
-					Version: "v1.30.6+rke2r1",
+					Version: "v1.33.5+k3s1",
 					ControlPlane: capi.ControlPlaneTopology{
 						Replicas: ptr(int32(1)),
 					},
@@ -922,9 +922,9 @@ func TestPostV2Clusters500(t *testing.T) {
 				Name: expectedTemplateName,
 			},
 			Spec: clusterv1alpha1.ClusterTemplateSpec{
-				ControlPlaneProviderType: "rke2",
+				ControlPlaneProviderType: "k3s",
 				InfraProviderType:        "intel",
-				KubernetesVersion:        "v1.30.6+rke2r1",
+				KubernetesVersion:        "v1.33.5+k3s1",
 				ClusterConfiguration:     "",
 				ClusterNetwork: clusterv1alpha1.ClusterNetwork{
 					Services: &clusterv1alpha1.NetworkRanges{

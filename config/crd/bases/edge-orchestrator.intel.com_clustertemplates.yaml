@@ -80,7 +80,6 @@ spec:
                 default: k3s
                 enum:
                 - kubeadm
-                - rke2
                 - k3s
                 type: string
               infraProviderType:
