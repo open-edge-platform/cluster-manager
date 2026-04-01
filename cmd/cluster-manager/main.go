@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
@@ -24,6 +25,18 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "mock-server" {
 		mocks.RunAuthServer()
 		return
+	}
+
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		url := "http://localhost:8080/v2/healthz"
+		if len(os.Args) > 2 {
+			url = os.Args[2]
+		}
+		resp, err := http.Get(url) //nolint:gosec,noctx // health probe to fixed local endpoint
+		if err != nil || resp.StatusCode/100 != 2 {
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}
 
 	slog.Info("Cluster Manager started", "version", version)
