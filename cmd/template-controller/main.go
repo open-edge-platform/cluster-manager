@@ -35,8 +35,6 @@ import (
 	kthreesbootstrapv1beta2 "github.com/k3s-io/cluster-api-k3s/bootstrap/api/v1beta2"
 	kthreescpv1beta2 "github.com/k3s-io/cluster-api-k3s/controlplane/api/v1beta2"
 	intelv1alpha1 "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
-	rke2bootstrapv1beta1 "github.com/rancher/cluster-api-provider-rke2/bootstrap/api/v1beta1"
-	rke2cpv1beta1 "github.com/rancher/cluster-api-provider-rke2/controlplane/api/v1beta1"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	kubeadmbootstrapv1beta1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	kubeadmcp "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
@@ -63,10 +61,6 @@ func init() {
 		kubeadmbootstrapv1beta1.AddToScheme,
 		// Kubeadm control plane provider
 		kubeadmcp.AddToScheme,
-		// RKE2 bootstrap provider
-		rke2bootstrapv1beta1.AddToScheme,
-		// RKE2 control plane provider
-		rke2cpv1beta1.AddToScheme,
 		// K3s bootstrap provider
 		kthreesbootstrapv1beta2.AddToScheme,
 		// K3s control plane provider
