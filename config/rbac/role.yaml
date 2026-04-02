@@ -28,9 +28,9 @@ rules:
 - apiGroups:
   - controlplane.cluster.x-k8s.io
   resources:
-  - kubeadmcontrolplanetemplates
   - kthreescontrolplanes
-  - kthreescontrolplanetemplates  
+  - kthreescontrolplanetemplates
+  - kubeadmcontrolplanetemplates
   verbs:
   - create
   - delete
