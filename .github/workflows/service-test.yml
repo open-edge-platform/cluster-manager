@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 ---
@@ -28,7 +28,7 @@ jobs:
           persist-credentials: false
 
       - name: Bootstrap CI environment
-        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@0483721aac3dbbc2d1a8b52ba5f1db81559d7dbb  # 2026.0.13
+        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@072332a8215754f6496bf97c8f3c7559dba5fdc1  # 2026.1.1
         with:
           gh_token: ${{ secrets.SYS_EMF_GH_TOKEN }}
 
