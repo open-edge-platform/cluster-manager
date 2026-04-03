@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 apiVersion: edge-orchestrator.intel.com/v1alpha1
@@ -7,12 +7,12 @@ metadata:
   labels:
     app.kubernetes.io/name: template-controller
     app.kubernetes.io/managed-by: kustomize
-  name: clustertemplate-sample
+  name: clustertemplate-k3s-sample
 spec:
   controlPlaneProviderType: k3s
   infraProviderType: intel
   kubernetesVersion: v1.33.5+k3s1
-  clusterConfiguration: ""
+  clusterConfiguration: '{"kind":"KThreesControlPlaneTemplate","apiVersion":"controlplane.cluster.x-k8s.io/v1beta2","spec":{"template":{"spec":{"kthreesConfigSpec":{"agentConfig":{"airGapped":false},"preK3sCommands":["echo hello"]}}}}}'
   clusterNetwork:
     pods:
       cidrBlocks:

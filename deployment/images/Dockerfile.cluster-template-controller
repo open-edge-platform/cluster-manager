@@ -36,4 +36,7 @@ WORKDIR /
 COPY --from=builder /workspace/bin/template-controller .
 USER 65532:65532
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD ["/template-controller", "healthcheck"]
+
 ENTRYPOINT ["/template-controller"]

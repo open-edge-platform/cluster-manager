@@ -29,8 +29,8 @@ import (
 
 	// Imports for CAPI resources
 	intelv1alpha1 "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
-	rke2bootstrapv1beta1 "github.com/rancher/cluster-api-provider-rke2/bootstrap/api/v1beta1"
-	rke2cpv1beta1 "github.com/rancher/cluster-api-provider-rke2/controlplane/api/v1beta1"
+	kthreesbootstrapv1beta2 "github.com/k3s-io/cluster-api-k3s/bootstrap/api/v1beta2"
+	kthreescpv1beta2 "github.com/k3s-io/cluster-api-k3s/controlplane/api/v1beta2"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	kubeadmbootstrapv1beta1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	kubeadmcp "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
@@ -84,18 +84,20 @@ func getModuleVersionFromGoMod(modulePath string) string {
 func buildCRDPaths() []string {
 	capiVersion := getModuleVersionFromGoMod("sigs.k8s.io/cluster-api")
 	intelVersion := getModuleVersionFromGoMod("github.com/open-edge-platform/cluster-api-provider-intel")
+	k3sVersion := getModuleVersionFromGoMod("github.com/k3s-io/cluster-api-k3s")
 
 	modPath := filepath.Join(build.Default.GOPATH, "pkg", "mod")
 
 	paths := []string{
 		filepath.Join("..", "..", "config", "crd", "bases"),
-		// TODO: usage of rke2 in tests to be removed
-		filepath.Join(modPath, "github.com", "rancher", "cluster-api-provider-rke2@v0.21.0", "controlplane", "config", "crd", "bases"),
 		filepath.Join(modPath, "sigs.k8s.io", "cluster-api@"+capiVersion, "controlplane", "kubeadm", "config", "crd", "bases"),
 		filepath.Join(modPath, "sigs.k8s.io", "cluster-api@"+capiVersion, "config", "crd", "bases"),
 		// note: cluster-api/test is a separate module with different path structure
 		filepath.Join(modPath, "sigs.k8s.io", "cluster-api", "test@"+capiVersion, "infrastructure", "docker", "config", "crd", "bases"),
 		filepath.Join(modPath, "github.com", "open-edge-platform", "cluster-api-provider-intel@"+intelVersion, "config", "crd", "bases"),
+		// K3s control plane and bootstrap provider CRDs
+		filepath.Join(modPath, "github.com", "k3s-io", "cluster-api-k3s@"+k3sVersion, "controlplane", "config", "crd", "bases"),
+		filepath.Join(modPath, "github.com", "k3s-io", "cluster-api-k3s@"+k3sVersion, "bootstrap", "config", "crd", "bases"),
 	}
 
 	return paths
@@ -130,13 +132,13 @@ var _ = BeforeSuite(func() {
 	err = kubeadmcp.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	// ---- RKE2 CONTROL PLANE PROVIDER ----
-	// Add scheme for RKE2 bootstrap provider
-	err = rke2bootstrapv1beta1.AddToScheme(scheme.Scheme)
+	// ---- K3S CONTROL PLANE PROVIDER ----
+	// Add scheme for K3s bootstrap provider
+	err = kthreesbootstrapv1beta2.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	// Add scheme for RKE2 control plane provider
-	err = rke2cpv1beta1.AddToScheme(scheme.Scheme)
+	// Add scheme for K3s control plane provider
+	err = kthreescpv1beta2.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	// ----  CAPI ----

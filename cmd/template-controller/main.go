@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/tls"
 	"flag"
+	"net/http"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -34,8 +35,6 @@ import (
 	kthreesbootstrapv1beta2 "github.com/k3s-io/cluster-api-k3s/bootstrap/api/v1beta2"
 	kthreescpv1beta2 "github.com/k3s-io/cluster-api-k3s/controlplane/api/v1beta2"
 	intelv1alpha1 "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
-	rke2bootstrapv1beta1 "github.com/rancher/cluster-api-provider-rke2/bootstrap/api/v1beta1"
-	rke2cpv1beta1 "github.com/rancher/cluster-api-provider-rke2/controlplane/api/v1beta1"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	kubeadmbootstrapv1beta1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	kubeadmcp "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
@@ -62,10 +61,6 @@ func init() {
 		kubeadmbootstrapv1beta1.AddToScheme,
 		// Kubeadm control plane provider
 		kubeadmcp.AddToScheme,
-		// RKE2 bootstrap provider
-		rke2bootstrapv1beta1.AddToScheme,
-		// RKE2 control plane provider
-		rke2cpv1beta1.AddToScheme,
 		// K3s bootstrap provider
 		kthreesbootstrapv1beta2.AddToScheme,
 		// K3s control plane provider
@@ -83,6 +78,18 @@ func init() {
 var version string
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		url := "http://localhost:8081/healthz"
+		if len(os.Args) > 2 {
+			url = os.Args[2]
+		}
+		resp, err := http.Get(url) //nolint:gosec,noctx // health probe to fixed local endpoint
+		if err != nil || resp.StatusCode/100 != 2 {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
