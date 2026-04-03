@@ -210,6 +210,10 @@ openpolicyagent:
 credentialsM2M:
   enabled: false  # avoid test regression as services are unavailable
 
+  istio:
+    enabled: false         # Set true when Istio sidecar injection is enabled
+    sidecarWaitTimeout: 60 # Seconds to wait for sidecar readiness
+
   job:
     # job execution settings
     backoffLimit: 3
