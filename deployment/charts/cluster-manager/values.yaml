@@ -63,8 +63,11 @@ clusterManager:
 
   ## Configure Pods Security Context
   podSecurityContext:
-    #runAsGroup:
     runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
 
   ## Configure Container Security Context (only main container)
   containerSecurityContext:
@@ -130,8 +133,11 @@ templateController:
 
   ## Configure Pods Security Context
   podSecurityContext:
-    #runAsGroup:
     runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
 
   ## Configure Container Security Context (only main container)
   containerSecurityContext:
