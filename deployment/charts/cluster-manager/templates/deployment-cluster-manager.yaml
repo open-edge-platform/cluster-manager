@@ -50,6 +50,13 @@ spec:
           capabilities:
             drop:
             - "ALL"
+        resources:
+          limits:
+            cpu: {{ .Values.curlImage.resources.limits.cpu }}
+            memory: {{ .Values.curlImage.resources.limits.memory }}
+          requests:
+            cpu: {{ .Values.curlImage.resources.requests.cpu }}
+            memory: {{ .Values.curlImage.resources.requests.memory }}
       containers:
       - name: cluster-manager
         {{- with .Values.clusterManager.image }}
@@ -151,6 +158,8 @@ spec:
             port: {{ .port }}
           initialDelaySeconds: 10
           periodSeconds: 10
+        resources:
+          {{- toYaml .resources | nindent 10 }}
         volumeMounts:
           - name: openpolicyagent-v1
             mountPath: /opt/cluster-manager/rego/v1

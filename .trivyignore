@@ -20,3 +20,10 @@ AVD-KSV-0113
 # This token is not a real credential – it is an already-expired JWT issued by a local
 # test Keycloak instance and is only used as a test fixture for kubeconfig generation tests.
 generic-api-key
+# config/manager/manager.yaml uses controller:latest as a kustomize placeholder image.
+# Every kustomize overlay replaces this via the `images:` field before deployment.
+AVD-KSV-0013
+# KSV-0125: Images are pulled from the org's internal trusted registry
+# (registry-rs.edgeorchestration.intel.com). Trivy cannot verify registry trust
+# policies at scan time; this is enforced via admission control in the cluster.
+AVD-KSV-0125

@@ -25,6 +25,13 @@ curlImage:
   name: badouralix/curl-jq@sha256
   tag: fe8a5ee49f613495df3b57afa86b39f081bd1b3b9ed61248f46c3d3d7df56092
   pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 100m
+      memory: 64Mi
+    requests:
+      cpu: 10m
+      memory: 16Mi
 
 clusterManager:
   image:
@@ -203,6 +210,13 @@ openpolicyagent:
   port: 8181
   image: openpolicyagent/opa
   tag: 1.2.0
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
   security:
     allowPrivilegeEscalation: false
     readOnlyRootFilesystem: true
