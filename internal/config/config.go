@@ -57,6 +57,8 @@ func ParseConfig() *Config {
 	userName := flag.String("username", "admin", "(optional) user")
 	inventoryAddress := flag.String("inventory-endpoint", "mi-inventory:50051", "(optional) inventory address")
 	kubeconfigTTLHours := flag.Float64("kubeconfig-ttl-hours", 3.0, "(optional) default TTL for kubeconfig JWTs in hours")
+	// no-op: upstream chart passes this flag; multi-tenancy is always enabled now
+	flag.Bool("disable-multi-tenancy", false, "(deprecated, ignored)")
 	flag.Parse()
 
 	cfg := &Config{
