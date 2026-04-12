@@ -21,9 +21,6 @@ type Config struct {
 	// DisableAuth disables authentication/authorization, should be false for production and true in integration without keycloak
 	DisableAuth bool
 
-	// DisableMultitenancy disables multi-tenancy integration, should be false for production and true in integration without multi-tenancy
-	DisableMultitenancy bool
-
 	// DisableInventory disables inventory integration, should be false for production and true in integration without infra-manager's inventory
 	DisableInventory bool
 
@@ -50,9 +47,6 @@ type Config struct {
 // ParseConfig parses the configuration from flags and environment variables
 func ParseConfig() *Config {
 	disableAuth := flag.Bool("disable-auth", false, "(optional) disable rest authentication/authorization")
-	disableMultitenancy := flag.Bool("disable-multi-tenancy", false, "(optional) disable multi-tenancy integration")
-	// Deprecated: use --disable-multi-tenancy instead
-	disableMt := flag.Bool("disable-mt", false, "(deprecated) disable multi-tenancy integration (use --disable-multi-tenancy)")
 	disableInv := flag.Bool("disable-inventory", false, "(optional) disable inventory integration")
 	disableMetrics := flag.Bool("disable-metrics", false, "(optional) disable prometheus metrics handler")
 	defaultTemplate := flag.String("default-template", "", "(optional) default template to use for new projects")
@@ -66,11 +60,10 @@ func ParseConfig() *Config {
 	flag.Parse()
 
 	cfg := &Config{
-		DisableAuth:         *disableAuth,
-		DisableMultitenancy: *disableMultitenancy || *disableMt,
-		DisableInventory:    *disableInv,
-		DisableMetrics:      *disableMetrics,
-		DefaultTemplate:     *defaultTemplate,
+		DisableAuth:      *disableAuth,
+		DisableInventory: *disableInv,
+		DisableMetrics:   *disableMetrics,
+		DefaultTemplate:  *defaultTemplate,
 		KubeconfigTTL:       time.Duration(*kubeconfigTTLHours * float64(time.Hour)),
 		LogLevel:            *logLevel,
 		LogFormat:           strings.ToLower(*logFormat),

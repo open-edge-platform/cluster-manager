@@ -4,10 +4,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
@@ -16,6 +19,7 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/internal/mocks"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/multitenancy"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/rest"
+	"github.com/open-edge-platform/orch-library/go/pkg/tenancy"
 )
 
 // version injected at build time
@@ -83,18 +87,39 @@ func initializeSystemLabels(config *config.Config) {
 func initializeMultitenancy(config *config.Config) {
 	multitenancy.SetDefaultTemplate(config.DefaultTemplate)
 
-	if !config.DisableMultitenancy {
-		// TODO? may need to be initialized after server as all resource handling is done in the server
-		tdm, err := multitenancy.NewDatamodelClient()
-		if err != nil {
-			slog.Error("failed to initialize tenancy datamodel client", "error", err)
-			os.Exit(2)
-		}
-		if err = tdm.Start(); err != nil {
-			slog.Error("failed to start tenancy datamodel client", "error", err)
-			os.Exit(2)
-		}
+	handler, err := multitenancy.NewTenancyHandler()
+	if err != nil {
+		slog.Error("failed to initialize tenancy handler", "error", err)
+		os.Exit(2)
 	}
+
+	tenantManagerURL := os.Getenv("TENANT_MANAGER_URL")
+	if tenantManagerURL == "" {
+		tenantManagerURL = "http://tenancy-manager.orch-iam:8080"
+	}
+
+	poller := tenancy.NewPoller(tenantManagerURL, "cluster-manager", handler,
+		func(cfg *tenancy.PollerConfig) {
+			cfg.OnError = func(err error, msg string) {
+				slog.Error(msg, "error", err)
+			}
+		},
+	)
+
+	pollerCtx, pollerCancel := context.WithCancel(context.Background())
+	go func() {
+		if err := poller.Run(pollerCtx); err != nil && pollerCtx.Err() == nil {
+			slog.Error("tenancy poller stopped with error", "error", err)
+		}
+	}()
+
+	// Cancel the poller on process exit.
+	go func() {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+		<-c
+		pollerCancel()
+	}()
 }
 
 func initializeK8sClient() *k8s.Client {
