@@ -16,10 +16,10 @@ AVD-KSV-01010
 # This is part of the standard RBAC setup required for Vault k8s authn, without permission, the app wont be able to authenticate with Vault
 # templates/co-manager-credentials-rbac.yaml
 AVD-KSV-0113
-# Expired test JWT fixture used in internal/rest/getv2clustersnamekubeconfig_test.go
-# This token is not a real credential – it is an already-expired JWT issued by a local
-# test Keycloak instance and is only used as a test fixture for kubeconfig generation tests.
-generic-api-key
+# ConfigMap access is required for k3sdocker prerequisite cleanup
+# in the ClusterTemplate delete workflow.
+# This is currently broad RBAC by design to preserve existing behavior.
+AVD-KSV-0049
 # config/manager/manager.yaml uses controller:latest as a kustomize placeholder image.
 # Every kustomize overlay replaces this via the `images:` field before deployment.
 AVD-KSV-0013
