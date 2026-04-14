@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -68,27 +69,23 @@ users:
   user:
     token: ` + jwtToken
 
-var jwtToken = "eyJhbGciOiJQUzUxMiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI2eE1yTjFSOVB3UGZnWFVaTFlTYW55ejRXa2hjS040WG8t" +
-	"ZWxCRVdYaXM0In0.eyJleHAiOjE3NDA0ODgwNDQsImlhdCI6MTc0MDQ4NDQ0NCwianRpIjoiMmQxNDQ4NjctMjRkMS00OGQyL" +
-	"WJhODUtMWEzNWZmOTQ2MmUwIiwiaXNzIjoiaHR0cHM6Ly9rZXljbG9hay5raW5kLmludGVybmFsL3JlYWxtcy9tYXN0ZXIiLCJ" +
-	"zdWIiOiI5MTdiNDY4Ni1lZDJiLTRhNTYtODhjMy1mZTFkZTg5YTcwYjUiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJzeXN0ZW0tY" +
-	"2xpZW50Iiwic2lkIjoiMTdhNmIxNzYtMjU2Ni00NTM2LTk3YTgtN2M3NDEyMGE3ZTUzIiwicmVhbG1fYWNjZXNzIjp7InJvbGV" +
-	"zIjpbImNyZWF0ZS1yZWFsbSIsImRlZmF1bHQtcm9sZXMtbWFzdGVyIiwib2ZmbGluZV9hY2Nlc3MiLCJhZG1pbiIsInVtYV9hd" +
-	"XRob3JpemF0aW9uIl19LCJyZXNvdXJjZV9hY2Nlc3MiOnsibWFzdGVyLXJlYWxtIjp7InJvbGVzIjpbInZpZXctcmVhbG0iLCJ" +
-	"2aWV3LWlkZW50aXR5LXByb3ZpZGVycyIsIm1hbmFnZS1pZGVudGl0eS1wcm92aWRlcnMiLCJpbXBlcnNvbmF0aW9uIiwiY3JlY" +
-	"XRlLWNsaWVudCIsIm1hbmFnZS11c2VycyIsInF1ZXJ5LXJlYWxtcyIsInZpZXctYXV0aG9yaXphdGlvbiIsInF1ZXJ5LWNsaWV" +
-	"udHMiLCJxdWVyeS11c2VycyIsIm1hbmFnZS1ldmVudHMiLCJtYW5hZ2UtcmVhbG0iLCJ2aWV3LWV2ZW50cyIsInZpZXctdXNlc" +
-	"nMiLCJ2aWV3LWNsaWVudHMiLCJtYW5hZ2UtYXV0aG9yaXphdGlvbiIsIm1hbmFnZS1jbGllbnRzIiwicXVlcnktZ3JvdXBzIl1" +
-	"9LCJhY2NvdW50Ijp7InJvbGVzIjpbIm1hbmFnZS1hY2NvdW50IiwibWFuYWdlLWFjY291bnQtbGlua3MiLCJ2aWV3LXByb2Zpb" +
-	"GUiXX19LCJzY29wZSI6Im9wZW5pZCBlbWFpbCByb2xlcyBwcm9maWxlIiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJwcmVmZXJ" +
-	"yZWRfdXNlcm5hbWUiOiJhZG1pbiJ9.dvL2Qlcihnf1lhjwb-Fi_NjG-E394jNJUVPX-pGxTunBJLOnI05UeYyGKvxhWUM39a5S" +
-	"8nXpeT-mGMK2jY4TqIQ7JeyL1yck9sQb7QU2zOlxBUtMK-fd9gYb0_SYsz7muEv3cMfs1-UIRfoKWPox3D5-PDXbb6oHbR8XJp" +
-	"1I49KlWav_TjtVH1eLVwVZmXUCLDBptVFeiutLO21a7Cnb08wHPzZTddBkmBVcdgSmZF_Es0R2vmVNHR4TeNheHJX5lfCO5ufv" +
-	"hpRMj0oMJzeK6TpFosmNpVtupw1KQkQlocCwMr9viNk-LCxOzHRdAWexsNNGclIJNBJGVT1GUWOFM50PzuLcB66xp8CHruOTSd" +
-	"Ys2gVPnaJEjyGQk3o_ZpqxbUQB2uOe2GMKetxnSEokwYtmd6jsXoVF0qSzJX_rz1nqHSWQoynHXwl42HLyOR1XCQllFsvkqHGQ" +
-	"_ZchiTpGi8PJv8WBcNp3Cu5tCQVCEFoYcNy6QPffYWpHi4MJvAKU-xNYmLrSzZlTsmj33eahRB7gAFrRMzFnU3MetjUvcFiZ3Z" +
-	"hO7CiZFgpLpyWFTFN6kaWOTomdcsiDGQDeFLjV-P8v1206SMI3ywkcEfy-HaV3Cg7nFSpngwG0aBVKOgOi7vX-XZBmbPZb8cIC" +
-	"CzfxjQ4QEDlUz2hxkgOYsVu7_0k"
+var jwtToken = mustGenerateTestJWT()
+
+func mustGenerateTestJWT() string {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"azp":               "system-client",
+		"preferred_username": "admin",
+		"iat":               time.Unix(1735689600, 0).Unix(),
+		"exp":               time.Unix(1893456000, 0).Unix(),
+	})
+
+	signedToken, err := token.SignedString([]byte("unit-test-signing-key"))
+	if err != nil {
+		panic(err)
+	}
+
+	return signedToken
+}
 
 func escapeNewlines(s string) string {
 	return strings.ReplaceAll(s, "\n", "\\n")

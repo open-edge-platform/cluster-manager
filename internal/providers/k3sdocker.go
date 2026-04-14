@@ -86,7 +86,6 @@ func (k3sdocker) DeletePrerequisites(ctx context.Context, c client.Client, name 
 	cm := &corev1.ConfigMap{}
 	err := c.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-k3s-class-lb-config", name.Name), Namespace: name.Namespace}, cm)
 	switch {
-	// ignore error if ConfigMap is not found (already deleted)
 	case err != nil && errors.IsNotFound(err):
 		return nil
 	case err != nil:
