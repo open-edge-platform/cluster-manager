@@ -13,6 +13,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-template-controller
+  namespace: {{ .Release.Namespace }}
   {{- with .Values.templateController.podAnnotations }}
   annotations:
   {{- toYaml . | nindent 2 }}

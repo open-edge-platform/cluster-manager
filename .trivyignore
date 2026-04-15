@@ -16,3 +16,14 @@ AVD-KSV-01010
 # This is part of the standard RBAC setup required for Vault k8s authn, without permission, the app wont be able to authenticate with Vault
 # templates/co-manager-credentials-rbac.yaml
 AVD-KSV-0113
+# ConfigMap access is required for k3sdocker prerequisite cleanup
+# in the ClusterTemplate delete workflow.
+# This is currently broad RBAC by design to preserve existing behavior.
+AVD-KSV-0049
+# config/manager/manager.yaml uses controller:latest as a kustomize placeholder image.
+# Every kustomize overlay replaces this via the `images:` field before deployment.
+AVD-KSV-0013
+# KSV-0125: Images are pulled from the org's internal trusted registry
+# (registry-rs.edgeorchestration.intel.com). Trivy cannot verify registry trust
+# policies at scan time; this is enforced via admission control in the cluster.
+AVD-KSV-0125
