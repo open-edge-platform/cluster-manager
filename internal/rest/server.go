@@ -145,7 +145,7 @@ func (s *Server) getServerHandler() (http.Handler, error) {
 			w.WriteHeader(http.StatusBadRequest)
 
 			if err := json.NewEncoder(w).Encode(api.N400BadRequest{Message: ptr(err.Error())}); err != nil {
-				http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+				slog.Error("failed to encode 400 response", "error", err)
 			}
 		},
 	})
@@ -169,7 +169,15 @@ func (s *Server) getServerHandler() (http.Handler, error) {
 
 				response := api.N400BadRequest{Message: &message}
 				if err := json.NewEncoder(w).Encode(response); err != nil {
-					http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+					slog.Error("failed to encode 400 response", "error", err)
+				}
+			} else if http.StatusInternalServerError == code {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusInternalServerError)
+
+				response := api.N500InternalServerError{Message: &message}
+				if err := json.NewEncoder(w).Encode(response); err != nil {
+					slog.Error("failed to write 500 response", "error", err)
 				}
 			} else {
 				http.Error(w, message, code)
