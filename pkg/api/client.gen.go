@@ -1813,6 +1813,7 @@ type PutV2ClustersNameNodesResponse struct {
 	JSON400      *N400BadRequest
 	JSON404      *N404NotFound
 	JSON500      *N500InternalServerError
+	JSON501      *N501NotImplemented
 }
 
 // Status returns HTTPResponse.Status
@@ -2626,6 +2627,13 @@ func ParsePutV2ClustersNameNodesResponse(rsp *http.Response) (*PutV2ClustersName
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest N501NotImplemented
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
 
 	}
 
