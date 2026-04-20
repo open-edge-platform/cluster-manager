@@ -28,7 +28,7 @@ jobs:
           persist-credentials: false
 
       - name: Bootstrap CI environment
-        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@072332a8215754f6496bf97c8f3c7559dba5fdc1  # 2026.1.1
+        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@df0faa34e13559f5b2847dc8633c65f32b07d9e5  # 2026.1.1
         with:
           gh_token: ${{ secrets.SYS_EMF_GH_TOKEN }}
 
@@ -48,7 +48,7 @@ jobs:
 
       - name: Upload pod logs as evidence
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: service-test-logs
           path: service-test-logs
