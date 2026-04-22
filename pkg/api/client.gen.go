@@ -133,6 +133,69 @@ type ClientInterface interface {
 	// GetV2Healthz request
 	GetV2Healthz(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetV2ProjectsProjectNameClusters request
+	GetV2ProjectsProjectNameClusters(ctx context.Context, projectName ProjectNamePath, params *GetV2ProjectsProjectNameClustersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostV2ProjectsProjectNameClustersWithBody request with any body
+	PostV2ProjectsProjectNameClustersWithBody(ctx context.Context, projectName ProjectNamePath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostV2ProjectsProjectNameClusters(ctx context.Context, projectName ProjectNamePath, body PostV2ProjectsProjectNameClustersJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetV2ProjectsProjectNameClustersSummary request
+	GetV2ProjectsProjectNameClustersSummary(ctx context.Context, projectName ProjectNamePath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteV2ProjectsProjectNameClustersName request
+	DeleteV2ProjectsProjectNameClustersName(ctx context.Context, projectName ProjectNamePath, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetV2ProjectsProjectNameClustersName request
+	GetV2ProjectsProjectNameClustersName(ctx context.Context, projectName ProjectNamePath, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetV2ProjectsProjectNameClustersNameKubeconfigs request
+	GetV2ProjectsProjectNameClustersNameKubeconfigs(ctx context.Context, projectName ProjectNamePath, name string, params *GetV2ProjectsProjectNameClustersNameKubeconfigsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutV2ProjectsProjectNameClustersNameLabelsWithBody request with any body
+	PutV2ProjectsProjectNameClustersNameLabelsWithBody(ctx context.Context, projectName ProjectNamePath, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutV2ProjectsProjectNameClustersNameLabels(ctx context.Context, projectName ProjectNamePath, name string, body PutV2ProjectsProjectNameClustersNameLabelsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutV2ProjectsProjectNameClustersNameNodesWithBody request with any body
+	PutV2ProjectsProjectNameClustersNameNodesWithBody(ctx context.Context, projectName ProjectNamePath, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutV2ProjectsProjectNameClustersNameNodes(ctx context.Context, projectName ProjectNamePath, name string, body PutV2ProjectsProjectNameClustersNameNodesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteV2ProjectsProjectNameClustersNameNodesNodeId request
+	DeleteV2ProjectsProjectNameClustersNameNodesNodeId(ctx context.Context, projectName ProjectNamePath, name string, nodeId string, params *DeleteV2ProjectsProjectNameClustersNameNodesNodeIdParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutV2ProjectsProjectNameClustersNameTemplateWithBody request with any body
+	PutV2ProjectsProjectNameClustersNameTemplateWithBody(ctx context.Context, projectName ProjectNamePath, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutV2ProjectsProjectNameClustersNameTemplate(ctx context.Context, projectName ProjectNamePath, name string, body PutV2ProjectsProjectNameClustersNameTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetV2ProjectsProjectNameClustersNodeIdClusterdetail request
+	GetV2ProjectsProjectNameClustersNodeIdClusterdetail(ctx context.Context, projectName ProjectNamePath, nodeId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetV2ProjectsProjectNameTemplates request
+	GetV2ProjectsProjectNameTemplates(ctx context.Context, projectName ProjectNamePath, params *GetV2ProjectsProjectNameTemplatesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostV2ProjectsProjectNameTemplatesWithBody request with any body
+	PostV2ProjectsProjectNameTemplatesWithBody(ctx context.Context, projectName ProjectNamePath, params *PostV2ProjectsProjectNameTemplatesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostV2ProjectsProjectNameTemplates(ctx context.Context, projectName ProjectNamePath, params *PostV2ProjectsProjectNameTemplatesParams, body PostV2ProjectsProjectNameTemplatesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutV2ProjectsProjectNameTemplatesNameDefaultWithBody request with any body
+	PutV2ProjectsProjectNameTemplatesNameDefaultWithBody(ctx context.Context, projectName ProjectNamePath, name string, params *PutV2ProjectsProjectNameTemplatesNameDefaultParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutV2ProjectsProjectNameTemplatesNameDefault(ctx context.Context, projectName ProjectNamePath, name string, params *PutV2ProjectsProjectNameTemplatesNameDefaultParams, body PutV2ProjectsProjectNameTemplatesNameDefaultJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetV2ProjectsProjectNameTemplatesNameVersions request
+	GetV2ProjectsProjectNameTemplatesNameVersions(ctx context.Context, projectName ProjectNamePath, name string, params *GetV2ProjectsProjectNameTemplatesNameVersionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteV2ProjectsProjectNameTemplatesNameVersion request
+	DeleteV2ProjectsProjectNameTemplatesNameVersion(ctx context.Context, projectName ProjectNamePath, name string, version string, params *DeleteV2ProjectsProjectNameTemplatesNameVersionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetV2ProjectsProjectNameTemplatesNameVersion request
+	GetV2ProjectsProjectNameTemplatesNameVersion(ctx context.Context, projectName ProjectNamePath, name string, version string, params *GetV2ProjectsProjectNameTemplatesNameVersionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetV2Templates request
 	GetV2Templates(ctx context.Context, params *GetV2TemplatesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -338,6 +401,282 @@ func (c *Client) GetV2ClustersNodeIdClusterdetail(ctx context.Context, nodeId st
 
 func (c *Client) GetV2Healthz(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetV2HealthzRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetV2ProjectsProjectNameClusters(ctx context.Context, projectName ProjectNamePath, params *GetV2ProjectsProjectNameClustersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetV2ProjectsProjectNameClustersRequest(c.Server, projectName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostV2ProjectsProjectNameClustersWithBody(ctx context.Context, projectName ProjectNamePath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostV2ProjectsProjectNameClustersRequestWithBody(c.Server, projectName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostV2ProjectsProjectNameClusters(ctx context.Context, projectName ProjectNamePath, body PostV2ProjectsProjectNameClustersJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostV2ProjectsProjectNameClustersRequest(c.Server, projectName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetV2ProjectsProjectNameClustersSummary(ctx context.Context, projectName ProjectNamePath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetV2ProjectsProjectNameClustersSummaryRequest(c.Server, projectName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteV2ProjectsProjectNameClustersName(ctx context.Context, projectName ProjectNamePath, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteV2ProjectsProjectNameClustersNameRequest(c.Server, projectName, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetV2ProjectsProjectNameClustersName(ctx context.Context, projectName ProjectNamePath, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetV2ProjectsProjectNameClustersNameRequest(c.Server, projectName, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetV2ProjectsProjectNameClustersNameKubeconfigs(ctx context.Context, projectName ProjectNamePath, name string, params *GetV2ProjectsProjectNameClustersNameKubeconfigsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetV2ProjectsProjectNameClustersNameKubeconfigsRequest(c.Server, projectName, name, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutV2ProjectsProjectNameClustersNameLabelsWithBody(ctx context.Context, projectName ProjectNamePath, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutV2ProjectsProjectNameClustersNameLabelsRequestWithBody(c.Server, projectName, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutV2ProjectsProjectNameClustersNameLabels(ctx context.Context, projectName ProjectNamePath, name string, body PutV2ProjectsProjectNameClustersNameLabelsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutV2ProjectsProjectNameClustersNameLabelsRequest(c.Server, projectName, name, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutV2ProjectsProjectNameClustersNameNodesWithBody(ctx context.Context, projectName ProjectNamePath, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutV2ProjectsProjectNameClustersNameNodesRequestWithBody(c.Server, projectName, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutV2ProjectsProjectNameClustersNameNodes(ctx context.Context, projectName ProjectNamePath, name string, body PutV2ProjectsProjectNameClustersNameNodesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutV2ProjectsProjectNameClustersNameNodesRequest(c.Server, projectName, name, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteV2ProjectsProjectNameClustersNameNodesNodeId(ctx context.Context, projectName ProjectNamePath, name string, nodeId string, params *DeleteV2ProjectsProjectNameClustersNameNodesNodeIdParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteV2ProjectsProjectNameClustersNameNodesNodeIdRequest(c.Server, projectName, name, nodeId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutV2ProjectsProjectNameClustersNameTemplateWithBody(ctx context.Context, projectName ProjectNamePath, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutV2ProjectsProjectNameClustersNameTemplateRequestWithBody(c.Server, projectName, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutV2ProjectsProjectNameClustersNameTemplate(ctx context.Context, projectName ProjectNamePath, name string, body PutV2ProjectsProjectNameClustersNameTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutV2ProjectsProjectNameClustersNameTemplateRequest(c.Server, projectName, name, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetV2ProjectsProjectNameClustersNodeIdClusterdetail(ctx context.Context, projectName ProjectNamePath, nodeId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetV2ProjectsProjectNameClustersNodeIdClusterdetailRequest(c.Server, projectName, nodeId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetV2ProjectsProjectNameTemplates(ctx context.Context, projectName ProjectNamePath, params *GetV2ProjectsProjectNameTemplatesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetV2ProjectsProjectNameTemplatesRequest(c.Server, projectName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostV2ProjectsProjectNameTemplatesWithBody(ctx context.Context, projectName ProjectNamePath, params *PostV2ProjectsProjectNameTemplatesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostV2ProjectsProjectNameTemplatesRequestWithBody(c.Server, projectName, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostV2ProjectsProjectNameTemplates(ctx context.Context, projectName ProjectNamePath, params *PostV2ProjectsProjectNameTemplatesParams, body PostV2ProjectsProjectNameTemplatesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostV2ProjectsProjectNameTemplatesRequest(c.Server, projectName, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutV2ProjectsProjectNameTemplatesNameDefaultWithBody(ctx context.Context, projectName ProjectNamePath, name string, params *PutV2ProjectsProjectNameTemplatesNameDefaultParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutV2ProjectsProjectNameTemplatesNameDefaultRequestWithBody(c.Server, projectName, name, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutV2ProjectsProjectNameTemplatesNameDefault(ctx context.Context, projectName ProjectNamePath, name string, params *PutV2ProjectsProjectNameTemplatesNameDefaultParams, body PutV2ProjectsProjectNameTemplatesNameDefaultJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutV2ProjectsProjectNameTemplatesNameDefaultRequest(c.Server, projectName, name, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetV2ProjectsProjectNameTemplatesNameVersions(ctx context.Context, projectName ProjectNamePath, name string, params *GetV2ProjectsProjectNameTemplatesNameVersionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetV2ProjectsProjectNameTemplatesNameVersionsRequest(c.Server, projectName, name, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteV2ProjectsProjectNameTemplatesNameVersion(ctx context.Context, projectName ProjectNamePath, name string, version string, params *DeleteV2ProjectsProjectNameTemplatesNameVersionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteV2ProjectsProjectNameTemplatesNameVersionRequest(c.Server, projectName, name, version, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetV2ProjectsProjectNameTemplatesNameVersion(ctx context.Context, projectName ProjectNamePath, name string, version string, params *GetV2ProjectsProjectNameTemplatesNameVersionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetV2ProjectsProjectNameTemplatesNameVersionRequest(c.Server, projectName, name, version, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1127,6 +1466,1036 @@ func NewGetV2HealthzRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewGetV2ProjectsProjectNameClustersRequest generates requests for GetV2ProjectsProjectNameClusters
+func NewGetV2ProjectsProjectNameClustersRequest(server string, projectName ProjectNamePath, params *GetV2ProjectsProjectNameClustersParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v2/projects/%s/clusters", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "pageSize", runtime.ParamLocationQuery, *params.PageSize); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.OrderBy != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "orderBy", runtime.ParamLocationQuery, *params.OrderBy); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Filter != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "filter", runtime.ParamLocationQuery, *params.Filter); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostV2ProjectsProjectNameClustersRequest calls the generic PostV2ProjectsProjectNameClusters builder with application/json body
+func NewPostV2ProjectsProjectNameClustersRequest(server string, projectName ProjectNamePath, body PostV2ProjectsProjectNameClustersJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostV2ProjectsProjectNameClustersRequestWithBody(server, projectName, "application/json", bodyReader)
+}
+
+// NewPostV2ProjectsProjectNameClustersRequestWithBody generates requests for PostV2ProjectsProjectNameClusters with any type of body
+func NewPostV2ProjectsProjectNameClustersRequestWithBody(server string, projectName ProjectNamePath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v2/projects/%s/clusters", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetV2ProjectsProjectNameClustersSummaryRequest generates requests for GetV2ProjectsProjectNameClustersSummary
+func NewGetV2ProjectsProjectNameClustersSummaryRequest(server string, projectName ProjectNamePath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v2/projects/%s/clusters/summary", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteV2ProjectsProjectNameClustersNameRequest generates requests for DeleteV2ProjectsProjectNameClustersName
+func NewDeleteV2ProjectsProjectNameClustersNameRequest(server string, projectName ProjectNamePath, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v2/projects/%s/clusters/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetV2ProjectsProjectNameClustersNameRequest generates requests for GetV2ProjectsProjectNameClustersName
+func NewGetV2ProjectsProjectNameClustersNameRequest(server string, projectName ProjectNamePath, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v2/projects/%s/clusters/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetV2ProjectsProjectNameClustersNameKubeconfigsRequest generates requests for GetV2ProjectsProjectNameClustersNameKubeconfigs
+func NewGetV2ProjectsProjectNameClustersNameKubeconfigsRequest(server string, projectName ProjectNamePath, name string, params *GetV2ProjectsProjectNameClustersNameKubeconfigsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v2/projects/%s/clusters/%s/kubeconfigs", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "Authorization", runtime.ParamLocationHeader, params.Authorization)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Authorization", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewPutV2ProjectsProjectNameClustersNameLabelsRequest calls the generic PutV2ProjectsProjectNameClustersNameLabels builder with application/json body
+func NewPutV2ProjectsProjectNameClustersNameLabelsRequest(server string, projectName ProjectNamePath, name string, body PutV2ProjectsProjectNameClustersNameLabelsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutV2ProjectsProjectNameClustersNameLabelsRequestWithBody(server, projectName, name, "application/json", bodyReader)
+}
+
+// NewPutV2ProjectsProjectNameClustersNameLabelsRequestWithBody generates requests for PutV2ProjectsProjectNameClustersNameLabels with any type of body
+func NewPutV2ProjectsProjectNameClustersNameLabelsRequestWithBody(server string, projectName ProjectNamePath, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v2/projects/%s/clusters/%s/labels", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPutV2ProjectsProjectNameClustersNameNodesRequest calls the generic PutV2ProjectsProjectNameClustersNameNodes builder with application/json body
+func NewPutV2ProjectsProjectNameClustersNameNodesRequest(server string, projectName ProjectNamePath, name string, body PutV2ProjectsProjectNameClustersNameNodesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutV2ProjectsProjectNameClustersNameNodesRequestWithBody(server, projectName, name, "application/json", bodyReader)
+}
+
+// NewPutV2ProjectsProjectNameClustersNameNodesRequestWithBody generates requests for PutV2ProjectsProjectNameClustersNameNodes with any type of body
+func NewPutV2ProjectsProjectNameClustersNameNodesRequestWithBody(server string, projectName ProjectNamePath, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v2/projects/%s/clusters/%s/nodes", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteV2ProjectsProjectNameClustersNameNodesNodeIdRequest generates requests for DeleteV2ProjectsProjectNameClustersNameNodesNodeId
+func NewDeleteV2ProjectsProjectNameClustersNameNodesNodeIdRequest(server string, projectName ProjectNamePath, name string, nodeId string, params *DeleteV2ProjectsProjectNameClustersNameNodesNodeIdParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "nodeId", runtime.ParamLocationPath, nodeId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v2/projects/%s/clusters/%s/nodes/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Force != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "force", runtime.ParamLocationQuery, *params.Force); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutV2ProjectsProjectNameClustersNameTemplateRequest calls the generic PutV2ProjectsProjectNameClustersNameTemplate builder with application/json body
+func NewPutV2ProjectsProjectNameClustersNameTemplateRequest(server string, projectName ProjectNamePath, name string, body PutV2ProjectsProjectNameClustersNameTemplateJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutV2ProjectsProjectNameClustersNameTemplateRequestWithBody(server, projectName, name, "application/json", bodyReader)
+}
+
+// NewPutV2ProjectsProjectNameClustersNameTemplateRequestWithBody generates requests for PutV2ProjectsProjectNameClustersNameTemplate with any type of body
+func NewPutV2ProjectsProjectNameClustersNameTemplateRequestWithBody(server string, projectName ProjectNamePath, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v2/projects/%s/clusters/%s/template", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetV2ProjectsProjectNameClustersNodeIdClusterdetailRequest generates requests for GetV2ProjectsProjectNameClustersNodeIdClusterdetail
+func NewGetV2ProjectsProjectNameClustersNodeIdClusterdetailRequest(server string, projectName ProjectNamePath, nodeId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "nodeId", runtime.ParamLocationPath, nodeId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v2/projects/%s/clusters/%s/clusterdetail", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetV2ProjectsProjectNameTemplatesRequest generates requests for GetV2ProjectsProjectNameTemplates
+func NewGetV2ProjectsProjectNameTemplatesRequest(server string, projectName ProjectNamePath, params *GetV2ProjectsProjectNameTemplatesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v2/projects/%s/templates", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Default != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "default", runtime.ParamLocationQuery, *params.Default); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "pageSize", runtime.ParamLocationQuery, *params.PageSize); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.OrderBy != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "orderBy", runtime.ParamLocationQuery, *params.OrderBy); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Filter != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "filter", runtime.ParamLocationQuery, *params.Filter); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "Activeprojectid", runtime.ParamLocationHeader, params.Activeprojectid)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Activeprojectid", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewPostV2ProjectsProjectNameTemplatesRequest calls the generic PostV2ProjectsProjectNameTemplates builder with application/json body
+func NewPostV2ProjectsProjectNameTemplatesRequest(server string, projectName ProjectNamePath, params *PostV2ProjectsProjectNameTemplatesParams, body PostV2ProjectsProjectNameTemplatesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostV2ProjectsProjectNameTemplatesRequestWithBody(server, projectName, params, "application/json", bodyReader)
+}
+
+// NewPostV2ProjectsProjectNameTemplatesRequestWithBody generates requests for PostV2ProjectsProjectNameTemplates with any type of body
+func NewPostV2ProjectsProjectNameTemplatesRequestWithBody(server string, projectName ProjectNamePath, params *PostV2ProjectsProjectNameTemplatesParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v2/projects/%s/templates", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "Activeprojectid", runtime.ParamLocationHeader, params.Activeprojectid)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Activeprojectid", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewPutV2ProjectsProjectNameTemplatesNameDefaultRequest calls the generic PutV2ProjectsProjectNameTemplatesNameDefault builder with application/json body
+func NewPutV2ProjectsProjectNameTemplatesNameDefaultRequest(server string, projectName ProjectNamePath, name string, params *PutV2ProjectsProjectNameTemplatesNameDefaultParams, body PutV2ProjectsProjectNameTemplatesNameDefaultJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutV2ProjectsProjectNameTemplatesNameDefaultRequestWithBody(server, projectName, name, params, "application/json", bodyReader)
+}
+
+// NewPutV2ProjectsProjectNameTemplatesNameDefaultRequestWithBody generates requests for PutV2ProjectsProjectNameTemplatesNameDefault with any type of body
+func NewPutV2ProjectsProjectNameTemplatesNameDefaultRequestWithBody(server string, projectName ProjectNamePath, name string, params *PutV2ProjectsProjectNameTemplatesNameDefaultParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v2/projects/%s/templates/%s/default", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "Activeprojectid", runtime.ParamLocationHeader, params.Activeprojectid)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Activeprojectid", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewGetV2ProjectsProjectNameTemplatesNameVersionsRequest generates requests for GetV2ProjectsProjectNameTemplatesNameVersions
+func NewGetV2ProjectsProjectNameTemplatesNameVersionsRequest(server string, projectName ProjectNamePath, name string, params *GetV2ProjectsProjectNameTemplatesNameVersionsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v2/projects/%s/templates/%s/versions", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "Activeprojectid", runtime.ParamLocationHeader, params.Activeprojectid)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Activeprojectid", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewDeleteV2ProjectsProjectNameTemplatesNameVersionRequest generates requests for DeleteV2ProjectsProjectNameTemplatesNameVersion
+func NewDeleteV2ProjectsProjectNameTemplatesNameVersionRequest(server string, projectName ProjectNamePath, name string, version string, params *DeleteV2ProjectsProjectNameTemplatesNameVersionParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "version", runtime.ParamLocationPath, version)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v2/projects/%s/templates/%s/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "Activeprojectid", runtime.ParamLocationHeader, params.Activeprojectid)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Activeprojectid", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewGetV2ProjectsProjectNameTemplatesNameVersionRequest generates requests for GetV2ProjectsProjectNameTemplatesNameVersion
+func NewGetV2ProjectsProjectNameTemplatesNameVersionRequest(server string, projectName ProjectNamePath, name string, version string, params *GetV2ProjectsProjectNameTemplatesNameVersionParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "version", runtime.ParamLocationPath, version)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v2/projects/%s/templates/%s/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "Activeprojectid", runtime.ParamLocationHeader, params.Activeprojectid)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Activeprojectid", headerParam0)
+
+	}
+
+	return req, nil
+}
+
 // NewGetV2TemplatesRequest generates requests for GetV2Templates
 func NewGetV2TemplatesRequest(server string, params *GetV2TemplatesParams) (*http.Request, error) {
 	var err error
@@ -1608,6 +2977,69 @@ type ClientWithResponsesInterface interface {
 	// GetV2HealthzWithResponse request
 	GetV2HealthzWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetV2HealthzResponse, error)
 
+	// GetV2ProjectsProjectNameClustersWithResponse request
+	GetV2ProjectsProjectNameClustersWithResponse(ctx context.Context, projectName ProjectNamePath, params *GetV2ProjectsProjectNameClustersParams, reqEditors ...RequestEditorFn) (*GetV2ProjectsProjectNameClustersResponse, error)
+
+	// PostV2ProjectsProjectNameClustersWithBodyWithResponse request with any body
+	PostV2ProjectsProjectNameClustersWithBodyWithResponse(ctx context.Context, projectName ProjectNamePath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostV2ProjectsProjectNameClustersResponse, error)
+
+	PostV2ProjectsProjectNameClustersWithResponse(ctx context.Context, projectName ProjectNamePath, body PostV2ProjectsProjectNameClustersJSONRequestBody, reqEditors ...RequestEditorFn) (*PostV2ProjectsProjectNameClustersResponse, error)
+
+	// GetV2ProjectsProjectNameClustersSummaryWithResponse request
+	GetV2ProjectsProjectNameClustersSummaryWithResponse(ctx context.Context, projectName ProjectNamePath, reqEditors ...RequestEditorFn) (*GetV2ProjectsProjectNameClustersSummaryResponse, error)
+
+	// DeleteV2ProjectsProjectNameClustersNameWithResponse request
+	DeleteV2ProjectsProjectNameClustersNameWithResponse(ctx context.Context, projectName ProjectNamePath, name string, reqEditors ...RequestEditorFn) (*DeleteV2ProjectsProjectNameClustersNameResponse, error)
+
+	// GetV2ProjectsProjectNameClustersNameWithResponse request
+	GetV2ProjectsProjectNameClustersNameWithResponse(ctx context.Context, projectName ProjectNamePath, name string, reqEditors ...RequestEditorFn) (*GetV2ProjectsProjectNameClustersNameResponse, error)
+
+	// GetV2ProjectsProjectNameClustersNameKubeconfigsWithResponse request
+	GetV2ProjectsProjectNameClustersNameKubeconfigsWithResponse(ctx context.Context, projectName ProjectNamePath, name string, params *GetV2ProjectsProjectNameClustersNameKubeconfigsParams, reqEditors ...RequestEditorFn) (*GetV2ProjectsProjectNameClustersNameKubeconfigsResponse, error)
+
+	// PutV2ProjectsProjectNameClustersNameLabelsWithBodyWithResponse request with any body
+	PutV2ProjectsProjectNameClustersNameLabelsWithBodyWithResponse(ctx context.Context, projectName ProjectNamePath, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutV2ProjectsProjectNameClustersNameLabelsResponse, error)
+
+	PutV2ProjectsProjectNameClustersNameLabelsWithResponse(ctx context.Context, projectName ProjectNamePath, name string, body PutV2ProjectsProjectNameClustersNameLabelsJSONRequestBody, reqEditors ...RequestEditorFn) (*PutV2ProjectsProjectNameClustersNameLabelsResponse, error)
+
+	// PutV2ProjectsProjectNameClustersNameNodesWithBodyWithResponse request with any body
+	PutV2ProjectsProjectNameClustersNameNodesWithBodyWithResponse(ctx context.Context, projectName ProjectNamePath, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutV2ProjectsProjectNameClustersNameNodesResponse, error)
+
+	PutV2ProjectsProjectNameClustersNameNodesWithResponse(ctx context.Context, projectName ProjectNamePath, name string, body PutV2ProjectsProjectNameClustersNameNodesJSONRequestBody, reqEditors ...RequestEditorFn) (*PutV2ProjectsProjectNameClustersNameNodesResponse, error)
+
+	// DeleteV2ProjectsProjectNameClustersNameNodesNodeIdWithResponse request
+	DeleteV2ProjectsProjectNameClustersNameNodesNodeIdWithResponse(ctx context.Context, projectName ProjectNamePath, name string, nodeId string, params *DeleteV2ProjectsProjectNameClustersNameNodesNodeIdParams, reqEditors ...RequestEditorFn) (*DeleteV2ProjectsProjectNameClustersNameNodesNodeIdResponse, error)
+
+	// PutV2ProjectsProjectNameClustersNameTemplateWithBodyWithResponse request with any body
+	PutV2ProjectsProjectNameClustersNameTemplateWithBodyWithResponse(ctx context.Context, projectName ProjectNamePath, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutV2ProjectsProjectNameClustersNameTemplateResponse, error)
+
+	PutV2ProjectsProjectNameClustersNameTemplateWithResponse(ctx context.Context, projectName ProjectNamePath, name string, body PutV2ProjectsProjectNameClustersNameTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*PutV2ProjectsProjectNameClustersNameTemplateResponse, error)
+
+	// GetV2ProjectsProjectNameClustersNodeIdClusterdetailWithResponse request
+	GetV2ProjectsProjectNameClustersNodeIdClusterdetailWithResponse(ctx context.Context, projectName ProjectNamePath, nodeId string, reqEditors ...RequestEditorFn) (*GetV2ProjectsProjectNameClustersNodeIdClusterdetailResponse, error)
+
+	// GetV2ProjectsProjectNameTemplatesWithResponse request
+	GetV2ProjectsProjectNameTemplatesWithResponse(ctx context.Context, projectName ProjectNamePath, params *GetV2ProjectsProjectNameTemplatesParams, reqEditors ...RequestEditorFn) (*GetV2ProjectsProjectNameTemplatesResponse, error)
+
+	// PostV2ProjectsProjectNameTemplatesWithBodyWithResponse request with any body
+	PostV2ProjectsProjectNameTemplatesWithBodyWithResponse(ctx context.Context, projectName ProjectNamePath, params *PostV2ProjectsProjectNameTemplatesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostV2ProjectsProjectNameTemplatesResponse, error)
+
+	PostV2ProjectsProjectNameTemplatesWithResponse(ctx context.Context, projectName ProjectNamePath, params *PostV2ProjectsProjectNameTemplatesParams, body PostV2ProjectsProjectNameTemplatesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostV2ProjectsProjectNameTemplatesResponse, error)
+
+	// PutV2ProjectsProjectNameTemplatesNameDefaultWithBodyWithResponse request with any body
+	PutV2ProjectsProjectNameTemplatesNameDefaultWithBodyWithResponse(ctx context.Context, projectName ProjectNamePath, name string, params *PutV2ProjectsProjectNameTemplatesNameDefaultParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutV2ProjectsProjectNameTemplatesNameDefaultResponse, error)
+
+	PutV2ProjectsProjectNameTemplatesNameDefaultWithResponse(ctx context.Context, projectName ProjectNamePath, name string, params *PutV2ProjectsProjectNameTemplatesNameDefaultParams, body PutV2ProjectsProjectNameTemplatesNameDefaultJSONRequestBody, reqEditors ...RequestEditorFn) (*PutV2ProjectsProjectNameTemplatesNameDefaultResponse, error)
+
+	// GetV2ProjectsProjectNameTemplatesNameVersionsWithResponse request
+	GetV2ProjectsProjectNameTemplatesNameVersionsWithResponse(ctx context.Context, projectName ProjectNamePath, name string, params *GetV2ProjectsProjectNameTemplatesNameVersionsParams, reqEditors ...RequestEditorFn) (*GetV2ProjectsProjectNameTemplatesNameVersionsResponse, error)
+
+	// DeleteV2ProjectsProjectNameTemplatesNameVersionWithResponse request
+	DeleteV2ProjectsProjectNameTemplatesNameVersionWithResponse(ctx context.Context, projectName ProjectNamePath, name string, version string, params *DeleteV2ProjectsProjectNameTemplatesNameVersionParams, reqEditors ...RequestEditorFn) (*DeleteV2ProjectsProjectNameTemplatesNameVersionResponse, error)
+
+	// GetV2ProjectsProjectNameTemplatesNameVersionWithResponse request
+	GetV2ProjectsProjectNameTemplatesNameVersionWithResponse(ctx context.Context, projectName ProjectNamePath, name string, version string, params *GetV2ProjectsProjectNameTemplatesNameVersionParams, reqEditors ...RequestEditorFn) (*GetV2ProjectsProjectNameTemplatesNameVersionResponse, error)
+
 	// GetV2TemplatesWithResponse request
 	GetV2TemplatesWithResponse(ctx context.Context, params *GetV2TemplatesParams, reqEditors ...RequestEditorFn) (*GetV2TemplatesResponse, error)
 
@@ -1927,6 +3359,428 @@ func (r GetV2HealthzResponse) StatusCode() int {
 	return 0
 }
 
+type GetV2ProjectsProjectNameClustersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		Clusters *[]ClusterInfo `json:"clusters,omitempty"`
+
+		// TotalElements The count of items in the entire list, regardless of pagination.
+		TotalElements int32 `json:"totalElements"`
+	}
+	JSON400 *N400BadRequest
+	JSON500 *N500InternalServerError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetV2ProjectsProjectNameClustersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetV2ProjectsProjectNameClustersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostV2ProjectsProjectNameClustersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *string
+	JSON400      *N400BadRequest
+	JSON500      *N500InternalServerError
+}
+
+// Status returns HTTPResponse.Status
+func (r PostV2ProjectsProjectNameClustersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostV2ProjectsProjectNameClustersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetV2ProjectsProjectNameClustersSummaryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterSummary
+	JSON400      *N400BadRequest
+	JSON500      *N500InternalServerError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetV2ProjectsProjectNameClustersSummaryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetV2ProjectsProjectNameClustersSummaryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteV2ProjectsProjectNameClustersNameResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *N400BadRequest
+	JSON404      *N404NotFound
+	JSON500      *N500InternalServerError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteV2ProjectsProjectNameClustersNameResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteV2ProjectsProjectNameClustersNameResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetV2ProjectsProjectNameClustersNameResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterDetailInfo
+	JSON400      *N400BadRequest
+	JSON404      *N404NotFound
+	JSON500      *N500InternalServerError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetV2ProjectsProjectNameClustersNameResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetV2ProjectsProjectNameClustersNameResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetV2ProjectsProjectNameClustersNameKubeconfigsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *KubeconfigInfo
+	JSON400      *N400BadRequest
+	JSON401      *N401Unauthorized
+	JSON404      *N404NotFound
+	JSON500      *N500InternalServerError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetV2ProjectsProjectNameClustersNameKubeconfigsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetV2ProjectsProjectNameClustersNameKubeconfigsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutV2ProjectsProjectNameClustersNameLabelsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *N400BadRequest
+	JSON404      *N404NotFound
+	JSON500      *N500InternalServerError
+}
+
+// Status returns HTTPResponse.Status
+func (r PutV2ProjectsProjectNameClustersNameLabelsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutV2ProjectsProjectNameClustersNameLabelsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutV2ProjectsProjectNameClustersNameNodesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *N400BadRequest
+	JSON404      *N404NotFound
+	JSON500      *N500InternalServerError
+}
+
+// Status returns HTTPResponse.Status
+func (r PutV2ProjectsProjectNameClustersNameNodesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutV2ProjectsProjectNameClustersNameNodesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteV2ProjectsProjectNameClustersNameNodesNodeIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *N400BadRequest
+	JSON404      *N404NotFound
+	JSON500      *N500InternalServerError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteV2ProjectsProjectNameClustersNameNodesNodeIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteV2ProjectsProjectNameClustersNameNodesNodeIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutV2ProjectsProjectNameClustersNameTemplateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *N400BadRequest
+	JSON404      *N404NotFound
+	JSON500      *N500InternalServerError
+	JSON501      *N501NotImplemented
+}
+
+// Status returns HTTPResponse.Status
+func (r PutV2ProjectsProjectNameClustersNameTemplateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutV2ProjectsProjectNameClustersNameTemplateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetV2ProjectsProjectNameClustersNodeIdClusterdetailResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterDetailInfo
+	JSON400      *N400BadRequest
+	JSON404      *N404NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r GetV2ProjectsProjectNameClustersNodeIdClusterdetailResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetV2ProjectsProjectNameClustersNodeIdClusterdetailResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetV2ProjectsProjectNameTemplatesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *TemplateInfoList
+	JSON400      *N400BadRequest
+	JSON404      *N404NotFound
+	JSON500      *N500InternalServerError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetV2ProjectsProjectNameTemplatesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetV2ProjectsProjectNameTemplatesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostV2ProjectsProjectNameTemplatesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *string
+	JSON400      *N400BadRequest
+	JSON409      *N409Conflict
+	JSON500      *N500InternalServerError
+}
+
+// Status returns HTTPResponse.Status
+func (r PostV2ProjectsProjectNameTemplatesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostV2ProjectsProjectNameTemplatesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutV2ProjectsProjectNameTemplatesNameDefaultResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *N400BadRequest
+	JSON404      *N404NotFound
+	JSON500      *N500InternalServerError
+}
+
+// Status returns HTTPResponse.Status
+func (r PutV2ProjectsProjectNameTemplatesNameDefaultResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutV2ProjectsProjectNameTemplatesNameDefaultResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetV2ProjectsProjectNameTemplatesNameVersionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *VersionList
+	JSON400      *N400BadRequest
+	JSON404      *N404NotFound
+	JSON500      *N500InternalServerError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetV2ProjectsProjectNameTemplatesNameVersionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetV2ProjectsProjectNameTemplatesNameVersionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteV2ProjectsProjectNameTemplatesNameVersionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *N400BadRequest
+	JSON404      *N404NotFound
+	JSON409      *N409Conflict
+	JSON500      *N500InternalServerError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteV2ProjectsProjectNameTemplatesNameVersionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteV2ProjectsProjectNameTemplatesNameVersionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetV2ProjectsProjectNameTemplatesNameVersionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *TemplateInfo
+	JSON400      *N400BadRequest
+	JSON404      *N404NotFound
+	JSON500      *N500InternalServerError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetV2ProjectsProjectNameTemplatesNameVersionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetV2ProjectsProjectNameTemplatesNameVersionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetV2TemplatesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2214,6 +4068,207 @@ func (c *ClientWithResponses) GetV2HealthzWithResponse(ctx context.Context, reqE
 		return nil, err
 	}
 	return ParseGetV2HealthzResponse(rsp)
+}
+
+// GetV2ProjectsProjectNameClustersWithResponse request returning *GetV2ProjectsProjectNameClustersResponse
+func (c *ClientWithResponses) GetV2ProjectsProjectNameClustersWithResponse(ctx context.Context, projectName ProjectNamePath, params *GetV2ProjectsProjectNameClustersParams, reqEditors ...RequestEditorFn) (*GetV2ProjectsProjectNameClustersResponse, error) {
+	rsp, err := c.GetV2ProjectsProjectNameClusters(ctx, projectName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetV2ProjectsProjectNameClustersResponse(rsp)
+}
+
+// PostV2ProjectsProjectNameClustersWithBodyWithResponse request with arbitrary body returning *PostV2ProjectsProjectNameClustersResponse
+func (c *ClientWithResponses) PostV2ProjectsProjectNameClustersWithBodyWithResponse(ctx context.Context, projectName ProjectNamePath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostV2ProjectsProjectNameClustersResponse, error) {
+	rsp, err := c.PostV2ProjectsProjectNameClustersWithBody(ctx, projectName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostV2ProjectsProjectNameClustersResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostV2ProjectsProjectNameClustersWithResponse(ctx context.Context, projectName ProjectNamePath, body PostV2ProjectsProjectNameClustersJSONRequestBody, reqEditors ...RequestEditorFn) (*PostV2ProjectsProjectNameClustersResponse, error) {
+	rsp, err := c.PostV2ProjectsProjectNameClusters(ctx, projectName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostV2ProjectsProjectNameClustersResponse(rsp)
+}
+
+// GetV2ProjectsProjectNameClustersSummaryWithResponse request returning *GetV2ProjectsProjectNameClustersSummaryResponse
+func (c *ClientWithResponses) GetV2ProjectsProjectNameClustersSummaryWithResponse(ctx context.Context, projectName ProjectNamePath, reqEditors ...RequestEditorFn) (*GetV2ProjectsProjectNameClustersSummaryResponse, error) {
+	rsp, err := c.GetV2ProjectsProjectNameClustersSummary(ctx, projectName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetV2ProjectsProjectNameClustersSummaryResponse(rsp)
+}
+
+// DeleteV2ProjectsProjectNameClustersNameWithResponse request returning *DeleteV2ProjectsProjectNameClustersNameResponse
+func (c *ClientWithResponses) DeleteV2ProjectsProjectNameClustersNameWithResponse(ctx context.Context, projectName ProjectNamePath, name string, reqEditors ...RequestEditorFn) (*DeleteV2ProjectsProjectNameClustersNameResponse, error) {
+	rsp, err := c.DeleteV2ProjectsProjectNameClustersName(ctx, projectName, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteV2ProjectsProjectNameClustersNameResponse(rsp)
+}
+
+// GetV2ProjectsProjectNameClustersNameWithResponse request returning *GetV2ProjectsProjectNameClustersNameResponse
+func (c *ClientWithResponses) GetV2ProjectsProjectNameClustersNameWithResponse(ctx context.Context, projectName ProjectNamePath, name string, reqEditors ...RequestEditorFn) (*GetV2ProjectsProjectNameClustersNameResponse, error) {
+	rsp, err := c.GetV2ProjectsProjectNameClustersName(ctx, projectName, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetV2ProjectsProjectNameClustersNameResponse(rsp)
+}
+
+// GetV2ProjectsProjectNameClustersNameKubeconfigsWithResponse request returning *GetV2ProjectsProjectNameClustersNameKubeconfigsResponse
+func (c *ClientWithResponses) GetV2ProjectsProjectNameClustersNameKubeconfigsWithResponse(ctx context.Context, projectName ProjectNamePath, name string, params *GetV2ProjectsProjectNameClustersNameKubeconfigsParams, reqEditors ...RequestEditorFn) (*GetV2ProjectsProjectNameClustersNameKubeconfigsResponse, error) {
+	rsp, err := c.GetV2ProjectsProjectNameClustersNameKubeconfigs(ctx, projectName, name, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetV2ProjectsProjectNameClustersNameKubeconfigsResponse(rsp)
+}
+
+// PutV2ProjectsProjectNameClustersNameLabelsWithBodyWithResponse request with arbitrary body returning *PutV2ProjectsProjectNameClustersNameLabelsResponse
+func (c *ClientWithResponses) PutV2ProjectsProjectNameClustersNameLabelsWithBodyWithResponse(ctx context.Context, projectName ProjectNamePath, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutV2ProjectsProjectNameClustersNameLabelsResponse, error) {
+	rsp, err := c.PutV2ProjectsProjectNameClustersNameLabelsWithBody(ctx, projectName, name, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutV2ProjectsProjectNameClustersNameLabelsResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutV2ProjectsProjectNameClustersNameLabelsWithResponse(ctx context.Context, projectName ProjectNamePath, name string, body PutV2ProjectsProjectNameClustersNameLabelsJSONRequestBody, reqEditors ...RequestEditorFn) (*PutV2ProjectsProjectNameClustersNameLabelsResponse, error) {
+	rsp, err := c.PutV2ProjectsProjectNameClustersNameLabels(ctx, projectName, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutV2ProjectsProjectNameClustersNameLabelsResponse(rsp)
+}
+
+// PutV2ProjectsProjectNameClustersNameNodesWithBodyWithResponse request with arbitrary body returning *PutV2ProjectsProjectNameClustersNameNodesResponse
+func (c *ClientWithResponses) PutV2ProjectsProjectNameClustersNameNodesWithBodyWithResponse(ctx context.Context, projectName ProjectNamePath, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutV2ProjectsProjectNameClustersNameNodesResponse, error) {
+	rsp, err := c.PutV2ProjectsProjectNameClustersNameNodesWithBody(ctx, projectName, name, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutV2ProjectsProjectNameClustersNameNodesResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutV2ProjectsProjectNameClustersNameNodesWithResponse(ctx context.Context, projectName ProjectNamePath, name string, body PutV2ProjectsProjectNameClustersNameNodesJSONRequestBody, reqEditors ...RequestEditorFn) (*PutV2ProjectsProjectNameClustersNameNodesResponse, error) {
+	rsp, err := c.PutV2ProjectsProjectNameClustersNameNodes(ctx, projectName, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutV2ProjectsProjectNameClustersNameNodesResponse(rsp)
+}
+
+// DeleteV2ProjectsProjectNameClustersNameNodesNodeIdWithResponse request returning *DeleteV2ProjectsProjectNameClustersNameNodesNodeIdResponse
+func (c *ClientWithResponses) DeleteV2ProjectsProjectNameClustersNameNodesNodeIdWithResponse(ctx context.Context, projectName ProjectNamePath, name string, nodeId string, params *DeleteV2ProjectsProjectNameClustersNameNodesNodeIdParams, reqEditors ...RequestEditorFn) (*DeleteV2ProjectsProjectNameClustersNameNodesNodeIdResponse, error) {
+	rsp, err := c.DeleteV2ProjectsProjectNameClustersNameNodesNodeId(ctx, projectName, name, nodeId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteV2ProjectsProjectNameClustersNameNodesNodeIdResponse(rsp)
+}
+
+// PutV2ProjectsProjectNameClustersNameTemplateWithBodyWithResponse request with arbitrary body returning *PutV2ProjectsProjectNameClustersNameTemplateResponse
+func (c *ClientWithResponses) PutV2ProjectsProjectNameClustersNameTemplateWithBodyWithResponse(ctx context.Context, projectName ProjectNamePath, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutV2ProjectsProjectNameClustersNameTemplateResponse, error) {
+	rsp, err := c.PutV2ProjectsProjectNameClustersNameTemplateWithBody(ctx, projectName, name, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutV2ProjectsProjectNameClustersNameTemplateResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutV2ProjectsProjectNameClustersNameTemplateWithResponse(ctx context.Context, projectName ProjectNamePath, name string, body PutV2ProjectsProjectNameClustersNameTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*PutV2ProjectsProjectNameClustersNameTemplateResponse, error) {
+	rsp, err := c.PutV2ProjectsProjectNameClustersNameTemplate(ctx, projectName, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutV2ProjectsProjectNameClustersNameTemplateResponse(rsp)
+}
+
+// GetV2ProjectsProjectNameClustersNodeIdClusterdetailWithResponse request returning *GetV2ProjectsProjectNameClustersNodeIdClusterdetailResponse
+func (c *ClientWithResponses) GetV2ProjectsProjectNameClustersNodeIdClusterdetailWithResponse(ctx context.Context, projectName ProjectNamePath, nodeId string, reqEditors ...RequestEditorFn) (*GetV2ProjectsProjectNameClustersNodeIdClusterdetailResponse, error) {
+	rsp, err := c.GetV2ProjectsProjectNameClustersNodeIdClusterdetail(ctx, projectName, nodeId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetV2ProjectsProjectNameClustersNodeIdClusterdetailResponse(rsp)
+}
+
+// GetV2ProjectsProjectNameTemplatesWithResponse request returning *GetV2ProjectsProjectNameTemplatesResponse
+func (c *ClientWithResponses) GetV2ProjectsProjectNameTemplatesWithResponse(ctx context.Context, projectName ProjectNamePath, params *GetV2ProjectsProjectNameTemplatesParams, reqEditors ...RequestEditorFn) (*GetV2ProjectsProjectNameTemplatesResponse, error) {
+	rsp, err := c.GetV2ProjectsProjectNameTemplates(ctx, projectName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetV2ProjectsProjectNameTemplatesResponse(rsp)
+}
+
+// PostV2ProjectsProjectNameTemplatesWithBodyWithResponse request with arbitrary body returning *PostV2ProjectsProjectNameTemplatesResponse
+func (c *ClientWithResponses) PostV2ProjectsProjectNameTemplatesWithBodyWithResponse(ctx context.Context, projectName ProjectNamePath, params *PostV2ProjectsProjectNameTemplatesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostV2ProjectsProjectNameTemplatesResponse, error) {
+	rsp, err := c.PostV2ProjectsProjectNameTemplatesWithBody(ctx, projectName, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostV2ProjectsProjectNameTemplatesResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostV2ProjectsProjectNameTemplatesWithResponse(ctx context.Context, projectName ProjectNamePath, params *PostV2ProjectsProjectNameTemplatesParams, body PostV2ProjectsProjectNameTemplatesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostV2ProjectsProjectNameTemplatesResponse, error) {
+	rsp, err := c.PostV2ProjectsProjectNameTemplates(ctx, projectName, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostV2ProjectsProjectNameTemplatesResponse(rsp)
+}
+
+// PutV2ProjectsProjectNameTemplatesNameDefaultWithBodyWithResponse request with arbitrary body returning *PutV2ProjectsProjectNameTemplatesNameDefaultResponse
+func (c *ClientWithResponses) PutV2ProjectsProjectNameTemplatesNameDefaultWithBodyWithResponse(ctx context.Context, projectName ProjectNamePath, name string, params *PutV2ProjectsProjectNameTemplatesNameDefaultParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutV2ProjectsProjectNameTemplatesNameDefaultResponse, error) {
+	rsp, err := c.PutV2ProjectsProjectNameTemplatesNameDefaultWithBody(ctx, projectName, name, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutV2ProjectsProjectNameTemplatesNameDefaultResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutV2ProjectsProjectNameTemplatesNameDefaultWithResponse(ctx context.Context, projectName ProjectNamePath, name string, params *PutV2ProjectsProjectNameTemplatesNameDefaultParams, body PutV2ProjectsProjectNameTemplatesNameDefaultJSONRequestBody, reqEditors ...RequestEditorFn) (*PutV2ProjectsProjectNameTemplatesNameDefaultResponse, error) {
+	rsp, err := c.PutV2ProjectsProjectNameTemplatesNameDefault(ctx, projectName, name, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutV2ProjectsProjectNameTemplatesNameDefaultResponse(rsp)
+}
+
+// GetV2ProjectsProjectNameTemplatesNameVersionsWithResponse request returning *GetV2ProjectsProjectNameTemplatesNameVersionsResponse
+func (c *ClientWithResponses) GetV2ProjectsProjectNameTemplatesNameVersionsWithResponse(ctx context.Context, projectName ProjectNamePath, name string, params *GetV2ProjectsProjectNameTemplatesNameVersionsParams, reqEditors ...RequestEditorFn) (*GetV2ProjectsProjectNameTemplatesNameVersionsResponse, error) {
+	rsp, err := c.GetV2ProjectsProjectNameTemplatesNameVersions(ctx, projectName, name, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetV2ProjectsProjectNameTemplatesNameVersionsResponse(rsp)
+}
+
+// DeleteV2ProjectsProjectNameTemplatesNameVersionWithResponse request returning *DeleteV2ProjectsProjectNameTemplatesNameVersionResponse
+func (c *ClientWithResponses) DeleteV2ProjectsProjectNameTemplatesNameVersionWithResponse(ctx context.Context, projectName ProjectNamePath, name string, version string, params *DeleteV2ProjectsProjectNameTemplatesNameVersionParams, reqEditors ...RequestEditorFn) (*DeleteV2ProjectsProjectNameTemplatesNameVersionResponse, error) {
+	rsp, err := c.DeleteV2ProjectsProjectNameTemplatesNameVersion(ctx, projectName, name, version, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteV2ProjectsProjectNameTemplatesNameVersionResponse(rsp)
+}
+
+// GetV2ProjectsProjectNameTemplatesNameVersionWithResponse request returning *GetV2ProjectsProjectNameTemplatesNameVersionResponse
+func (c *ClientWithResponses) GetV2ProjectsProjectNameTemplatesNameVersionWithResponse(ctx context.Context, projectName ProjectNamePath, name string, version string, params *GetV2ProjectsProjectNameTemplatesNameVersionParams, reqEditors ...RequestEditorFn) (*GetV2ProjectsProjectNameTemplatesNameVersionResponse, error) {
+	rsp, err := c.GetV2ProjectsProjectNameTemplatesNameVersion(ctx, projectName, name, version, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetV2ProjectsProjectNameTemplatesNameVersionResponse(rsp)
 }
 
 // GetV2TemplatesWithResponse request returning *GetV2TemplatesResponse
@@ -2779,6 +4834,754 @@ func ParseGetV2HealthzResponse(rsp *http.Response) (*GetV2HealthzResponse, error
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest N500InternalServerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetV2ProjectsProjectNameClustersResponse parses an HTTP response from a GetV2ProjectsProjectNameClustersWithResponse call
+func ParseGetV2ProjectsProjectNameClustersResponse(rsp *http.Response) (*GetV2ProjectsProjectNameClustersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetV2ProjectsProjectNameClustersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Clusters *[]ClusterInfo `json:"clusters,omitempty"`
+
+			// TotalElements The count of items in the entire list, regardless of pagination.
+			TotalElements int32 `json:"totalElements"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest N400BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest N500InternalServerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostV2ProjectsProjectNameClustersResponse parses an HTTP response from a PostV2ProjectsProjectNameClustersWithResponse call
+func ParsePostV2ProjectsProjectNameClustersResponse(rsp *http.Response) (*PostV2ProjectsProjectNameClustersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostV2ProjectsProjectNameClustersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest string
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest N400BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest N500InternalServerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetV2ProjectsProjectNameClustersSummaryResponse parses an HTTP response from a GetV2ProjectsProjectNameClustersSummaryWithResponse call
+func ParseGetV2ProjectsProjectNameClustersSummaryResponse(rsp *http.Response) (*GetV2ProjectsProjectNameClustersSummaryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetV2ProjectsProjectNameClustersSummaryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterSummary
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest N400BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest N500InternalServerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteV2ProjectsProjectNameClustersNameResponse parses an HTTP response from a DeleteV2ProjectsProjectNameClustersNameWithResponse call
+func ParseDeleteV2ProjectsProjectNameClustersNameResponse(rsp *http.Response) (*DeleteV2ProjectsProjectNameClustersNameResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteV2ProjectsProjectNameClustersNameResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest N400BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest N404NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest N500InternalServerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetV2ProjectsProjectNameClustersNameResponse parses an HTTP response from a GetV2ProjectsProjectNameClustersNameWithResponse call
+func ParseGetV2ProjectsProjectNameClustersNameResponse(rsp *http.Response) (*GetV2ProjectsProjectNameClustersNameResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetV2ProjectsProjectNameClustersNameResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterDetailInfo
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest N400BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest N404NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest N500InternalServerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetV2ProjectsProjectNameClustersNameKubeconfigsResponse parses an HTTP response from a GetV2ProjectsProjectNameClustersNameKubeconfigsWithResponse call
+func ParseGetV2ProjectsProjectNameClustersNameKubeconfigsResponse(rsp *http.Response) (*GetV2ProjectsProjectNameClustersNameKubeconfigsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetV2ProjectsProjectNameClustersNameKubeconfigsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest KubeconfigInfo
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest N400BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest N401Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest N404NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest N500InternalServerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutV2ProjectsProjectNameClustersNameLabelsResponse parses an HTTP response from a PutV2ProjectsProjectNameClustersNameLabelsWithResponse call
+func ParsePutV2ProjectsProjectNameClustersNameLabelsResponse(rsp *http.Response) (*PutV2ProjectsProjectNameClustersNameLabelsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutV2ProjectsProjectNameClustersNameLabelsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest N400BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest N404NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest N500InternalServerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutV2ProjectsProjectNameClustersNameNodesResponse parses an HTTP response from a PutV2ProjectsProjectNameClustersNameNodesWithResponse call
+func ParsePutV2ProjectsProjectNameClustersNameNodesResponse(rsp *http.Response) (*PutV2ProjectsProjectNameClustersNameNodesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutV2ProjectsProjectNameClustersNameNodesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest N400BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest N404NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest N500InternalServerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteV2ProjectsProjectNameClustersNameNodesNodeIdResponse parses an HTTP response from a DeleteV2ProjectsProjectNameClustersNameNodesNodeIdWithResponse call
+func ParseDeleteV2ProjectsProjectNameClustersNameNodesNodeIdResponse(rsp *http.Response) (*DeleteV2ProjectsProjectNameClustersNameNodesNodeIdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteV2ProjectsProjectNameClustersNameNodesNodeIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest N400BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest N404NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest N500InternalServerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutV2ProjectsProjectNameClustersNameTemplateResponse parses an HTTP response from a PutV2ProjectsProjectNameClustersNameTemplateWithResponse call
+func ParsePutV2ProjectsProjectNameClustersNameTemplateResponse(rsp *http.Response) (*PutV2ProjectsProjectNameClustersNameTemplateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutV2ProjectsProjectNameClustersNameTemplateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest N400BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest N404NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest N500InternalServerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest N501NotImplemented
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetV2ProjectsProjectNameClustersNodeIdClusterdetailResponse parses an HTTP response from a GetV2ProjectsProjectNameClustersNodeIdClusterdetailWithResponse call
+func ParseGetV2ProjectsProjectNameClustersNodeIdClusterdetailResponse(rsp *http.Response) (*GetV2ProjectsProjectNameClustersNodeIdClusterdetailResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetV2ProjectsProjectNameClustersNodeIdClusterdetailResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterDetailInfo
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest N400BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest N404NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetV2ProjectsProjectNameTemplatesResponse parses an HTTP response from a GetV2ProjectsProjectNameTemplatesWithResponse call
+func ParseGetV2ProjectsProjectNameTemplatesResponse(rsp *http.Response) (*GetV2ProjectsProjectNameTemplatesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetV2ProjectsProjectNameTemplatesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TemplateInfoList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest N400BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest N404NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest N500InternalServerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostV2ProjectsProjectNameTemplatesResponse parses an HTTP response from a PostV2ProjectsProjectNameTemplatesWithResponse call
+func ParsePostV2ProjectsProjectNameTemplatesResponse(rsp *http.Response) (*PostV2ProjectsProjectNameTemplatesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostV2ProjectsProjectNameTemplatesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest string
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest N400BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest N409Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest N500InternalServerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutV2ProjectsProjectNameTemplatesNameDefaultResponse parses an HTTP response from a PutV2ProjectsProjectNameTemplatesNameDefaultWithResponse call
+func ParsePutV2ProjectsProjectNameTemplatesNameDefaultResponse(rsp *http.Response) (*PutV2ProjectsProjectNameTemplatesNameDefaultResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutV2ProjectsProjectNameTemplatesNameDefaultResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest N400BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest N404NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest N500InternalServerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetV2ProjectsProjectNameTemplatesNameVersionsResponse parses an HTTP response from a GetV2ProjectsProjectNameTemplatesNameVersionsWithResponse call
+func ParseGetV2ProjectsProjectNameTemplatesNameVersionsResponse(rsp *http.Response) (*GetV2ProjectsProjectNameTemplatesNameVersionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetV2ProjectsProjectNameTemplatesNameVersionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VersionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest N400BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest N404NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest N500InternalServerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteV2ProjectsProjectNameTemplatesNameVersionResponse parses an HTTP response from a DeleteV2ProjectsProjectNameTemplatesNameVersionWithResponse call
+func ParseDeleteV2ProjectsProjectNameTemplatesNameVersionResponse(rsp *http.Response) (*DeleteV2ProjectsProjectNameTemplatesNameVersionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteV2ProjectsProjectNameTemplatesNameVersionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest N400BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest N404NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest N409Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest N500InternalServerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetV2ProjectsProjectNameTemplatesNameVersionResponse parses an HTTP response from a GetV2ProjectsProjectNameTemplatesNameVersionWithResponse call
+func ParseGetV2ProjectsProjectNameTemplatesNameVersionResponse(rsp *http.Response) (*GetV2ProjectsProjectNameTemplatesNameVersionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetV2ProjectsProjectNameTemplatesNameVersionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TemplateInfo
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest N400BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest N404NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest N500InternalServerError
