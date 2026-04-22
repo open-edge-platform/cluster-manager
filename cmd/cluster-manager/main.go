@@ -4,10 +4,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
+
+	"github.com/open-edge-platform/orch-library/go/pkg/tenancy"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
@@ -17,6 +20,8 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/internal/multitenancy"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/rest"
 )
+
+const controllerName = "cluster-manager"
 
 // version injected at build time
 var version string
@@ -83,18 +88,38 @@ func initializeSystemLabels(config *config.Config) {
 func initializeMultitenancy(config *config.Config) {
 	multitenancy.SetDefaultTemplate(config.DefaultTemplate)
 
-	if !config.DisableMultitenancy {
-		// TODO? may need to be initialized after server as all resource handling is done in the server
-		tdm, err := multitenancy.NewDatamodelClient()
-		if err != nil {
-			slog.Error("failed to initialize tenancy datamodel client", "error", err)
-			os.Exit(2)
-		}
-		if err = tdm.Start(); err != nil {
-			slog.Error("failed to start tenancy datamodel client", "error", err)
-			os.Exit(2)
-		}
+	if config.DisableMultitenancy {
+		return
 	}
+
+	handler, err := multitenancy.NewDatamodelClient()
+	if err != nil {
+		slog.Error("failed to initialize tenancy datamodel client", "error", err)
+		os.Exit(2)
+	}
+
+	tenantManagerURL := os.Getenv("TENANT_MANAGER_URL")
+	if tenantManagerURL == "" {
+		tenantManagerURL = "http://tenancy-manager.orch-iam:8080"
+	}
+
+	poller, err := tenancy.NewPoller(tenantManagerURL, controllerName, handler,
+		func(cfg *tenancy.PollerConfig) {
+			cfg.OnError = func(err error, msg string) {
+				slog.Error("tenancy poller error", "msg", msg, "error", err)
+			}
+		},
+	)
+	if err != nil {
+		slog.Error("failed to create tenancy poller", "error", err)
+		os.Exit(2)
+	}
+
+	go func() {
+		if err := poller.Run(context.Background()); err != nil && err != context.Canceled {
+			slog.Error("tenancy poller stopped unexpectedly", "error", err)
+		}
+	}()
 }
 
 func initializeK8sClient() *k8s.Client {

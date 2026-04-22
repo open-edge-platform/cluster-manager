@@ -10,23 +10,20 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
+
+	"github.com/open-edge-platform/orch-library/go/pkg/tenancy"
 
 	"github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/template"
-	activeWatcher "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/apis/projectactivewatcher.edge-orchestrator.intel.com/v1"
-	watcherv1 "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/apis/projectwatcher.edge-orchestrator.intel.com/v1"
-	projectv1 "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/apis/runtimeproject.edge-orchestrator.intel.com/v1"
-	nexus "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/nexus-client"
 )
 
 type TenancyDatamodelTestSuite struct {
@@ -39,36 +36,18 @@ func TestTenancyDatamodelSuite(t *testing.T) {
 }
 
 func (suite *TenancyDatamodelTestSuite) SetupTest() {
-	// fake nexus client never syncs; disable sync verification in unit tests.
-	originalVerifySynced := verifySyncedFunc
-	verifySyncedFunc = func(cache.ResourceEventHandlerRegistration) error { return nil }
-	suite.T().Cleanup(func() { verifySyncedFunc = originalVerifySynced })
+	k8sClient := k8s.New().WithFakeClient()
+	require.NotNil(suite.T(), k8sClient)
 
-	nexus := nexus.NewFakeClient()
-	require.NotNil(suite.T(), nexus)
-
-	k8s := k8s.New().WithFakeClient()
-	require.NotNil(suite.T(), k8s)
-
-	templates := []*v1alpha1.ClusterTemplate{}
-
-	suite.t = &TenancyDatamodel{nexus: nexus, k8s: k8s, templates: templates}
-}
-
-func (suite *TenancyDatamodelTestSuite) TestStart() {
-	err := suite.t.Start()
-	assert.NoError(suite.T(), err)
-}
-
-func (suite *TenancyDatamodelTestSuite) TestStop() {
-	suite.t.Stop()
+	suite.t = &TenancyDatamodel{
+		k8s:       k8sClient,
+		templates: []*v1alpha1.ClusterTemplate{},
+	}
 }
 
 func (suite *TenancyDatamodelTestSuite) TestNewDatamodelClient() {
 	cases := []struct {
 		name                           string
-		configFunc                     func() (*rest.Config, error)
-		clientSetFunc                  func(*rest.Config) (*nexus.Clientset, error)
 		k8sClientFunc                  func() *k8s.Client
 		templateFunc                   func() ([]*v1alpha1.ClusterTemplate, error)
 		podSecurityAdmissionConfigFunc func() (map[string][]byte, error)
@@ -77,18 +56,11 @@ func (suite *TenancyDatamodelTestSuite) TestNewDatamodelClient() {
 	}{
 		{
 			name: "success",
-			configFunc: func() (*rest.Config, error) {
-				return &rest.Config{}, nil
-			},
-			clientSetFunc: func(*rest.Config) (*nexus.Clientset, error) {
-				return nexus.NewFakeClient(), nil
-			},
 			k8sClientFunc: func() *k8s.Client {
 				return k8s.New().WithFakeClient()
 			},
 			templateFunc: func() ([]*v1alpha1.ClusterTemplate, error) {
-				templates := []*v1alpha1.ClusterTemplate{}
-				return templates, nil
+				return []*v1alpha1.ClusterTemplate{}, nil
 			},
 			podSecurityAdmissionConfigFunc: func() (map[string][]byte, error) {
 				return map[string][]byte{}, nil
@@ -97,37 +69,45 @@ func (suite *TenancyDatamodelTestSuite) TestNewDatamodelClient() {
 			expectedClient: true,
 		},
 		{
-			name: "config error",
-			configFunc: func() (*rest.Config, error) {
-				return nil, errors.New("config error")
+			name: "k8s client error",
+			k8sClientFunc: func() *k8s.Client {
+				return nil
 			},
-			clientSetFunc:                  nil,
-			k8sClientFunc:                  nil,
 			templateFunc:                   nil,
 			podSecurityAdmissionConfigFunc: nil,
-			expectedErr:                    errors.New("failed to get orch kubernetes config: config error"),
+			expectedErr:                    errors.New("failed to get kubernetes client"),
 			expectedClient:                 false,
 		},
 		{
-			name: "clientset error",
-			configFunc: func() (*rest.Config, error) {
-				return &rest.Config{}, nil
+			name: "templates error",
+			k8sClientFunc: func() *k8s.Client {
+				return k8s.New().WithFakeClient()
 			},
-			clientSetFunc: func(*rest.Config) (*nexus.Clientset, error) {
-				return nil, errors.New("client set error")
+			templateFunc: func() ([]*v1alpha1.ClusterTemplate, error) {
+				return nil, errors.New("template read error")
 			},
-			k8sClientFunc:                  nil,
-			templateFunc:                   nil,
 			podSecurityAdmissionConfigFunc: nil,
-			expectedErr:                    errors.New("failed to create nexus client: client set error"),
+			expectedErr:                    errors.New("failed to read cluster templates: template read error"),
 			expectedClient:                 false,
+		},
+		{
+			name: "psa config error",
+			k8sClientFunc: func() *k8s.Client {
+				return k8s.New().WithFakeClient()
+			},
+			templateFunc: func() ([]*v1alpha1.ClusterTemplate, error) {
+				return []*v1alpha1.ClusterTemplate{}, nil
+			},
+			podSecurityAdmissionConfigFunc: func() (map[string][]byte, error) {
+				return nil, errors.New("psa read error")
+			},
+			expectedErr:    errors.New("failed to read pod security admission configs: psa read error"),
+			expectedClient: false,
 		},
 	}
 
 	for _, tc := range cases {
 		suite.Run(tc.name, func() {
-			GetClusterConfigFunc = tc.configFunc
-			GetNexusClientSetFunc = tc.clientSetFunc
 			GetK8sClientFunc = tc.k8sClientFunc
 			GetTemplatesFunc = tc.templateFunc
 			GetPodSecurityAdmissionConfigFunc = tc.podSecurityAdmissionConfigFunc
@@ -148,162 +128,106 @@ func (suite *TenancyDatamodelTestSuite) TestNewDatamodelClient() {
 	}
 }
 
-func (suite *TenancyDatamodelTestSuite) TestAddProjectWatcher() {
-	cases := []struct {
-		name        string
-		expectedErr error
-	}{
+func (suite *TenancyDatamodelTestSuite) TestHandleEvent() {
+	projectID := uuid.MustParse("11111111-2222-3333-4444-555555555555")
+	projectName := "test-project"
+
+	oneTemplate := []*v1alpha1.ClusterTemplate{
 		{
-			name:        "success",
-			expectedErr: nil,
+			ObjectMeta: metav1.ObjectMeta{Name: "baseline-k3s-v1.0.0"},
+			Spec:       v1alpha1.ClusterTemplateSpec{KubernetesVersion: "1.0.0"},
 		},
-		{
-			name:        "already exists", // watcher already exists from previous test case
-			expectedErr: nil,
-		},
-		// TODO add error case
 	}
 
-	for _, tc := range cases {
-		suite.Run(tc.name, func() {
-			err := suite.t.addProjectWatcher()
-			if tc.expectedErr != nil {
-				assert.EqualError(suite.T(), err, tc.expectedErr.Error())
-			} else {
-				assert.NoError(suite.T(), err)
-			}
-		})
-	}
-}
-
-func (suite *TenancyDatamodelTestSuite) TestDeleteProjectWatcher() {
 	cases := []struct {
 		name        string
-		setupClient func()
+		event       tenancy.Event
 		expectedErr error
+		// verifier checks side-effects on the fake k8s client after HandleEvent returns
+		verifier func(ctx context.Context, fakeK8s *k8s.Client)
 	}{
 		{
-			name: "success",
-			setupClient: func() {
-				_, err := suite.t.nexus.TenancyMultiTenancy().Config().AddProjectWatchers(context.Background(),
-					&watcherv1.ProjectWatcher{ObjectMeta: metav1.ObjectMeta{Name: appName}})
-				require.Nil(suite.T(), err)
+			name: "created event sets up project namespace and templates",
+			event: tenancy.Event{
+				ID:           1,
+				EventType:    tenancy.EventTypeCreated,
+				ResourceType: tenancy.ResourceTypeProject,
+				ResourceID:   projectID,
+				ResourceName: projectName,
 			},
 			expectedErr: nil,
+			verifier: func(ctx context.Context, fakeK8s *k8s.Client) {
+				nsRes := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
+				_, err := fakeK8s.Dyn.Resource(nsRes).Get(ctx, projectID.String(), metav1.GetOptions{})
+				assert.NoError(suite.T(), err, "namespace should be created")
+			},
 		},
 		{
-			name:        "not found",
-			setupClient: func() {},
-			expectedErr: nil,
-		},
-		// TODO add error case
-	}
-
-	for _, tc := range cases {
-		suite.Run(tc.name, func() {
-			tc.setupClient()
-			err := suite.t.deleteProjectWatcher()
-			if tc.expectedErr != nil {
-				assert.EqualError(suite.T(), err, tc.expectedErr.Error())
-			} else {
-				assert.NoError(suite.T(), err)
-			}
-		})
-	}
-}
-
-func (suite *TenancyDatamodelTestSuite) TestAddCallback() {
-	cases := []struct {
-		name        string
-		project     *projectv1.RuntimeProject
-		expectedErr error
-	}{
-		{
-			name: "success",
-			project: &projectv1.RuntimeProject{
-				TypeMeta: metav1.TypeMeta{},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-project",
-				},
-				Spec: projectv1.RuntimeProjectSpec{
-					Deleted: false,
-				},
-				Status: projectv1.RuntimeProjectNexusStatus{},
+			name: "deleted event cleans up a previously created project namespace",
+			event: tenancy.Event{
+				ID:           2,
+				EventType:    tenancy.EventTypeDeleted,
+				ResourceType: tenancy.ResourceTypeProject,
+				ResourceID:   projectID,
+				ResourceName: projectName,
 			},
 			expectedErr: nil,
+			// The fake k8s client returns not-found on deletes of non-existent resources;
+			// we pre-create the namespace in the per-case setup below.
+			verifier: nil,
 		},
-		// {
-		// 	name: "deleted-project",
-		// 	project: &projectv1.RuntimeProject{
-		// 		TypeMeta: metav1.TypeMeta{},
-		// 		ObjectMeta: metav1.ObjectMeta{
-		// 			Name: "test-project2",
-		// 		},
-		// 		Spec: projectv1.RuntimeProjectSpec{
-		// 			Deleted: true,
-		// 		},
-		// 		Status: projectv1.RuntimeProjectNexusStatus{},
-		// 	},
-		// 	expectedErr: nil,
-		// },
+		{
+			name: "org event is ignored",
+			event: tenancy.Event{
+				ID:           3,
+				EventType:    tenancy.EventTypeCreated,
+				ResourceType: tenancy.ResourceTypeOrg,
+				ResourceID:   projectID,
+				ResourceName: "test-org",
+			},
+			expectedErr: nil,
+			verifier:    nil,
+		},
+		{
+			name: "unknown event type is ignored",
+			event: tenancy.Event{
+				ID:           4,
+				EventType:    "unknown",
+				ResourceType: tenancy.ResourceTypeProject,
+				ResourceID:   projectID,
+				ResourceName: projectName,
+			},
+			expectedErr: nil,
+			verifier:    nil,
+		},
 	}
-
-	suite.t.addProjectWatcher()
 
 	for _, tc := range cases {
 		suite.Run(tc.name, func() {
+			fakeK8s := k8s.New().WithFakeClient()
+			handler := &TenancyDatamodel{
+				k8s:       fakeK8s,
+				templates: oneTemplate,
+				psaData:   map[string][]byte{},
+			}
+
 			ctx := context.Background()
-			_, err := suite.t.nexus.Runtimeproject().CreateRuntimeProjectByName(ctx, tc.project)
+
+			// For the delete test, pre-create the namespace so cleanup doesn't fail.
+			if tc.event.EventType == tenancy.EventTypeDeleted && tc.event.ResourceType == tenancy.ResourceTypeProject {
+				require.NoError(suite.T(), fakeK8s.CreateNamespace(ctx, tc.event.ResourceID.String()))
+			}
+
+			err := handler.HandleEvent(ctx, tc.event)
+
 			if tc.expectedErr != nil {
 				assert.EqualError(suite.T(), err, tc.expectedErr.Error())
 			} else {
 				assert.NoError(suite.T(), err)
 			}
-		})
-	}
-}
 
-func (suite *TenancyDatamodelTestSuite) TestDeleteCallback() {
-	cases := []struct {
-		name        string
-		project     *projectv1.RuntimeProject
-		expectedErr error
-	}{
-		{
-			name: "success",
-			project: &projectv1.RuntimeProject{
-				TypeMeta: metav1.TypeMeta{},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-project",
-				},
-				Spec: projectv1.RuntimeProjectSpec{
-					Deleted: true,
-				},
-				Status: projectv1.RuntimeProjectNexusStatus{},
-			},
-			expectedErr: nil,
-		},
-	}
-
-	suite.t.addProjectWatcher()
-
-	for _, tc := range cases {
-		suite.Run(tc.name, func() {
-			ctx := context.Background()
-			project, _ := suite.t.nexus.Runtimeproject().CreateRuntimeProjectByName(ctx, tc.project)
-			project.AddActiveWatchers(ctx, &activeWatcher.ProjectActiveWatcher{
-				ObjectMeta: metav1.ObjectMeta{Name: appName},
-				Spec: activeWatcher.ProjectActiveWatcherSpec{
-					StatusIndicator: activeWatcher.StatusIndicationInProgress,
-					Message:         fmt.Sprintf("%s subscribed to project %s", appName, project.DisplayName()),
-					TimeStamp:       safeUnixTime(),
-				},
-			})
-			err := suite.t.nexus.Runtimeproject().DeleteRuntimeProjectByName(ctx, tc.project.DisplayName())
-			if tc.expectedErr != nil {
-				assert.EqualError(suite.T(), err, tc.expectedErr.Error())
-			} else {
-				assert.NoError(suite.T(), err)
+			if tc.verifier != nil {
+				tc.verifier(ctx, fakeK8s)
 			}
 		})
 	}
@@ -335,8 +259,6 @@ func (suite *TenancyDatamodelTestSuite) TestSetupProjectSetDefaultTemplate() {
 
 	cases := []struct {
 		name                           string
-		configFunc                     func() (*rest.Config, error)
-		nexusClientFunc                func(*rest.Config) (*nexus.Clientset, error)
 		k8sClientFunc                  func() *k8s.Client
 		templateFunc                   func() ([]*v1alpha1.ClusterTemplate, error)
 		podSecurityAdmissionConfigFunc func() (map[string][]byte, error)
@@ -348,8 +270,6 @@ func (suite *TenancyDatamodelTestSuite) TestSetupProjectSetDefaultTemplate() {
 	}{
 		{
 			name:                           "Default template is configured (should see all 5, mock-template-1 is default)",
-			configFunc:                     func() (*rest.Config, error) { return &rest.Config{}, nil },
-			nexusClientFunc:                func(*rest.Config) (*nexus.Clientset, error) { return &nexus.Clientset{}, nil },
 			k8sClientFunc:                  func() *k8s.Client { return k8s.New().WithFakeClient() },
 			templateFunc:                   func() ([]*v1alpha1.ClusterTemplate, error) { return template.ReadDefaultTemplates() },
 			podSecurityAdmissionConfigFunc: func() (map[string][]byte, error) { return map[string][]byte{}, nil },
@@ -361,8 +281,6 @@ func (suite *TenancyDatamodelTestSuite) TestSetupProjectSetDefaultTemplate() {
 		},
 		{
 			name:                           "Default template is not configured (should see all 5, mock-template-1 is default)",
-			configFunc:                     func() (*rest.Config, error) { return &rest.Config{}, nil },
-			nexusClientFunc:                func(*rest.Config) (*nexus.Clientset, error) { return &nexus.Clientset{}, nil },
 			k8sClientFunc:                  func() *k8s.Client { return k8s.New().WithFakeClient() },
 			templateFunc:                   func() ([]*v1alpha1.ClusterTemplate, error) { return template.ReadDefaultTemplates() },
 			podSecurityAdmissionConfigFunc: func() (map[string][]byte, error) { return map[string][]byte{}, nil },
@@ -374,8 +292,6 @@ func (suite *TenancyDatamodelTestSuite) TestSetupProjectSetDefaultTemplate() {
 		},
 		{
 			name:                           "Default template is configured but not available (should see all 5, mock-template-1 is default)",
-			configFunc:                     func() (*rest.Config, error) { return &rest.Config{}, nil },
-			nexusClientFunc:                func(*rest.Config) (*nexus.Clientset, error) { return &nexus.Clientset{}, nil },
 			k8sClientFunc:                  func() *k8s.Client { return k8s.New().WithFakeClient() },
 			templateFunc:                   func() ([]*v1alpha1.ClusterTemplate, error) { return template.ReadDefaultTemplates() },
 			podSecurityAdmissionConfigFunc: func() (map[string][]byte, error) { return map[string][]byte{}, nil },
@@ -386,9 +302,7 @@ func (suite *TenancyDatamodelTestSuite) TestSetupProjectSetDefaultTemplate() {
 			expectedDefault:                "mock-template-1-v1.0.0",
 		},
 		{
-			name:            "Valid default template exists in project namespace (should see all 5, valid-existing-v1.2.3 is default)",
-			configFunc:      func() (*rest.Config, error) { return &rest.Config{}, nil },
-			nexusClientFunc: func(*rest.Config) (*nexus.Clientset, error) { return &nexus.Clientset{}, nil },
+			name: "Valid default template exists in project namespace (should see all 5, valid-existing-v1.2.3 is default)",
 			k8sClientFunc: func() *k8s.Client {
 				client := k8s.New().WithFakeClient()
 				assert.NotNil(suite.T(), client)
@@ -424,9 +338,7 @@ func (suite *TenancyDatamodelTestSuite) TestSetupProjectSetDefaultTemplate() {
 			expectedDefault:                "valid-existing-v1.2.3",
 		},
 		{
-			name:            "Invalid default template exists in project namespace (should see all 5, mock-template-1 is default)",
-			configFunc:      func() (*rest.Config, error) { return &rest.Config{}, nil },
-			nexusClientFunc: func(*rest.Config) (*nexus.Clientset, error) { return &nexus.Clientset{}, nil },
+			name: "Invalid default template exists in project namespace (should see all 5, mock-template-1 is default)",
 			k8sClientFunc: func() *k8s.Client {
 				client := k8s.New().WithFakeClient()
 				assert.NotNil(suite.T(), client)
@@ -464,8 +376,6 @@ func (suite *TenancyDatamodelTestSuite) TestSetupProjectSetDefaultTemplate() {
 	}
 	for _, tc := range cases {
 		suite.Run(tc.name, func() {
-			GetClusterConfigFunc = tc.configFunc
-			GetNexusClientSetFunc = tc.nexusClientFunc
 			GetK8sClientFunc = tc.k8sClientFunc
 			GetTemplatesFunc = tc.templateFunc
 			GetPodSecurityAdmissionConfigFunc = tc.podSecurityAdmissionConfigFunc
@@ -477,20 +387,7 @@ func (suite *TenancyDatamodelTestSuite) TestSetupProjectSetDefaultTemplate() {
 			assert.Equal(suite.T(), tc.expectedTemplateCount, len(client.templates))
 
 			ctx := context.Background()
-			err = client.setupProject(ctx, &nexus.RuntimeprojectRuntimeProject{
-				RuntimeProject: &projectv1.RuntimeProject{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "test-project",
-						UID:  "test-project-id",
-						Labels: map[string]string{
-							"nexus/display_name": "test-project-display-name",
-						},
-					},
-					Spec: projectv1.RuntimeProjectSpec{
-						Deleted: false,
-					},
-				},
-			})
+			err = client.setupProject(ctx, "test-project-id", "test-project")
 			assert.NoError(suite.T(), err)
 
 			// Check templates were created
@@ -499,29 +396,15 @@ func (suite *TenancyDatamodelTestSuite) TestSetupProjectSetDefaultTemplate() {
 			}
 
 			// Verify that the default template is set correctly
-			template, err := client.k8s.DefaultTemplate(ctx, "test-project-id")
+			tmpl, err := client.k8s.DefaultTemplate(ctx, "test-project-id")
 			assert.NoError(suite.T(), err)
-			assert.NotEmpty(suite.T(), template, "default template should not be empty")
-			assert.Equal(suite.T(), tc.expectedDefault, template.GetName())
+			assert.NotEmpty(suite.T(), tmpl, "default template should not be empty")
+			assert.Equal(suite.T(), tc.expectedDefault, tmpl.GetName())
 		})
 	}
 }
-func (suite *TenancyDatamodelTestSuite) TestSetupProject() {
-	testProject := &nexus.RuntimeprojectRuntimeProject{
-		RuntimeProject: &projectv1.RuntimeProject{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "test-project",
-				UID:  "test-project-id",
-				Labels: map[string]string{
-					"nexus/display_name": "test-project-display-name",
-				},
-			},
-			Spec: projectv1.RuntimeProjectSpec{
-				Deleted: false,
-			},
-		},
-	}
 
+func (suite *TenancyDatamodelTestSuite) TestSetupProject() {
 	templates := []*v1alpha1.ClusterTemplate{
 		{
 			ObjectMeta: metav1.ObjectMeta{Name: "privileged-k3s-v1.2.3"},
@@ -546,7 +429,6 @@ func (suite *TenancyDatamodelTestSuite) TestSetupProject() {
 	fakeK8s := k8s.New().WithFakeClient()
 
 	t := &TenancyDatamodel{
-		nexus:           suite.t.nexus,
 		k8s:             fakeK8s,
 		templates:       templates,
 		defaultTemplate: "baseline-k3s-v1.2.3",
@@ -554,7 +436,7 @@ func (suite *TenancyDatamodelTestSuite) TestSetupProject() {
 	}
 
 	ctx := context.Background()
-	err := t.setupProject(ctx, testProject)
+	err := t.setupProject(ctx, "test-project-id", "test-project")
 	assert.NoError(suite.T(), err)
 
 	// Check that namespace was created
@@ -570,3 +452,5 @@ func (suite *TenancyDatamodelTestSuite) TestSetupProject() {
 	// Check that secret has three items
 	assert.Len(suite.T(), secret.Object["data"].(map[string]interface{}), 3)
 }
+
+

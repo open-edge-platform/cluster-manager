@@ -7,12 +7,8 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
-	"time"
 
-	activeWatcher "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/apis/projectactivewatcher.edge-orchestrator.intel.com/v1"
-	nexus "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/nexus-client"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/rest"
+	"github.com/open-edge-platform/orch-library/go/pkg/tenancy"
 
 	v1alpha1 "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
@@ -27,10 +23,7 @@ const (
 )
 
 var (
-	GetClusterConfigFunc  = rest.InClusterConfig
-	GetK8sClientFunc      = k8s.New().WithInClusterConfig
-	GetNexusClientSetFunc = nexus.NewForConfig
-	nexusContextTimeout   = time.Second * 5
+	GetK8sClientFunc = k8s.New().WithInClusterConfig
 
 	GetTemplatesFunc = func() ([]*v1alpha1.ClusterTemplate, error) {
 		return template.ReadDefaultTemplates()
@@ -43,28 +36,19 @@ var (
 	defaultTemplate string
 )
 
+// TenancyDatamodel implements tenancy.Handler and manages per-project k8s resources.
 type TenancyDatamodel struct {
-	nexus           *nexus.Clientset
 	k8s             *k8s.Client
 	templates       []*v1alpha1.ClusterTemplate
 	psaData         map[string][]byte
 	defaultTemplate string
 }
 
+// NewDatamodelClient creates a TenancyDatamodel ready to be used as a tenancy.Handler.
 func NewDatamodelClient() (*TenancyDatamodel, error) {
-	config, err := GetClusterConfigFunc()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get orch kubernetes config: %w", err)
-	}
-
-	nexusClient, err := GetNexusClientSetFunc(config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create nexus client: %w", err)
-	}
-
 	k8sClient := GetK8sClientFunc()
 	if k8sClient == nil {
-		return nil, fmt.Errorf("failed to get kubernetes client: %w", err)
+		return nil, fmt.Errorf("failed to get kubernetes client")
 	}
 
 	templates, err := GetTemplatesFunc()
@@ -78,7 +62,6 @@ func NewDatamodelClient() (*TenancyDatamodel, error) {
 	}
 
 	return &TenancyDatamodel{
-		nexus:           nexusClient,
 		k8s:             k8sClient,
 		templates:       templates,
 		psaData:         psaData,
@@ -86,114 +69,62 @@ func NewDatamodelClient() (*TenancyDatamodel, error) {
 	}, nil
 }
 
-func (t *TenancyDatamodel) Start() error {
-	t.nexus.SubscribeAll()
-
-	if err := t.addProjectWatcher(); err != nil {
-		return fmt.Errorf("failed to register '%s' as a project watcher: %w", appName, err)
-	}
-
-	if handler, err := t.nexus.TenancyMultiTenancy().Runtime().Orgs("*").Folders("*").Projects("*").
-		RegisterAddCallback(t.processRuntimeProjectsAdd); err != nil {
-		slog.Error("failed to register project add callback", "error", err)
-		return err
-		// used for the overrideable sync check to allow fake clients in tests.
-	} else if err = verifySyncedFunc(handler); err != nil {
-		slog.Error("failed to verify project add handler synced", "error", err)
-		return err
-	}
-	slog.Info("subscribed to project add events")
-
-	if handler, err := t.nexus.TenancyMultiTenancy().Runtime().Orgs("*").Folders("*").Projects("*").
-		RegisterUpdateCallback(t.processRuntimeProjectsUpdate); err != nil {
-		slog.Error("failed to register project update callback", "error", err)
-		return err
-	} else if err = verifySyncedFunc(handler); err != nil {
-		slog.Error("failed to verify project update handler synced", "error", err)
-		return err
-	}
-	slog.Info("subscribed to project update events")
-
-	return nil
-}
-
-func (t *TenancyDatamodel) Stop() {
-	t.nexus.UnsubscribeAll()
-
-	if err := t.deleteProjectWatcher(); err != nil {
-		slog.Warn("error deleting project watcher", "error", err)
-	}
-}
-
-// SetDefaultTemplate allows setting the default template
+// SetDefaultTemplate allows setting the default template name used for new projects.
 func SetDefaultTemplate(name string) {
 	defaultTemplate = name
 }
 
-// processRuntimeProjectsAdd is a callback function invoked when a project is added
-func (t *TenancyDatamodel) processRuntimeProjectsAdd(project *nexus.RuntimeprojectRuntimeProject) {
-	slog.Debug("project add event received", "project", project.DisplayName())
-	if project.Spec.Deleted {
-		t.processRuntimeProjectsUpdate(nil, project)
-		return
+// HandleEvent implements tenancy.Handler. It is called for every project lifecycle
+// event (both replay on startup and incremental). Handlers must be idempotent.
+func (t *TenancyDatamodel) HandleEvent(ctx context.Context, event tenancy.Event) error {
+	if event.ResourceType != tenancy.ResourceTypeProject {
+		return nil // cluster-manager only handles project events
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), nexusContextTimeout)
-	defer cancel()
+	projectId := event.ResourceID.String()
+	projectName := event.ResourceName
 
-	if _, err := project.AddActiveWatchers(ctx, &activeWatcher.ProjectActiveWatcher{
-		ObjectMeta: metav1.ObjectMeta{Name: appName},
-		Spec: activeWatcher.ProjectActiveWatcherSpec{
-			StatusIndicator: activeWatcher.StatusIndicationInProgress,
-			Message:         fmt.Sprintf("%s subscribed to project %s", appName, project.DisplayName()),
-			TimeStamp:       safeUnixTime(),
-		},
-	}); err != nil {
-		slog.Error("error creating watcher for project",
-			"app", appName,
-			"project_name", project.DisplayName(),
-			"project_id", string(project.UID))
-		return
+	switch event.EventType {
+	case tenancy.EventTypeCreated:
+		slog.Debug("project created event received", "project_name", projectName, "project_id", projectId)
+		if err := t.setupProject(ctx, projectId, projectName); err != nil {
+			slog.Error("creation of project cluster resources failed", "project_name", projectName, "error", err)
+			return err
+		}
+		slog.Info("successfully set up project", "project_name", projectName, "project_id", projectId)
+	case tenancy.EventTypeDeleted:
+		slog.Debug("project deleted event received", "project_name", projectName, "project_id", projectId)
+		if err := t.cleanupProject(ctx, projectId, projectName); err != nil {
+			slog.Error("cleanup of project cluster resources failed", "project_name", projectName, "error", err)
+			return err
+		}
+		slog.Info("successfully cleaned up project", "project_name", projectName, "project_id", projectId)
+	default:
+		slog.Warn("unrecognised event type, skipping", "event_type", event.EventType)
 	}
 
-	slog.Debug("created watcher for project", "project_name", project.DisplayName(), "project_id", string(project.UID))
-
-	err := t.setupProject(ctx, project)
-	if err != nil {
-		slog.Error("creation of project cluster resources failed", "error", err)
-		updateWatcherStatus(project, activeWatcher.StatusIndicationError, "Error setting up cluster resources for project")
-		return
-	}
-
-	updateWatcherStatus(project, activeWatcher.StatusIndicationIdle, "Successfully created project")
+	return nil
 }
 
-func (t *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.RuntimeprojectRuntimeProject) error {
-	projectId := string(project.UID)
-
+func (t *TenancyDatamodel) setupProject(ctx context.Context, projectId, projectName string) error {
 	// Create namespace
-	err := t.k8s.CreateNamespace(ctx, projectId)
-	if err != nil {
+	if err := t.k8s.CreateNamespace(ctx, projectId); err != nil {
 		return fmt.Errorf("failed to create namespace for project: %v", err)
-	} else {
-		slog.Debug("created namespace for project", "namespace", projectId, "project", project.DisplayName())
 	}
+	slog.Debug("created namespace for project", "namespace", projectId, "project", projectName)
 
 	// Create Pod Security Admission secret
 	if err := t.k8s.CreateSecret(ctx, projectId, podSecurityAdmissionSecretName, t.psaData); err != nil {
 		return fmt.Errorf("failed to create pod security admission secret in namespace '%s': %v", projectId, err)
-	} else {
-		slog.Debug("created pod security admission secret", "namespace", projectId, "project", project.DisplayName())
 	}
+	slog.Debug("created pod security admission secret", "namespace", projectId, "project", projectName)
 
 	// Apply templates
-	for _, template := range t.templates {
-		err = t.k8s.CreateTemplate(ctx, projectId, template)
-		if err != nil {
-			return fmt.Errorf("failed to create '%s' template: %v", template.GetName(), err)
-		} else {
-			slog.Debug("created template", "namespace", projectId, "template", template.GetName(), "project", project.DisplayName())
+	for _, tmpl := range t.templates {
+		if err := t.k8s.CreateTemplate(ctx, projectId, tmpl); err != nil {
+			return fmt.Errorf("failed to create '%s' template: %v", tmpl.GetName(), err)
 		}
+		slog.Debug("created template", "namespace", projectId, "template", tmpl.GetName(), "project", projectName)
 	}
 
 	// Set the default template for the project.
@@ -202,10 +133,9 @@ func (t *TenancyDatamodel) setupProject(ctx context.Context, project *nexus.Runt
 	// 2. Use the default template specified in the configuration, if available.
 	// 3. Otherwise, use the first template from the available template list.
 	if err := t.setDefaultTemplate(ctx, projectId); err != nil {
-		return fmt.Errorf("failed to set default template for project '%s': %v", project.DisplayName(), err)
-	} else {
-		slog.Debug("labeled default template", "namespace", projectId, "project", project.DisplayName())
+		return fmt.Errorf("failed to set default template for project '%s': %v", projectName, err)
 	}
+	slog.Debug("labeled default template", "namespace", projectId, "project", projectName)
 
 	return nil
 }
@@ -248,50 +178,24 @@ func (t *TenancyDatamodel) setDefaultTemplate(ctx context.Context, projectId str
 	return nil
 }
 
-// processRuntimeProjectsUpdate is a callback function invoked when a project is deleted
-func (t *TenancyDatamodel) processRuntimeProjectsUpdate(_, project *nexus.RuntimeprojectRuntimeProject) {
-	slog.Debug("project update event received", "project", project.DisplayName())
-	if !project.Spec.Deleted {
-		return
-	}
-	defer deleteActiveWatcher(project)
-
-	updateWatcherStatus(project, activeWatcher.StatusIndicationInProgress, "Deleting edge clusters")
-
-	ctx, cancel := context.WithTimeout(context.Background(), nexusContextTimeout)
-	defer cancel()
-
-	err := t.cleanupProject(ctx, project)
-
-	if err != nil {
-		slog.Error("cleanup of project cluster resources failed: %w", "error", err)
-		updateWatcherStatus(project, activeWatcher.StatusIndicationError, "Error cleaning up cluster resources for project")
-		return
-	}
-
-	updateWatcherStatus(project, activeWatcher.StatusIndicationIdle, "Successfully cleaned up project")
-}
-
-func (t *TenancyDatamodel) cleanupProject(ctx context.Context, project *nexus.RuntimeprojectRuntimeProject) error {
-	projectId := string(project.UID)
-
+func (t *TenancyDatamodel) cleanupProject(ctx context.Context, projectId, projectName string) error {
 	// Delete all clusters
-	err := t.k8s.DeleteClusters(ctx, projectId)
-	if err != nil {
+	if err := t.k8s.DeleteClusters(ctx, projectId); err != nil {
 		return fmt.Errorf("failed to delete clusters: %w", err)
 	}
+	slog.Debug("deleted clusters for project", "namespace", projectId, "project", projectName)
 
 	// Delete all templates
-	err = t.k8s.DeleteTemplates(ctx, projectId)
-	if err != nil {
+	if err := t.k8s.DeleteTemplates(ctx, projectId); err != nil {
 		return fmt.Errorf("failed to delete templates: %w", err)
 	}
+	slog.Debug("deleted templates for project", "namespace", projectId, "project", projectName)
 
 	// Delete namespace
-	err = t.k8s.DeleteNamespace(ctx, projectId)
-	if err != nil {
+	if err := t.k8s.DeleteNamespace(ctx, projectId); err != nil {
 		return fmt.Errorf("failed to delete project namespace: %w", err)
 	}
+	slog.Debug("deleted namespace for project", "namespace", projectId, "project", projectName)
 
 	return nil
 }

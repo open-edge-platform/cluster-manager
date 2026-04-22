@@ -5,6 +5,8 @@ module github.com/open-edge-platform/cluster-manager/v2
 
 go 1.26.1
 
+replace github.com/open-edge-platform/orch-library/go => ../../orch-library/go
+
 require (
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/getkin/kin-openapi v0.133.0
@@ -20,7 +22,6 @@ require (
 	github.com/open-edge-platform/cluster-api-provider-intel v1.3.4
 	github.com/open-edge-platform/infra-core/inventory/v2 v2.34.5
 	github.com/open-edge-platform/orch-library/go v0.6.3
-	github.com/open-edge-platform/orch-utils/tenancy-datamodel v1.2.2
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.6.0
 	google.golang.org/protobuf v1.36.11
