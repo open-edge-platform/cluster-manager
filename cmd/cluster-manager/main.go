@@ -5,10 +5,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/open-edge-platform/orch-library/go/pkg/tenancy"
 
@@ -55,7 +58,13 @@ func main() {
 
 	logger.InitializeLogger(config)
 	initializeSystemLabels(config)
-	initializeMultitenancy(config)
+
+	// Create a root context that is cancelled on SIGTERM or SIGINT so background
+	// goroutines (e.g. the tenancy poller) can shut down gracefully.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	initializeMultitenancy(ctx, config)
 
 	k8sclient := initializeK8sClient()
 
@@ -85,7 +94,7 @@ func initializeSystemLabels(config *config.Config) {
 	}
 }
 
-func initializeMultitenancy(config *config.Config) {
+func initializeMultitenancy(ctx context.Context, config *config.Config) {
 	multitenancy.SetDefaultTemplate(config.DefaultTemplate)
 
 	if config.DisableMultitenancy {
@@ -116,7 +125,7 @@ func initializeMultitenancy(config *config.Config) {
 	}
 
 	go func() {
-		if err := poller.Run(context.Background()); err != nil && err != context.Canceled {
+		if err := poller.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
 			slog.Error("tenancy poller stopped unexpectedly", "error", err)
 		}
 	}()

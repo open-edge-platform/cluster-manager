@@ -8,6 +8,9 @@ import (
 	"log/slog"
 	"slices"
 
+	"github.com/google/uuid"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+
 	"github.com/open-edge-platform/orch-library/go/pkg/tenancy"
 
 	v1alpha1 "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
@@ -81,6 +84,10 @@ func (t *TenancyDatamodel) HandleEvent(ctx context.Context, event tenancy.Event)
 		return nil // cluster-manager only handles project events
 	}
 
+	if event.ResourceID == (uuid.UUID{}) {
+		return fmt.Errorf("received tenancy event with zero project UUID (event_id=%d, type=%s)", event.ID, event.EventType)
+	}
+
 	projectId := event.ResourceID.String()
 	projectName := event.ResourceName
 
@@ -109,20 +116,20 @@ func (t *TenancyDatamodel) HandleEvent(ctx context.Context, event tenancy.Event)
 func (t *TenancyDatamodel) setupProject(ctx context.Context, projectId, projectName string) error {
 	// Create namespace
 	if err := t.k8s.CreateNamespace(ctx, projectId); err != nil {
-		return fmt.Errorf("failed to create namespace for project: %v", err)
+		return fmt.Errorf("failed to create namespace for project: %w", err)
 	}
 	slog.Debug("created namespace for project", "namespace", projectId, "project", projectName)
 
 	// Create Pod Security Admission secret
 	if err := t.k8s.CreateSecret(ctx, projectId, podSecurityAdmissionSecretName, t.psaData); err != nil {
-		return fmt.Errorf("failed to create pod security admission secret in namespace '%s': %v", projectId, err)
+		return fmt.Errorf("failed to create pod security admission secret in namespace '%s': %w", projectId, err)
 	}
 	slog.Debug("created pod security admission secret", "namespace", projectId, "project", projectName)
 
 	// Apply templates
 	for _, tmpl := range t.templates {
 		if err := t.k8s.CreateTemplate(ctx, projectId, tmpl); err != nil {
-			return fmt.Errorf("failed to create '%s' template: %v", tmpl.GetName(), err)
+			return fmt.Errorf("failed to create '%s' template: %w", tmpl.GetName(), err)
 		}
 		slog.Debug("created template", "namespace", projectId, "template", tmpl.GetName(), "project", projectName)
 	}
@@ -133,7 +140,7 @@ func (t *TenancyDatamodel) setupProject(ctx context.Context, projectId, projectN
 	// 2. Use the default template specified in the configuration, if available.
 	// 3. Otherwise, use the first template from the available template list.
 	if err := t.setDefaultTemplate(ctx, projectId); err != nil {
-		return fmt.Errorf("failed to set default template for project '%s': %v", projectName, err)
+		return fmt.Errorf("failed to set default template for project '%s': %w", projectName, err)
 	}
 	slog.Debug("labeled default template", "namespace", projectId, "project", projectName)
 
@@ -179,20 +186,21 @@ func (t *TenancyDatamodel) setDefaultTemplate(ctx context.Context, projectId str
 }
 
 func (t *TenancyDatamodel) cleanupProject(ctx context.Context, projectId, projectName string) error {
-	// Delete all clusters
-	if err := t.k8s.DeleteClusters(ctx, projectId); err != nil {
+	// Delete all clusters. Ignore not-found: the namespace may have been removed already
+	// on a previous run (the poller replays all delete events on startup for idempotency).
+	if err := t.k8s.DeleteClusters(ctx, projectId); err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("failed to delete clusters: %w", err)
 	}
 	slog.Debug("deleted clusters for project", "namespace", projectId, "project", projectName)
 
-	// Delete all templates
-	if err := t.k8s.DeleteTemplates(ctx, projectId); err != nil {
+	// Delete all templates — same not-found tolerance.
+	if err := t.k8s.DeleteTemplates(ctx, projectId); err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("failed to delete templates: %w", err)
 	}
 	slog.Debug("deleted templates for project", "namespace", projectId, "project", projectName)
 
-	// Delete namespace
-	if err := t.k8s.DeleteNamespace(ctx, projectId); err != nil {
+	// Delete namespace — same not-found tolerance.
+	if err := t.k8s.DeleteNamespace(ctx, projectId); err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("failed to delete project namespace: %w", err)
 	}
 	slog.Debug("deleted namespace for project", "namespace", projectId, "project", projectName)

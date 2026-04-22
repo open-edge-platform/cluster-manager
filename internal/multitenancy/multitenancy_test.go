@@ -140,9 +140,10 @@ func (suite *TenancyDatamodelTestSuite) TestHandleEvent() {
 	}
 
 	cases := []struct {
-		name        string
-		event       tenancy.Event
-		expectedErr error
+		name          string
+		event         tenancy.Event
+		expectedErr   error
+		skipPreCreate bool // if true, skip pre-creating namespace for delete events
 		// verifier checks side-effects on the fake k8s client after HandleEvent returns
 		verifier func(ctx context.Context, fakeK8s *k8s.Client)
 	}{
@@ -200,6 +201,31 @@ func (suite *TenancyDatamodelTestSuite) TestHandleEvent() {
 			expectedErr: nil,
 			verifier:    nil,
 		},
+		{
+			name: "zero uuid project event is rejected",
+			event: tenancy.Event{
+				ID:           5,
+				EventType:    tenancy.EventTypeCreated,
+				ResourceType: tenancy.ResourceTypeProject,
+				ResourceID:   uuid.UUID{}, // zero value
+				ResourceName: "bad-project",
+			},
+			expectedErr: fmt.Errorf("received tenancy event with zero project UUID (event_id=5, type=created)"),
+			verifier:    nil,
+		},
+		{
+			name: "deleted event is idempotent when resources are already absent",
+			event: tenancy.Event{
+				ID:           6,
+				EventType:    tenancy.EventTypeDeleted,
+				ResourceType: tenancy.ResourceTypeProject,
+				ResourceID:   projectID,
+				ResourceName: projectName,
+			},
+			expectedErr:   nil,
+			skipPreCreate: true, // namespace was never created; cleanup must still succeed
+			verifier:      nil,
+		},
 	}
 
 	for _, tc := range cases {
@@ -213,8 +239,9 @@ func (suite *TenancyDatamodelTestSuite) TestHandleEvent() {
 
 			ctx := context.Background()
 
-			// For the delete test, pre-create the namespace so cleanup doesn't fail.
-			if tc.event.EventType == tenancy.EventTypeDeleted && tc.event.ResourceType == tenancy.ResourceTypeProject {
+			// For the delete test, pre-create the namespace so cleanup doesn't fail
+			// (unless skipPreCreate is set, which tests the idempotent-delete path).
+			if !tc.skipPreCreate && tc.event.EventType == tenancy.EventTypeDeleted && tc.event.ResourceType == tenancy.ResourceTypeProject {
 				require.NoError(suite.T(), fakeK8s.CreateNamespace(ctx, tc.event.ResourceID.String()))
 			}
 
@@ -451,6 +478,101 @@ func (suite *TenancyDatamodelTestSuite) TestSetupProject() {
 
 	// Check that secret has three items
 	assert.Len(suite.T(), secret.Object["data"].(map[string]interface{}), 3)
+}
+
+// TestHandleEventIdempotent verifies that HandleEvent for a "created" project can be called
+// multiple times without error (e.g. during poller replay on startup).
+func (suite *TenancyDatamodelTestSuite) TestHandleEventIdempotent() {
+	projectID := uuid.MustParse("cccccccc-dddd-eeee-ffff-000000000000")
+
+	oneTemplate := []*v1alpha1.ClusterTemplate{
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "baseline-k3s-v1.0.0"},
+			Spec:       v1alpha1.ClusterTemplateSpec{KubernetesVersion: "1.0.0"},
+		},
+	}
+
+	fakeK8s := k8s.New().WithFakeClient()
+	handler := &TenancyDatamodel{
+		k8s:       fakeK8s,
+		templates: oneTemplate,
+		psaData:   map[string][]byte{},
+	}
+
+	ctx := context.Background()
+	event := tenancy.Event{
+		ID:           1,
+		EventType:    tenancy.EventTypeCreated,
+		ResourceType: tenancy.ResourceTypeProject,
+		ResourceID:   projectID,
+		ResourceName: "idempotent-project",
+	}
+
+	// First call creates the project resources.
+	require.NoError(suite.T(), handler.HandleEvent(ctx, event))
+
+	// Second call (replay) must be a no-op and must not return an error.
+	assert.NoError(suite.T(), handler.HandleEvent(ctx, event))
+}
+
+// TestCleanupProject verifies cleanupProject behaviour, including idempotency when
+// the project namespace was already removed.
+func (suite *TenancyDatamodelTestSuite) TestCleanupProject() {
+	projectID := "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+
+	cases := []struct {
+		name        string
+		setup       func(ctx context.Context, fakeK8s *k8s.Client)
+		expectedErr error
+	}{
+		{
+			name: "cleanup succeeds when namespace exists",
+			setup: func(ctx context.Context, fakeK8s *k8s.Client) {
+				require.NoError(suite.T(), fakeK8s.CreateNamespace(ctx, projectID))
+			},
+			expectedErr: nil,
+		},
+		{
+			name:        "cleanup is idempotent when namespace does not exist",
+			setup:       func(_ context.Context, _ *k8s.Client) {},
+			expectedErr: nil,
+		},
+	}
+
+	for _, tc := range cases {
+		suite.Run(tc.name, func() {
+			fakeK8s := k8s.New().WithFakeClient()
+			h := &TenancyDatamodel{k8s: fakeK8s}
+
+			ctx := context.Background()
+			tc.setup(ctx, fakeK8s)
+
+			err := h.cleanupProject(ctx, projectID, "test-project")
+			if tc.expectedErr != nil {
+				assert.EqualError(suite.T(), err, tc.expectedErr.Error())
+			} else {
+				assert.NoError(suite.T(), err)
+			}
+		})
+	}
+}
+
+// TestSetupProjectError verifies that setupProject returns an error when no templates
+// are available (setDefaultTemplate cannot pick a default).
+func (suite *TenancyDatamodelTestSuite) TestSetupProjectError() {
+	suite.Run("no templates available returns error", func() {
+		fakeK8s := k8s.New().WithFakeClient()
+		h := &TenancyDatamodel{
+			k8s:       fakeK8s,
+			templates: []*v1alpha1.ClusterTemplate{}, // empty — no templates
+			psaData:   map[string][]byte{},
+		}
+
+		ctx := context.Background()
+		err := h.setupProject(ctx, "test-project-id", "test-project")
+		assert.EqualError(suite.T(), err,
+			"failed to set default template for project 'test-project': no templates available to set as default for project test-project-id")
+	})
 }
 
 
