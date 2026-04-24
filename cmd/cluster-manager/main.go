@@ -59,7 +59,7 @@ func main() {
 	logger.InitializeLogger(config)
 	initializeSystemLabels(config)
 
-	// Create a root context that is cancelled on SIGTERM or SIGINT so background
+	// Create a root context that is canceled on SIGTERM or SIGINT so background
 	// goroutines (e.g. the tenancy poller) can shut down gracefully.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

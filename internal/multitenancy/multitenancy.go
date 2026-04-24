@@ -107,7 +107,7 @@ func (t *TenancyDatamodel) HandleEvent(ctx context.Context, event tenancy.Event)
 		}
 		slog.Info("successfully cleaned up project", "project_name", projectName, "project_id", projectId)
 	default:
-		slog.Warn("unrecognised event type, skipping", "event_type", event.EventType)
+		slog.Warn("unrecognized event type, skipping", "event_type", event.EventType)
 	}
 
 	return nil
