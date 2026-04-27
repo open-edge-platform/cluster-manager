@@ -73,10 +73,10 @@ var jwtToken = mustGenerateTestJWT()
 
 func mustGenerateTestJWT() string {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"azp":                "system-client",
+		"azp":               "system-client",
 		"preferred_username": "admin",
-		"iat":                time.Unix(1735689600, 0).Unix(),
-		"exp":                time.Unix(1893456000, 0).Unix(),
+		"iat":               time.Unix(1735689600, 0).Unix(),
+		"exp":               time.Unix(1893456000, 0).Unix(),
 	})
 
 	signedToken, err := token.SignedString([]byte("unit-test-signing-key"))
