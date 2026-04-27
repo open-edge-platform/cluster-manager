@@ -2,6 +2,9 @@
 # Copyright (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+# Point all trivy invocations (including CI) at the shared ignore file
+ignorefIle: .trivyignore
+
 scan:
   # Same as '--skip-dirs'
   # Default is empty
