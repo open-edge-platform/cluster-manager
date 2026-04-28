@@ -200,8 +200,13 @@ func (k3sintel) CreateClusterTemplate(ctx context.Context, c client.Client, name
 			},
 			"spec": map[string]interface{}{
 				"template": map[string]interface{}{
-					"metadata": map[string]interface{}{},
-					"spec":     map[string]interface{}{},
+					// CAPI v1beta2 ObjectMeta requires minProperties=1 on spec.template.metadata.
+					"metadata": map[string]interface{}{
+						"labels": map[string]interface{}{
+							"cluster.x-k8s.io/cluster-template": name.Name,
+						},
+					},
+					"spec": map[string]interface{}{},
 				},
 			},
 		},
