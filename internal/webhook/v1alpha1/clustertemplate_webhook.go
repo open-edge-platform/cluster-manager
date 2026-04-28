@@ -22,8 +22,8 @@ import (
 	clusterv1alpha1 "github.com/open-edge-platform/cluster-manager/v2/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	capi "sigs.k8s.io/cluster-api/api/v1beta1"
-	kubeadmcp "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
+	kubeadmcp "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta1"
+	capi "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

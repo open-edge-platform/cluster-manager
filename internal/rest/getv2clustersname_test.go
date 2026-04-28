@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	capi "sigs.k8s.io/cluster-api/api/v1beta1"
+	capi "sigs.k8s.io/cluster-api/api/core/v1beta1"
 
 	intelProvider "github.com/open-edge-platform/cluster-api-provider-intel/api/v1alpha1"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"

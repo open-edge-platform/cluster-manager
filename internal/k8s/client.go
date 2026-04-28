@@ -28,7 +28,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/rest"
-	capi "sigs.k8s.io/cluster-api/api/v1beta1"
+	capi "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	dockerProvider "sigs.k8s.io/cluster-api/test/infrastructure/docker/api/v1beta1"
 )
 

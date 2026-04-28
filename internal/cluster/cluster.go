@@ -9,7 +9,7 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	"github.com/open-edge-platform/cluster-manager/v2/pkg/api"
-	capi "sigs.k8s.io/cluster-api/api/v1beta1"
+	capi "sigs.k8s.io/cluster-api/api/core/v1beta1"
 )
 
 const (

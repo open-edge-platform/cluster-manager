@@ -6,7 +6,7 @@ package k8s
 import (
 	"context"
 
-	capi "sigs.k8s.io/cluster-api/api/v1beta1"
+	capi "sigs.k8s.io/cluster-api/api/core/v1beta1"
 )
 
 //go:generate mockery --name=K8sWrapperClient --output=. --filename=mock_k8s_wrapper_client.go

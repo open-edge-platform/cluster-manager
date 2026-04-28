@@ -315,7 +315,7 @@ func TestGetV2ClustersNameKubeconfigs401(t *testing.T) {
 			name:             "missing authorization header", // this is captured in the middleware
 			authHeader:       "",
 			expectedCode:     http.StatusBadRequest,
-			expectedResponse: `{"message":"parameter \"Authorization\" in header has an error: empty value is not allowed"}`,
+			expectedResponse: `{"message":"Invalid format for parameter Authorization: parameter 'Authorization' is empty, can't bind its value"}`,
 		},
 		{
 			name:             "invalid authorization header",
