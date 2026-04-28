@@ -12,7 +12,7 @@ VERSION            ?= $(shell cat VERSION | tr -d '[:space:]')
 GIT_HASH_SHORT     ?= $(shell git rev-parse --short=8 HEAD)
 VERSION_DEV_SUFFIX := ${GIT_HASH_SHORT}
 CLUSTERCTL_VERSION ?= v1.10.7
-K3s_VERSION        ?= v0.3.0
+K3s_VERSION        ?= v0.3.1
 DOCKER_INFRA_VERSION   ?= v1.10.7
 CLUSTERCTL := $(shell command -v clusterctl 2> /dev/null)
 
