@@ -4,14 +4,12 @@
 package controller
 
 import (
-	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
-	"go/build"
-	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -52,52 +50,45 @@ func TestControllers(t *testing.T) {
 	RunSpecs(t, "Controller Suite")
 }
 
-// getModuleVersionFromGoMod parses go.mod to get module version
-func getModuleVersionFromGoMod(modulePath string) string {
-	goModPath := filepath.Join("..", "..", "go.mod")
-	file, err := os.Open(goModPath)
-	if err != nil {
-		panic(fmt.Sprintf("failed to open go.mod: %v", err))
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if strings.Contains(line, modulePath) {
-			fields := strings.Fields(line)
-			if len(fields) >= 2 {
-				// Return the version (last field)
-				return fields[len(fields)-1]
-			}
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		panic(fmt.Sprintf("error reading go.mod: %v", err))
-	}
-
-	panic(fmt.Sprintf("module %s not found in go.mod", modulePath))
+type moduleDownload struct {
+	Dir string `json:"Dir"`
 }
 
-// buildCRDPaths dynamically builds CRD paths using versions from go.mod
-func buildCRDPaths() []string {
-	capiVersion := getModuleVersionFromGoMod("sigs.k8s.io/cluster-api")
-	intelVersion := getModuleVersionFromGoMod("github.com/open-edge-platform/cluster-api-provider-intel")
-	k3sVersion := getModuleVersionFromGoMod("github.com/k3s-io/cluster-api-k3s")
+func getModuleDir(modulePath string) string {
+	cmd := exec.Command("go", "mod", "download", "-json", modulePath)
+	cmd.Dir = filepath.Join("..", "..")
 
-	modPath := filepath.Join(build.Default.GOPATH, "pkg", "mod")
+	output, err := cmd.Output()
+	if err != nil {
+		panic(fmt.Sprintf("failed to resolve module %s: %v", modulePath, err))
+	}
+
+	var download moduleDownload
+	if err := json.Unmarshal(output, &download); err != nil {
+		panic(fmt.Sprintf("failed to parse module metadata for %s: %v", modulePath, err))
+	}
+	if download.Dir == "" {
+		panic(fmt.Sprintf("module %s resolved without a directory", modulePath))
+	}
+
+	return download.Dir
+}
+
+func buildCRDPaths() []string {
+	capiDir := getModuleDir("sigs.k8s.io/cluster-api")
+	capiTestDir := getModuleDir("sigs.k8s.io/cluster-api/test")
+	intelDir := getModuleDir("github.com/open-edge-platform/cluster-api-provider-intel")
+	k3sDir := getModuleDir("github.com/k3s-io/cluster-api-k3s")
 
 	paths := []string{
 		filepath.Join("..", "..", "config", "crd", "bases"),
-		filepath.Join(modPath, "sigs.k8s.io", "cluster-api@"+capiVersion, "controlplane", "kubeadm", "config", "crd", "bases"),
-		filepath.Join(modPath, "sigs.k8s.io", "cluster-api@"+capiVersion, "config", "crd", "bases"),
-		// note: cluster-api/test is a separate module with different path structure
-		filepath.Join(modPath, "sigs.k8s.io", "cluster-api", "test@"+capiVersion, "infrastructure", "docker", "config", "crd", "bases"),
-		filepath.Join(modPath, "github.com", "open-edge-platform", "cluster-api-provider-intel@"+intelVersion, "config", "crd", "bases"),
+		filepath.Join(capiDir, "controlplane", "kubeadm", "config", "crd", "bases"),
+		filepath.Join(capiDir, "config", "crd", "bases"),
+		filepath.Join(capiTestDir, "infrastructure", "docker", "config", "crd", "bases"),
+		filepath.Join(intelDir, "config", "crd", "bases"),
 		// K3s control plane and bootstrap provider CRDs
-		filepath.Join(modPath, "github.com", "k3s-io", "cluster-api-k3s@"+k3sVersion, "controlplane", "config", "crd", "bases"),
-		filepath.Join(modPath, "github.com", "k3s-io", "cluster-api-k3s@"+k3sVersion, "bootstrap", "config", "crd", "bases"),
+		filepath.Join(k3sDir, "controlplane", "config", "crd", "bases"),
+		filepath.Join(k3sDir, "bootstrap", "config", "crd", "bases"),
 	}
 
 	return paths

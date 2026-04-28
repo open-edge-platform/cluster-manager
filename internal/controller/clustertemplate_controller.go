@@ -35,12 +35,8 @@ func markConditionTrue(clusterTemplate *clustertemplatev1alpha1.ClusterTemplate,
 	conditions.MarkTrue(clusterTemplate, capiv1beta2.ConditionType(conditionType))
 }
 
-func markConditionFalse(clusterTemplate *clustertemplatev1alpha1.ClusterTemplate, conditionType capiv1beta1.ConditionType, reason string, severity capiv1beta1.ConditionSeverity, message string) {
-	if message == "" {
-		conditions.MarkFalse(clusterTemplate, capiv1beta2.ConditionType(conditionType), reason, capiv1beta2.ConditionSeverity(severity), "")
-		return
-	}
-	conditions.MarkFalse(clusterTemplate, capiv1beta2.ConditionType(conditionType), reason, capiv1beta2.ConditionSeverity(severity), "%s", message)
+func markConditionFalse(clusterTemplate *clustertemplatev1alpha1.ClusterTemplate, conditionType capiv1beta1.ConditionType, reason string) {
+	conditions.MarkFalse(clusterTemplate, capiv1beta2.ConditionType(conditionType), reason, capiv1beta2.ConditionSeverity(capiv1beta1.ConditionSeverityInfo), "")
 }
 
 func isConditionTrue(clusterTemplate *clustertemplatev1alpha1.ClusterTemplate, conditionType capiv1beta1.ConditionType) bool {
@@ -148,13 +144,13 @@ func (r *ClusterTemplateReconciler) reconcileControlPlaneTemplate(ctx context.Co
 		err = provider.CreateControlPlaneTemplate(ctx, r.Client, namespacedName, clusterTemplate.Spec.ClusterConfiguration)
 		if err != nil {
 			logger.Error(err, "failed to create ControlPlaneTemplate", "namespace", namespacedName.Namespace, "name", namespacedName.Name)
-			markConditionFalse(clusterTemplate, clustertemplatev1alpha1.ControlPlaneTemplateCondition, err.Error(), capiv1beta1.ConditionSeverityInfo, "")
+			markConditionFalse(clusterTemplate, clustertemplatev1alpha1.ControlPlaneTemplateCondition, err.Error())
 			return err
 		}
 		markConditionTrue(clusterTemplate, clustertemplatev1alpha1.ControlPlaneTemplateCondition)
 	} else if err != nil {
 		logger.Error(err, "failed to get ControlPlaneTemplate", "namespace", namespacedName.Namespace, "name", namespacedName.Name)
-		markConditionFalse(clusterTemplate, clustertemplatev1alpha1.ControlPlaneTemplateCondition, err.Error(), capiv1beta1.ConditionSeverityInfo, "")
+		markConditionFalse(clusterTemplate, clustertemplatev1alpha1.ControlPlaneTemplateCondition, err.Error())
 		return err
 	} else {
 		markConditionTrue(clusterTemplate, clustertemplatev1alpha1.ControlPlaneTemplateCondition)
@@ -169,13 +165,13 @@ func (r *ClusterTemplateReconciler) reconcilePrerequisites(ctx context.Context, 
 		err = provider.CreatePrerequisites(ctx, r.Client, namespacedName)
 		if err != nil {
 			logger.Error(err, "failed to create prerequisites for cluster template", "namespace", namespacedName.Namespace, "name", namespacedName.Name)
-			markConditionFalse(clusterTemplate, clustertemplatev1alpha1.PrerequisitesCondition, err.Error(), capiv1beta1.ConditionSeverityInfo, "")
+			markConditionFalse(clusterTemplate, clustertemplatev1alpha1.PrerequisitesCondition, err.Error())
 			return err
 		}
 		markConditionTrue(clusterTemplate, clustertemplatev1alpha1.PrerequisitesCondition)
 	} else if err != nil {
 		logger.Error(err, "failed to get prerequisites for cluster template", "namespace", namespacedName.Namespace, "name", namespacedName.Name)
-		markConditionFalse(clusterTemplate, clustertemplatev1alpha1.PrerequisitesCondition, err.Error(), capiv1beta1.ConditionSeverityInfo, "")
+		markConditionFalse(clusterTemplate, clustertemplatev1alpha1.PrerequisitesCondition, err.Error())
 		return err
 	} else {
 		markConditionTrue(clusterTemplate, clustertemplatev1alpha1.PrerequisitesCondition)
@@ -190,13 +186,13 @@ func (r *ClusterTemplateReconciler) reconcileControlPlaneMachineTemplate(ctx con
 		err = provider.CreateControlPlaneMachineTemplate(ctx, r.Client, namespacedName)
 		if err != nil {
 			logger.Error(err, "failed to create ControlPlaneMachineTemplate", "namespace", namespacedName.Namespace, "name", namespacedName.Name)
-			markConditionFalse(clusterTemplate, clustertemplatev1alpha1.ControlPlaneMachineTemplateCondition, err.Error(), capiv1beta1.ConditionSeverityInfo, "")
+			markConditionFalse(clusterTemplate, clustertemplatev1alpha1.ControlPlaneMachineTemplateCondition, err.Error())
 			return err
 		}
 		markConditionTrue(clusterTemplate, clustertemplatev1alpha1.ControlPlaneMachineTemplateCondition)
 	} else if err != nil {
 		logger.Error(err, "failed to get ControlPlaneMachineTemplate", "namespace", namespacedName.Namespace, "name", namespacedName.Name)
-		markConditionFalse(clusterTemplate, clustertemplatev1alpha1.ControlPlaneMachineTemplateCondition, err.Error(), capiv1beta1.ConditionSeverityInfo, "")
+		markConditionFalse(clusterTemplate, clustertemplatev1alpha1.ControlPlaneMachineTemplateCondition, err.Error())
 		return err
 	} else {
 		markConditionTrue(clusterTemplate, clustertemplatev1alpha1.ControlPlaneMachineTemplateCondition)
@@ -211,13 +207,13 @@ func (r *ClusterTemplateReconciler) reconcileProviderClusterTemplate(ctx context
 		err = provider.CreateClusterTemplate(ctx, r.Client, namespacedName)
 		if err != nil {
 			logger.Error(err, "failed to create provider's ClusterTemplate", "namespace", namespacedName.Namespace, "name", namespacedName.Name)
-			markConditionFalse(clusterTemplate, clustertemplatev1alpha1.InfraProviderClusterTemplateCondition, err.Error(), capiv1beta1.ConditionSeverityInfo, "")
+			markConditionFalse(clusterTemplate, clustertemplatev1alpha1.InfraProviderClusterTemplateCondition, err.Error())
 			return err
 		}
 		markConditionTrue(clusterTemplate, clustertemplatev1alpha1.InfraProviderClusterTemplateCondition)
 	} else if err != nil {
 		logger.Error(err, "failed to get provider's ClusterTemplate", "namespace", namespacedName.Namespace, "name", namespacedName.Name)
-		markConditionFalse(clusterTemplate, clustertemplatev1alpha1.InfraProviderClusterTemplateCondition, err.Error(), capiv1beta1.ConditionSeverityInfo, "")
+		markConditionFalse(clusterTemplate, clustertemplatev1alpha1.InfraProviderClusterTemplateCondition, err.Error())
 		return err
 	} else {
 		markConditionTrue(clusterTemplate, clustertemplatev1alpha1.InfraProviderClusterTemplateCondition)
@@ -242,13 +238,13 @@ func (r *ClusterTemplateReconciler) reconcileClusterClass(ctx context.Context, l
 		err = r.Create(ctx, &cc)
 		if err != nil {
 			logger.Error(err, "failed to create ClusterClass", "namespace", namespacedName.Namespace, "name", namespacedName.Name)
-			markConditionFalse(clusterTemplate, clustertemplatev1alpha1.ClusterClassCondition, err.Error(), capiv1beta1.ConditionSeverityInfo, "")
+			markConditionFalse(clusterTemplate, clustertemplatev1alpha1.ClusterClassCondition, err.Error())
 			return err
 		}
 		markConditionTrue(clusterTemplate, clustertemplatev1alpha1.ClusterClassCondition)
 	} else if err != nil {
 		logger.Error(err, "failed to get ClusterClass", "namespace", namespacedName.Namespace, "name", namespacedName.Name)
-		markConditionFalse(clusterTemplate, clustertemplatev1alpha1.ClusterClassCondition, err.Error(), capiv1beta1.ConditionSeverityInfo, "")
+		markConditionFalse(clusterTemplate, clustertemplatev1alpha1.ClusterClassCondition, err.Error())
 		return err
 	} else {
 		markConditionTrue(clusterTemplate, clustertemplatev1alpha1.ClusterClassCondition)
@@ -280,7 +276,7 @@ func (r *ClusterTemplateReconciler) patchClusterTemplate(ctx context.Context, lo
 		err := r.Get(ctx, namespacedName, &cc)
 		if err != nil {
 			logger.Error(err, "failed to get ClusterClass to set the reference", "namespace", namespacedName.Namespace, "name", namespacedName.Name)
-			markConditionFalse(clusterTemplate, clustertemplatev1alpha1.ClusterClassCondition, err.Error(), capiv1beta1.ConditionSeverityInfo, "")
+			markConditionFalse(clusterTemplate, clustertemplatev1alpha1.ClusterClassCondition, err.Error())
 			return err
 		}
 
