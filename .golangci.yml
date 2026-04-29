@@ -8,6 +8,12 @@ issues:
   exclude-rules:
     - path: _test\.go$
       text: Exclude all test files
+    # SA1019: CAPI 1.11 deprecated sigs.k8s.io/cluster-api/api/core/v1beta1 in favour of v1beta2.
+    # The k3s provider (github.com/richardcase/cluster-api-k3s) still depends on v1beta1 and has not
+    # migrated yet, so our code must remain compatible with it. These exclusions are intentional and
+    # temporary — remove them once the k3s provider upgrades to v1beta2.
+    - path: ^(cmd/template-controller/main\.go|internal/(cluster/.*\.go|common/.*\.go|controller/.*\.go|providers/.*\.go|rest/.*\.go|webhook/v1alpha1/.*\.go))$
+      text: SA1019
 
 run:
   timeout: 5m

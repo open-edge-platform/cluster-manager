@@ -67,8 +67,9 @@ BUILD_DIR ?= build
 GOLANG_GOCOV_VERSION := v1.1.0
 GOLANG_GOCOV_XML_VERSION := v1.2.0
 PKG := github.com/open-edge-platform/cluster-manager
-# FIXME: The integration test in "./test" folder is failing. Commenting it for now
-TEST_PATHS := ./internal/... ./pkg/... ./cmd/... # ./test/...
+TEST_PATHS := ./internal/... ./pkg/... ./cmd/...
+# avoid analysing unavailable external packages during linting
+LINT_PATHS := ./internal/... ./pkg/... ./cmd/...
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -403,11 +404,18 @@ $(GOLANGCI_LINT): $(LOCALBIN)
 	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
+# rebuilds tool binaries when compiled with a different Go toolchain to prevent version mismatch errors after Go upgrades
 # $1 - target path with name of binary
 # $2 - package url which can be installed
 # $3 - specific version of package
 define go-install-tool
-@[ -f "$(1)-$(3)" ] || { \
+@tool_path="$(1)-$(3)"; \
+current_go="$$(go env GOVERSION)"; \
+installed_go=""; \
+if [ -f "$${tool_path}" ]; then \
+installed_go="$$(go version -m "$${tool_path}" 2>/dev/null | awk '/^\tbuild\t-compiler=/{compiler=$$0} /^\tbuild\tgoversion=/{print $$2; exit}')"; \
+fi; \
+[ -f "$${tool_path}" ] && [ "$${installed_go}" = "$${current_go}" ] || { \
 set -e; \
 package=$(2)@$(3) ;\
 echo "Downloading $${package}" ;\
@@ -445,7 +453,7 @@ license: $(VENV_NAME) ## Check licensing with the reuse tool.
 
 .PHONY: golint
 golint: golangci-lint ## Lint Go files.
-	$(GOLANGCI_LINT) run
+	$(GOLANGCI_LINT) run $(LINT_PATHS)
 
 .PHONY: helmlint
 helmlint: ## Lint Helm charts.

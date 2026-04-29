@@ -20,7 +20,7 @@ import (
 	k8score "k8s.io/api/core/v1"
 	k8sapimachinery "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
-	capi "sigs.k8s.io/cluster-api/api/v1beta1"
+	capi "sigs.k8s.io/cluster-api/api/core/v1beta1"
 	_ "sigs.k8s.io/cluster-api/test/infrastructure/docker/api/v1beta1"
 )
 
