@@ -1670,9 +1670,7 @@ components:
       required: true
       schema:
         type: string
-        minLength: 1
-        maxLength: 63
-        pattern: '^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$'
+        pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
       example: team-a
   responses:
     400-BadRequest:
