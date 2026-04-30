@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+{{- if .Values.ingressRoute.enabled }}
+apiVersion: {{ .Values.ingressRoute.apiVersion | default "traefik.io/v1alpha1" }}
+kind: IngressRoute
+metadata:
+  name: {{ .Values.ingressRoute.name | default "cluster-manager-http" }}
+  namespace: {{ .Values.ingressRoute.gatewayNamespace | default "orch-gateway" }}
+spec:
+  entryPoints:
+    - {{ .Values.ingressRoute.entryPoint | default "websecure" }}
+  routes:
+    - kind: Rule
+      match: Host(`{{ required "A valid ingressRoute.apiHostname entry is required!" .Values.ingressRoute.apiHostname }}`) && PathRegexp(`{{ .Values.ingressRoute.pathRegexp | default "^/v2/projects/[^/]+/(clusters|templates)(/.*)?$" }}`)
+      middlewares:
+        - name: {{ .Values.ingressRoute.middlewares.validateJwt.name | default "validate-jwt" }}
+          namespace: {{ .Values.ingressRoute.middlewares.validateJwt.namespace | default (.Values.ingressRoute.gatewayNamespace | default "orch-gateway") }}
+        - name: {{ .Values.ingressRoute.middlewares.secureHeaders.name | default "secure-headers" }}
+          namespace: {{ .Values.ingressRoute.middlewares.secureHeaders.namespace | default (.Values.ingressRoute.gatewayNamespace | default "orch-gateway") }}
+      priority: {{ .Values.ingressRoute.priority | default 50 }}
+      services:
+        - name: {{ .Values.ingressRoute.service.name | default (include "cluster-manager.fullname" .) }}
+          namespace: {{ .Values.ingressRoute.service.namespace | default .Release.Namespace }}
+          port: {{ .Values.ingressRoute.service.port | default .Values.clusterManager.service.rest.port }}
+          scheme: {{ .Values.ingressRoute.service.scheme | default "http" }}
+  tls:
+    secretName: {{ .Values.ingressRoute.tls.secretName | default "tls-orch" }}
+    {{- if .Values.ingressRoute.tls.options.name }}
+    options:
+      name: {{ .Values.ingressRoute.tls.options.name }}
+      namespace: {{ .Values.ingressRoute.tls.options.namespace | default (.Values.ingressRoute.gatewayNamespace | default "orch-gateway") }}
+    {{- end }}
+{{- end }}
