@@ -16,6 +16,7 @@ paths:
     parameters:
     - $ref: '#/components/parameters/ActiveProjectIdHeader'
     get:
+      operationId: GetV2Clusters
       description: Gets all clusters' information.
       parameters:
         - in: query
@@ -105,6 +106,7 @@ paths:
         "500":
           $ref: '#/components/responses/500-InternalServerError'
     post:
+      operationId: PostV2Clusters
       description: Creates a cluster.
       tags:
         - Clusters
@@ -129,6 +131,7 @@ paths:
     parameters:
       - $ref: '#/components/parameters/ActiveProjectIdHeader'
     get:
+      operationId: GetV2ClustersSummary
       description: Gets all clusters' summarized by their state.
       tags:
         - Clusters
@@ -157,6 +160,7 @@ paths:
         required: true
         example: ""
     get:
+      operationId: GetV2ClustersName
       description: Gets the cluster {name} information.
       tags:
         - Clusters
@@ -174,6 +178,7 @@ paths:
         "500":
           $ref: '#/components/responses/500-InternalServerError'
     delete:
+      operationId: DeleteV2ClustersName
       description: Deletes the cluster {name}.
       tags:
         - Clusters
@@ -198,6 +203,7 @@ paths:
         required: true
         example: "64e797f6-db22-445e-b606-4228d4f1c2bd"
     get:
+      operationId: GetV2ClustersNodeIdClusterdetail
       description: Gets cluster detailed information by {nodeId}.
       tags:
         - Clusters
@@ -226,6 +232,7 @@ paths:
         required: true
         example: ""
     put:
+      operationId: PutV2ClustersNameNodes
       description: Updates cluster {name} nodes.
       tags:
         - Clusters
@@ -274,6 +281,7 @@ paths:
         description: "When set to true, force deletes the edge node."
         example: /v2/clusters/{name}/nodes/{nodeId}?force=true
     delete:
+      operationId: DeleteV2ClustersNameNodesNodeId
       description: Deletes the cluster {name} node {nodeId}.
       tags:
         - Clusters
@@ -300,6 +308,7 @@ paths:
         required: true
         example: ""
     put:
+      operationId: PutV2ClustersNameLabels
       description: Updates cluster {name} labels.
       tags:
         - Clusters
@@ -332,6 +341,7 @@ paths:
         required: true
         example: ""
     put:
+      operationId: PutV2ClustersNameTemplate
       description: Updates the cluster {name} template.
       tags:
         - Clusters
@@ -372,9 +382,400 @@ paths:
           format: JWT
           example: Bearer <JWT>
     get:
+      operationId: GetV2ClustersNameKubeconfigs
       description: Gets the cluster's kubeconfig file by its name {name}.
       tags:
         - Kubeconfigs
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubeconfigInfo'
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "401":
+          $ref: '#/components/responses/401-Unauthorized'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+  /v2/projects/{projectName}/clusters:
+    parameters:
+      - $ref: '#/components/parameters/ProjectNamePath'
+    get:
+      operationId: GetV2ProjectsProjectNameClusters
+      description: Gets all clusters' information for the specified project.
+      tags:
+        - project-scoped-alias
+      parameters:
+        - in: query
+          name: pageSize
+          schema:
+            default: 20
+            type: integer
+            minimum: 0
+            maximum: 100
+          description: The maximum number of items to return.
+          example: /v2/projects/{projectName}/clusters?pageSize=20
+        - in: query
+          name: offset
+          schema:
+            default: 0
+            type: integer
+            minimum: 0
+          description: Index of the first item to return. It is almost always used in conjunction with the 'pageSize' query.
+          example: /v2/projects/{projectName}/clusters?pageSize=20&offset=10
+        - name: orderBy
+          in: query
+          description: |
+            The ordering of the entries. "asc" and "desc" are valid values. If none is specified, "asc" is used.
+
+            Supported fields:
+            - name
+            - kubernetesVersion
+            - providerStatus
+            - lifecyclePhase
+          schema:
+            type: string
+          examples:
+            ascending:
+              value: /v2/projects/{projectName}/clusters?orderBy="name asc"
+              description: sort the entries by name entry in ascending order
+            descending:
+              value: /v2/projects/{projectName}/clusters?orderBy="name desc"
+              description: sort the entries by name entry in descending order
+            default:
+              value: /v2/projects/{projectName}/clusters?orderBy="name"
+              description: Sorts the entries by name in ascending order as default when no order is specified.
+        - name: filter
+          in: query
+          description: |
+            Filters the entries based on the filter provided.
+
+            Supported fields:
+            - name
+            - kubernetesVersion
+            - providerStatus
+            - lifecyclePhase
+          schema:
+            type: string
+          examples:
+            single_filter_with_search_prefix:
+              value: /v2/projects/{projectName}/clusters?filter="name=foo*"
+              description: filter clusters whose cluster prefix has foo
+            single_filter_without_search_prefix:
+              value: /v2/projects/{projectName}/clusters?filter="name=foo"
+              description: Filter by the cluster name "foo".
+            multiple_filter:
+              value: /v2/projects/{projectName}/clusters?filter="name=foo* OR kubernetes_version=v2.27.5"
+              description: filter by cluster name with the prefix "foo" or with Kubernetes software v1.27.5.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - totalElements
+                properties:
+                  clusters:
+                    type: array
+                    maxItems: 100
+                    items:
+                      $ref: '#/components/schemas/ClusterInfo'
+                  totalElements:
+                    type: integer
+                    description: The count of items in the entire list, regardless of pagination.
+                    format: int32
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+    post:
+      operationId: PostV2ProjectsProjectNameClusters
+      description: Creates a cluster in the specified project.
+      tags:
+        - project-scoped-alias
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterSpec'
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+  /v2/projects/{projectName}/clusters/summary:
+    parameters:
+      - $ref: '#/components/parameters/ProjectNamePath'
+    get:
+      operationId: GetV2ProjectsProjectNameClustersSummary
+      description: Gets all clusters summarized by their state for the specified project.
+      tags:
+        - project-scoped-alias
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterSummary'
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+  /v2/projects/{projectName}/clusters/{name}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectNamePath'
+      - name: name
+        in: path
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 63
+          pattern: '^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$'
+        required: true
+        example: ""
+    get:
+      operationId: GetV2ProjectsProjectNameClustersName
+      description: Gets the cluster {name} information for the specified project.
+      tags:
+        - project-scoped-alias
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterDetailInfo'
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+    delete:
+      operationId: DeleteV2ProjectsProjectNameClustersName
+      description: Deletes the cluster {name} from the specified project.
+      tags:
+        - project-scoped-alias
+      responses:
+        "204":
+          description: OK
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+  /v2/projects/{projectName}/clusters/{nodeId}/clusterdetail:
+    parameters:
+      - $ref: '#/components/parameters/ProjectNamePath'
+      - name: nodeId
+        in: path
+        schema:
+          type: string
+          pattern: '^[{]?[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}[}]?$'
+        required: true
+        example: "64e797f6-db22-445e-b606-4228d4f1c2bd"
+    get:
+      operationId: GetV2ProjectsProjectNameClustersNodeIdClusterdetail
+      description: Gets cluster detailed information by {nodeId} for the specified project.
+      tags:
+        - project-scoped-alias
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterDetailInfo'
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+
+  /v2/projects/{projectName}/clusters/{name}/nodes:
+    parameters:
+      - $ref: '#/components/parameters/ProjectNamePath'
+      - name: name
+        in: path
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 63
+          pattern: '^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$'
+        required: true
+        example: ""
+    put:
+      operationId: PutV2ProjectsProjectNameClustersNameNodes
+      description: Updates cluster {name} nodes for the specified project.
+      tags:
+        - project-scoped-alias
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              maxItems: 100
+              items:
+                $ref: '#/components/schemas/NodeSpec'
+      responses:
+        "200":
+          description: The cluster nodes are updated successfully.
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+  /v2/projects/{projectName}/clusters/{name}/nodes/{nodeId}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectNamePath'
+      - name: name
+        in: path
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 63
+          pattern: '^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$'
+        required: true
+        example: ""
+      - name: nodeId
+        in: path
+        schema:
+          type: string
+          pattern: '^[{]?[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}[}]?$'
+        required: true
+        example: "64e797f6-db22-445e-b606-4228d4f1c2bd"
+      - name: force
+        in: query
+        schema:
+          type: boolean
+          default: false
+        description: "When set to true, force deletes the edge node."
+        example: /v2/projects/{projectName}/clusters/{name}/nodes/{nodeId}?force=true
+    delete:
+      operationId: DeleteV2ProjectsProjectNameClustersNameNodesNodeId
+      description: Deletes the cluster {name} node {nodeId} for the specified project.
+      tags:
+        - project-scoped-alias
+      responses:
+        "200":
+          description: The cluster node is operated successfully.
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+  /v2/projects/{projectName}/clusters/{name}/labels:
+    parameters:
+      - $ref: '#/components/parameters/ProjectNamePath'
+      - name: name
+        in: path
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 63
+          pattern: '^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$'
+        required: true
+        example: ""
+    put:
+      operationId: PutV2ProjectsProjectNameClustersNameLabels
+      description: Updates cluster {name} labels for the specified project.
+      tags:
+        - project-scoped-alias
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterLabels'
+      responses:
+        "200":
+          description: The cluster labels are updated successfully.
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+  /v2/projects/{projectName}/clusters/{name}/template:
+    parameters:
+      - $ref: '#/components/parameters/ProjectNamePath'
+      - name: name
+        in: path
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 63
+          pattern: '^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$'
+        required: true
+        example: ""
+    put:
+      operationId: PutV2ProjectsProjectNameClustersNameTemplate
+      description: Updates the cluster {name} template for the specified project.
+      tags:
+        - project-scoped-alias
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterTemplateInfo'
+      responses:
+        "202":
+          description: The cluster template update request is accepted.
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+        "501":
+          $ref: '#/components/responses/501-NotImplemented'
+
+  /v2/projects/{projectName}/clusters/{name}/kubeconfigs:
+    parameters:
+      - $ref: '#/components/parameters/ProjectNamePath'
+      - name: name
+        in: path
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 100
+          pattern: '^[a-zA-Z-_0-9. ]+$'
+        required: true
+        example: ""
+      - name: Authorization
+        in: header
+        required: true
+        schema:
+          type: string
+          format: JWT
+          example: Bearer <JWT>
+    get:
+      operationId: GetV2ProjectsProjectNameClustersNameKubeconfigs
+      description: Gets the cluster's kubeconfig file by its name {name} for the specified project.
+      tags:
+        - project-scoped-alias
       responses:
         "200":
           description: OK
@@ -395,6 +796,7 @@ paths:
     parameters:
       - $ref: '#/components/parameters/ActiveProjectIdHeader'
     get:
+      operationId: GetV2Templates
       description: Gets all templates' information
       tags:
         - Cluster Templates
@@ -467,6 +869,7 @@ paths:
         "500":
           $ref: '#/components/responses/500-InternalServerError'
     post:
+      operationId: PostV2Templates
       description: Import templates
       tags:
         - Cluster Templates
@@ -511,6 +914,7 @@ paths:
         required: true
         example: "v0.1.0"
     get:
+      operationId: GetV2TemplatesNameVersion
       description: Gets a specific template information
       tags:
         - Cluster Templates
@@ -528,6 +932,7 @@ paths:
         "500":
           $ref: '#/components/responses/500-InternalServerError'
     delete:
+      operationId: DeleteV2TemplatesNameVersion
       description: Deletes a specific template
       tags:
         - Cluster Templates
@@ -557,6 +962,7 @@ paths:
         required: true
         example: "baseline"
     get:
+      operationId: GetV2TemplatesNameVersions
       description: Gets all versions of templates matching a particular template name
       tags:
         - Cluster Templates
@@ -588,8 +994,217 @@ paths:
         required: true
         example: "baseline"
      put:
+      operationId: PutV2TemplatesNameDefault
       description: Updates this template as the default template
       tags:
+        - Cluster Templates
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DefaultTemplateInfo'
+      responses:
+        "200":
+          description: OK
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+  /v2/projects/{projectName}/templates:
+    parameters:
+      - $ref: '#/components/parameters/ActiveProjectIdHeader'
+      - $ref: '#/components/parameters/ProjectNamePath'
+    get:
+      operationId: GetV2ProjectsProjectNameTemplates
+      description: Gets all templates' information in a project
+      tags:
+        - project-scoped-alias
+        - Cluster Templates
+      parameters:
+        - name: default
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: "When set to true, gets only the default template information"
+        - name: pageSize
+          in: query
+          schema:
+            default: 20
+            type: integer
+            minimum: 0
+            maximum: 100
+          description: The maximum number of items to return.
+        - name: offset
+          in: query
+          schema:
+            default: 0
+            type: integer
+            minimum: 0
+          description: Index of the first item to return.
+        - name: orderBy
+          in: query
+          description: The ordering of the entries.
+          schema:
+            type: string
+        - name: filter
+          in: query
+          description: Filters the entries based on the filter provided.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateInfoList'
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+    post:
+      operationId: PostV2ProjectsProjectNameTemplates
+      description: Import templates to a project
+      tags:
+        - project-scoped-alias
+        - Cluster Templates
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateInfo'
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "409":
+          $ref: '#/components/responses/409-Conflict'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+  /v2/projects/{projectName}/templates/{name}/{version}:
+    parameters:
+      - $ref: '#/components/parameters/ActiveProjectIdHeader'
+      - $ref: '#/components/parameters/ProjectNamePath'
+      - name: name
+        description: "Name of the template"
+        in: path
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
+        required: true
+        example: "baseline"
+      - name: version
+        description: "Version of the template in the format of 'vX.Y.Z'"
+        in: path
+        schema:
+          type: string
+          pattern: "^v(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$"
+        required: true
+        example: "v0.1.0"
+    get:
+      operationId: GetV2ProjectsProjectNameTemplatesNameVersion
+      description: Gets a specific template information from a project
+      tags:
+        - project-scoped-alias
+        - Cluster Templates
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateInfo'
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+    delete:
+      operationId: DeleteV2ProjectsProjectNameTemplatesNameVersion
+      description: Deletes a specific template from a project
+      tags:
+        - project-scoped-alias
+        - Cluster Templates
+      responses:
+        "204":
+          description: OK
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "409":
+          $ref: '#/components/responses/409-Conflict'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+  /v2/projects/{projectName}/templates/{name}/versions:
+    parameters:
+      - $ref: '#/components/parameters/ActiveProjectIdHeader'
+      - $ref: '#/components/parameters/ProjectNamePath'
+      - name: name
+        description: "Name of the template"
+        in: path
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
+        required: true
+        example: "baseline"
+    get:
+      operationId: GetV2ProjectsProjectNameTemplatesNameVersions
+      description: Gets all versions of templates matching a particular template name in a project
+      tags:
+        - project-scoped-alias
+        - Cluster Templates
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionList'
+        "400":
+          $ref: '#/components/responses/400-BadRequest'
+        "404":
+          $ref: '#/components/responses/404-NotFound'
+        "500":
+          $ref: '#/components/responses/500-InternalServerError'
+
+  /v2/projects/{projectName}/templates/{name}/default:
+    parameters:
+      - $ref: '#/components/parameters/ActiveProjectIdHeader'
+      - $ref: '#/components/parameters/ProjectNamePath'
+      - name: name
+        description: "Name of the template"
+        in: path
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
+        required: true
+        example: "baseline"
+    put:
+      operationId: PutV2ProjectsProjectNameTemplatesNameDefault
+      description: Updates this template as the default template in a project
+      tags:
+        - project-scoped-alias
         - Cluster Templates
       requestBody:
         content:
@@ -1049,6 +1664,14 @@ components:
         type: string
         format: uuid
       example: 655a6892-4280-4c37-97b1-31161ac0b99e
+    ProjectNamePath:
+      name: projectName
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
+      example: team-a
   responses:
     400-BadRequest:
       description: Object in payload is not properly formulated or not related to the method.

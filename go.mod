@@ -19,7 +19,7 @@ require (
 	github.com/onsi/gomega v1.39.1
 	github.com/open-edge-platform/cluster-api-provider-intel v1.3.4
 	github.com/open-edge-platform/infra-core/inventory/v2 v2.34.5
-	github.com/open-edge-platform/orch-library/go v0.6.3
+	github.com/open-edge-platform/orch-library/go v0.6.4-0.20260331163258-bead22552759
 	github.com/open-edge-platform/orch-utils/tenancy-datamodel v1.2.2
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.6.0
