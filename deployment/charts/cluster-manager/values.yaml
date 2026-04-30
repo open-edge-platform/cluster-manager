@@ -203,7 +203,7 @@ service:
     port: 8111
 
 ingressRoute:
-  enabled: true
+  enabled: false
   apiVersion: traefik.io/v1alpha1
   name: cluster-manager-http
   gatewayNamespace: orch-gateway
