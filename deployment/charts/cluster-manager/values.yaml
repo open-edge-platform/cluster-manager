@@ -202,6 +202,33 @@ service:
     type: ClusterIP
     port: 8111
 
+ingressRoute:
+  enabled: true
+  apiVersion: traefik.io/v1alpha1
+  name: cluster-manager-http
+  gatewayNamespace: orch-gateway
+  entryPoint: websecure
+  apiHostname: api.cluster.onprem
+  pathRegexp: ^/v2/projects/[^/]+/(clusters|templates)(/.*)?$
+  priority: 50
+  middlewares:
+    validateJwt:
+      name: validate-jwt
+      namespace: ""
+    secureHeaders:
+      name: secure-headers
+      namespace: ""
+  service:
+    name: cluster-manager
+    namespace: orch-cluster
+    port: 8080
+    scheme: http
+  tls:
+    secretName: tls-orch
+    options:
+      name: gateway-tls
+      namespace: ""
+
 
 openidc:
   issuer: http://platform-keycloak.orch-platform.svc/realms/master
