@@ -265,8 +265,8 @@ github.com/joshdk/go-junit v1.0.0/go.mod h1:TiiV0PqkaNfFXjEiyjWM3XXrhVyCa1K4Zfga
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
 github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d/go.mod h1:2PavIy+JPciBPrBUjwbNvtwB6RQlve+hkpll6QSNmOE=
-github.com/k3s-io/cluster-api-k3s v0.3.0 h1:484NBWV9ByQToQR3FHIK0tFjFU9rL7Y+WrytKJAQk/0=
-github.com/k3s-io/cluster-api-k3s v0.3.0/go.mod h1:L+9jOJF1fyph+7EdcqHW4jJorsMj9gmC+POZzhDyaj4=
+github.com/k3s-io/cluster-api-k3s v0.3.1 h1:CWUuCq0j4lXuQ8dS7SoburAsRsL0d3JvjrNqwevgqbc=
+github.com/k3s-io/cluster-api-k3s v0.3.1/go.mod h1:v6hIT1RRKROIPtH8AkT7/ppxozX78IWUDbvKXBZcOVQ=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/klauspost/compress v1.18.2 h1:iiPHWW0YrcFgpBYhsA6D1+fqHssJscY/Tm/y2Uqnapk=

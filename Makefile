@@ -12,10 +12,9 @@ VERSION            ?= $(shell cat VERSION | tr -d '[:space:]')
 GIT_HASH_SHORT     ?= $(shell git rev-parse --short=8 HEAD)
 VERSION_DEV_SUFFIX := ${GIT_HASH_SHORT}
 CLUSTERCTL_VERSION ?= v1.10.7
-K3s_VERSION        ?= v0.3.0
+K3s_VERSION        ?= v0.3.1
 DOCKER_INFRA_VERSION   ?= v1.10.7
 CLUSTERCTL := $(shell command -v clusterctl 2> /dev/null)
-CAPI_K3S_RBAC_PROXY_IMAGE ?= quay.io/brancz/kube-rbac-proxy:v0.21.0
 
 FUZZTIME ?= 60s
 
@@ -486,14 +485,6 @@ kind-create: ## Create a development kind cluster with CAPI enabled
 	kind create cluster --name $(KIND_CLUSTER) --config $(KIND_CONFIG)
 	@make setup-clusterctl-config	
 	CLUSTER_TOPOLOGY=true clusterctl init --core cluster-api:${CLUSTERCTL_VERSION} --bootstrap k3s:${K3s_VERSION} --control-plane k3s:${K3s_VERSION} --infrastructure docker:${DOCKER_INFRA_VERSION}
-	@make kind-fix-k3s-provider-images
-
-.PHONY: kind-fix-k3s-provider-images
-kind-fix-k3s-provider-images: ## Patch k3s provider sidecar image and wait for readiness
-	kubectl -n capi-k3s-bootstrap-system set image deployment/capi-k3s-bootstrap-controller-manager kube-rbac-proxy=$(CAPI_K3S_RBAC_PROXY_IMAGE)
-	kubectl -n capi-k3s-control-plane-system set image deployment/capi-k3s-control-plane-controller-manager kube-rbac-proxy=$(CAPI_K3S_RBAC_PROXY_IMAGE)
-	kubectl -n capi-k3s-bootstrap-system rollout status deployment/capi-k3s-bootstrap-controller-manager --timeout=120s
-	kubectl -n capi-k3s-control-plane-system rollout status deployment/capi-k3s-control-plane-controller-manager --timeout=120s
 
 .PHONY: kind-expose-cm
 kind-expose-cm: ## Expose the cluster manager service to the host
@@ -540,7 +531,7 @@ generate-api: check-oapi-codegen-version ## Generate Go client, server, client a
 	oapi-codegen -generate spec -o pkg/api/spec.gen.go -package api api/openapi/openapi.yaml
 	oapi-codegen -generate client -o pkg/api/client.gen.go -exclude-tags metrics -package api api/openapi/openapi.yaml
 	oapi-codegen -generate types -o pkg/api/types.gen.go -exclude-tags metrics -package api api/openapi/openapi.yaml
-	oapi-codegen -generate std-http,strict-server -exclude-tags metrics -o pkg/api/server.gen.go -package api api/openapi/openapi.yaml
+	oapi-codegen -generate std-http,strict-server -exclude-tags metrics,project-scoped-alias -o pkg/api/server.gen.go -package api api/openapi/openapi.yaml
 
 .PHONY: check-oapi-codegen-version
 check-oapi-codegen-version: ## Check oapi-codegen version

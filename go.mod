@@ -122,7 +122,7 @@ require (
 	github.com/hashicorp/vault/api v1.22.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/k3s-io/cluster-api-k3s v0.3.0
+	github.com/k3s-io/cluster-api-k3s v0.3.1
 	github.com/labstack/echo-contrib v0.50.1 // indirect
 	github.com/labstack/echo/v4 v4.15.1 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
