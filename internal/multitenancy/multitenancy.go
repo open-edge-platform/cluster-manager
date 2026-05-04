@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"slices"
 
-	"github.com/google/uuid"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/open-edge-platform/orch-library/go/pkg/tenancy"
@@ -82,10 +81,6 @@ func SetDefaultTemplate(name string) {
 func (t *TenancyDatamodel) HandleEvent(ctx context.Context, event tenancy.Event) error {
 	if event.ResourceType != tenancy.ResourceTypeProject {
 		return nil // cluster-manager only handles project events
-	}
-
-	if event.ResourceID == (uuid.UUID{}) {
-		return fmt.Errorf("received tenancy event with zero project UUID (event_id=%d, type=%s)", event.ID, event.EventType)
 	}
 
 	projectId := event.ResourceID.String()

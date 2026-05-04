@@ -202,18 +202,6 @@ func (suite *TenancyDatamodelTestSuite) TestHandleEvent() {
 			verifier:    nil,
 		},
 		{
-			name: "zero uuid project event is rejected",
-			event: tenancy.Event{
-				ID:           5,
-				EventType:    tenancy.EventTypeCreated,
-				ResourceType: tenancy.ResourceTypeProject,
-				ResourceID:   uuid.UUID{}, // zero value
-				ResourceName: "bad-project",
-			},
-			expectedErr: fmt.Errorf("received tenancy event with zero project UUID (event_id=5, type=created)"),
-			verifier:    nil,
-		},
-		{
 			name: "deleted event is idempotent when resources are already absent",
 			event: tenancy.Event{
 				ID:           6,
