@@ -107,6 +107,8 @@ clusterManager:
     clusterdomain: kind.internal
     username: admin
     inventory: inventory.orch-infra.svc.cluster.local:50051
+    # URL of the Nexus project service used to resolve project names to UUIDs
+    nexusApiUrl: "http://svc-iam-nexus-api-gw.orch-iam.svc.cluster.local:8082"
 
   service:
     rest:

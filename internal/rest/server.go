@@ -13,6 +13,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3filter"
 	oapi_middleware "github.com/oapi-codegen/nethttp-middleware"
+	"github.com/open-edge-platform/orch-library/go/pkg/middleware/projectcontext"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/client-go/dynamic"
 
@@ -123,6 +124,10 @@ func (s *Server) ConfigureHandler() (http.Handler, error) {
 			return cm_middleware.ResponseCounterMetrics(metrics.HttpResponseCounter, handler)
 		},
 		cm_middleware.Logger,
+		func(handler http.Handler) http.Handler {
+			return projectcontext.InjectActiveProjectID(s.config.ProjectServiceURL, false)(handler)
+		},
+		cm_middleware.RewriteProjectScopedPath,
 		cm_middleware.ProjectIDValidator)(handler), nil
 }
 
