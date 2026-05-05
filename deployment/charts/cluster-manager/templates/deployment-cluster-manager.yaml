@@ -45,6 +45,8 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
+          runAsUser: 65532
+          runAsGroup: 65532
           seccompProfile:
             type: RuntimeDefault
           capabilities:
@@ -104,6 +106,8 @@ spec:
         securityContext:
           allowPrivilegeEscalation: {{ .Values.clusterManager.containerSecurityContext.allowPrivilegeEscalation }}
           readOnlyRootFilesystem: {{ .Values.clusterManager.containerSecurityContext.readOnlyRootFilesystem }}
+          runAsUser: {{ .Values.clusterManager.containerSecurityContext.runAsUser }}
+          runAsGroup: {{ .Values.clusterManager.containerSecurityContext.runAsGroup }}
           seccompProfile:
             type: {{ .Values.clusterManager.containerSecurityContext.seccompProfile.type }}
           capabilities:

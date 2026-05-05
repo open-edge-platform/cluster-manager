@@ -20,10 +20,17 @@ AVD-KSV-0113
 # in the ClusterTemplate delete workflow.
 # This is currently broad RBAC by design to preserve existing behavior.
 AVD-KSV-0049
+KSV049
 # config/manager/manager.yaml uses controller:latest as a kustomize placeholder image.
 # Every kustomize overlay replaces this via the `images:` field before deployment.
 AVD-KSV-0013
+KSV013
 # KSV-0125: Images are pulled from the org's internal trusted registry
 # (registry-rs.edgeorchestration.intel.com). Trivy cannot verify registry trust
 # policies at scan time; this is enforced via admission control in the cluster.
 AVD-KSV-0125
+KSV0125
+# KSV-0110: deployment-controller.yaml sets namespace via .Release.Namespace;
+# older Trivy scan results may not reflect this fix yet.
+KSV110
+AVD-KSV-0110
