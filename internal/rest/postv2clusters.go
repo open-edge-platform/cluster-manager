@@ -4,6 +4,7 @@ package rest
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 
 	controlplaneprovider "github.com/open-edge-platform/cluster-manager/v2/internal/providers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -68,6 +70,12 @@ func (s *Server) PostV2Clusters(ctx context.Context, request api.PostV2ClustersR
 	// fetch cluster template
 	template, err := fetchTemplate(ctx, cli, namespace, request.Body.Template)
 	if err != nil {
+		// Check if it's a template not found error - return 400 Bad Request.
+		if k8serrors.IsNotFound(err) || errors.Is(err, k8s.ErrDefaultTemplateNotFound) {
+			msg := fmt.Sprintf("template not found: %v", err)
+			slog.Error(msg)
+			return api.PostV2Clusters400JSONResponse{N400BadRequestJSONResponse: api.N400BadRequestJSONResponse{Message: &msg}}, nil
+		}
 		msg := fmt.Sprintf("failed to create cluster: %v", err)
 		slog.Error(msg)
 		return api.PostV2Clusters500JSONResponse{N500InternalServerErrorJSONResponse: api.N500InternalServerErrorJSONResponse{Message: &msg}}, nil

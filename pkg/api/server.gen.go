@@ -1642,6 +1642,15 @@ func (response PutV2ClustersNameNodes500JSONResponse) VisitPutV2ClustersNameNode
 	return json.NewEncoder(w).Encode(response)
 }
 
+type PutV2ClustersNameNodes501JSONResponse struct{ N501NotImplementedJSONResponse }
+
+func (response PutV2ClustersNameNodes501JSONResponse) VisitPutV2ClustersNameNodesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(501)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type DeleteV2ClustersNameNodesNodeIdRequestObject struct {
 	Name   string `json:"name"`
 	NodeId string `json:"nodeId"`

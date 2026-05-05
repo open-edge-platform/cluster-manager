@@ -253,6 +253,8 @@ paths:
           $ref: '#/components/responses/404-NotFound'
         "500":
           $ref: '#/components/responses/500-InternalServerError'
+        "501":
+          $ref: '#/components/responses/501-NotImplemented'
 
   /v2/clusters/{name}/nodes/{nodeId}:
     parameters:
