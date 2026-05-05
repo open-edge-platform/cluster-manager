@@ -19,8 +19,7 @@ require (
 	github.com/onsi/gomega v1.39.1
 	github.com/open-edge-platform/cluster-api-provider-intel v1.3.4
 	github.com/open-edge-platform/infra-core/inventory/v2 v2.34.5
-	github.com/open-edge-platform/orch-library/go v0.6.4-0.20260331163258-bead22552759
-	github.com/open-edge-platform/orch-utils/tenancy-datamodel v1.2.2
+	github.com/open-edge-platform/orch-library/go v0.6.4-0.20260504141454-171fffc735ae
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.6.0
 	google.golang.org/protobuf v1.36.11
@@ -82,7 +81,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
-	github.com/elliotchance/orderedmap v1.8.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
 	github.com/evanphx/json-patch v5.9.11+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.9.11

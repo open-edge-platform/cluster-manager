@@ -23,17 +23,14 @@ func TestProjectScopedClusterPathRewritesToExistingHandler(t *testing.T) {
 
 	nexus := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, http.MethodGet, r.Method)
-		require.Equal(t, "/v1/projects", r.URL.Path)
-		require.Equal(t, "true", r.URL.Query().Get("member-role"))
+		require.Equal(t, "/v1/projects/"+projectName, r.URL.Path)
 
 		w.Header().Set("Content-Type", "application/json")
-		require.NoError(t, json.NewEncoder(w).Encode([]map[string]any{
-			{
-				"name": projectName,
-				"status": map[string]any{
-					"projectStatus": map[string]any{
-						"uID": projectID,
-					},
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
+			"name": projectName,
+			"status": map[string]any{
+				"projectStatus": map[string]any{
+					"uID": projectID,
 				},
 			},
 		}))
