@@ -33,7 +33,7 @@ jobs:
           gh_token: ${{ secrets.SYS_EMF_GH_TOKEN }}
 
       - name: Run service test
-        run: GOFLAGS=-mod=mod make run-service-test
+        run: make run-service-test
 
       - name: Gather logs from every pod
         if: always()
