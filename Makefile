@@ -606,7 +606,7 @@ setup-clusterctl-config: ## Create clusterctl.yaml config for k3s providers
 .PHONY: clusterctl
 clusterctl: ## Download clusterctl binary
 ifndef CLUSTERCTL
-	curl -L https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.9.4/clusterctl-linux-amd64 -o clusterctl
+	curl -L https://github.com/kubernetes-sigs/cluster-api/releases/download/$(CLUSTERCTL_VERSION)/clusterctl-linux-amd64 -o clusterctl
 	chmod +x clusterctl
 	mv clusterctl /usr/local/bin
 endif
