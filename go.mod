@@ -123,7 +123,7 @@ require (
 	github.com/hashicorp/vault/api v1.23.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/k3s-io/cluster-api-k3s v0.3.1
+	github.com/k3s-io/cluster-api-k3s v0.4.0
 	github.com/labstack/echo-contrib v0.50.1 // indirect
 	github.com/labstack/echo/v4 v4.15.1 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
@@ -212,9 +212,6 @@ require (
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 
-replace (
-	github.com/k3s-io/cluster-api-k3s => github.com/richardcase/cluster-api-k3s v0.3.2-0.20260424130125-824267a6c4ed
-	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.22.5
-)
+replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.22.5
 
 tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen

@@ -11,9 +11,9 @@ SHELL := bash -eu -o pipefail
 VERSION            ?= $(shell cat VERSION | tr -d '[:space:]')
 GIT_HASH_SHORT     ?= $(shell git rev-parse --short=8 HEAD)
 VERSION_DEV_SUFFIX := ${GIT_HASH_SHORT}
-CLUSTERCTL_VERSION ?= v1.10.7
-K3s_VERSION        ?= v0.3.1
-DOCKER_INFRA_VERSION   ?= v1.10.7
+CLUSTERCTL_VERSION ?= v1.11.5
+K3s_VERSION        ?= v0.4.0
+DOCKER_INFRA_VERSION   ?= v1.11.5
 CLUSTERCTL := $(shell command -v clusterctl 2> /dev/null)
 
 FUZZTIME ?= 60s
