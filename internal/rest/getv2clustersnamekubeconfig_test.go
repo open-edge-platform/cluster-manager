@@ -73,10 +73,10 @@ var jwtToken = mustGenerateTestJWT()
 
 func mustGenerateTestJWT() string {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"azp":               "system-client",
+		"azp":                "system-client",
 		"preferred_username": "admin",
-		"iat":               time.Unix(1735689600, 0).Unix(),
-		"exp":               time.Unix(1893456000, 0).Unix(),
+		"iat":                time.Unix(1735689600, 0).Unix(),
+		"exp":                time.Unix(1893456000, 0).Unix(),
 	})
 
 	signedToken, err := token.SignedString([]byte("unit-test-signing-key"))
@@ -315,7 +315,7 @@ func TestGetV2ClustersNameKubeconfigs401(t *testing.T) {
 			name:             "missing authorization header", // this is captured in the middleware
 			authHeader:       "",
 			expectedCode:     http.StatusBadRequest,
-			expectedResponse: `{"message":"parameter \"Authorization\" in header has an error: empty value is not allowed"}`,
+			expectedResponse: `{"message":"Invalid format for parameter Authorization: parameter 'Authorization' is empty, can't bind its value"}`,
 		},
 		{
 			name:             "invalid authorization header",
