@@ -77,6 +77,9 @@ spec:
         {{- if .Values.clusterManager.args.inventory }}
         - '-inventory-endpoint={{ .Values.clusterManager.args.inventory }}'
         {{- end }}
+        {{- if .Values.clusterManager.args.nexusApiUrl }}
+        - '-nexus-api-url={{ .Values.clusterManager.args.nexusApiUrl }}'
+        {{- end }}
         {{- range $key, $value := .Values.clusterManager.extraArgs }}
         - -{{ $key }}={{ $value }}
         {{- end }}
