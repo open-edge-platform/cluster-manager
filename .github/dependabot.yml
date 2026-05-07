@@ -14,6 +14,14 @@ updates:
     commit-message:
       prefix: "[gomod] "
     groups:
+      k8s-updates:
+        patterns:
+          - "k8s.io/*"
+          - "sigs.k8s.io/*"
+        exclude-patterns:
+          - "*open-edge-platform*"
+        labels:
+          - "dependencies"
       dependencies:
         patterns:
           - "*"
@@ -22,6 +30,7 @@ updates:
       internal-dependencies:
         patterns:
           - "*open-edge-platform*"
+          - "github.com/open-edge-platform/*"
   - package-ecosystem: "github-actions"
     directory: "/"  # Changed from "directories" to "directory"
     schedule:
