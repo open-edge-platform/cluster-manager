@@ -3,7 +3,7 @@
 
 module github.com/open-edge-platform/cluster-manager/v2
 
-go 1.26.1
+go 1.26.3
 
 require (
 	github.com/cenkalti/backoff/v4 v4.3.0
