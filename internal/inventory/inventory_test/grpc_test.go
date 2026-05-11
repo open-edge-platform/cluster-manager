@@ -72,6 +72,129 @@ func TestNewInventoryClientWithOptions(t *testing.T) {
 	}
 }
 
+func TestWatchHosts_DeleteClusterOnHostDeleted(t *testing.T) {
+	mockClient := mocks.NewMockTenantAwareInventoryClient(t)
+	mockK8sClient := k8s.NewMockK8sWrapperClient(t)
+
+	inventory.GetInventoryClientFunc = func(ctx context.Context, cfg client.InventoryClientConfig) (client.TenantAwareInventoryClient, error) {
+		return mockClient, nil
+	}
+
+	cases := []struct {
+		name                string
+		machine             *capi.Machine
+		getMachineError     error
+		deleteClusterError  error
+		expectDeleteCluster bool
+		expectWarning       bool
+	}{
+		{
+			name: "deleted host with assigned cluster - successful deletion",
+			machine: &capi.Machine{
+				Spec: capi.MachineSpec{
+					ClusterName: "test-cluster",
+				},
+			},
+			expectDeleteCluster: true,
+		},
+		{
+			name: "deleted host with no assigned cluster",
+			machine: &capi.Machine{
+				Spec: capi.MachineSpec{
+					ClusterName: "",
+				},
+			},
+			expectDeleteCluster: false,
+		},
+		{
+			name:                "deleted host - machine not found",
+			getMachineError:     errors.New("machine not found"),
+			expectDeleteCluster: false,
+			expectWarning:       true,
+		},
+		{
+			name: "deleted host - cluster deletion fails",
+			machine: &capi.Machine{
+				Spec: capi.MachineSpec{
+					ClusterName: "test-cluster",
+				},
+			},
+			deleteClusterError:  errors.New("failed to delete cluster"),
+			expectDeleteCluster: true,
+			expectWarning:       true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create test host event
+			testHost := &computev1.HostResource{
+				ResourceId:   "host-12345678",
+				TenantId:     "123e4567-e89b-12d3-a456-426614174000",
+				Name:         "test-host",
+				CurrentState: computev1.HostState_HOST_STATE_ONBOARDED,
+			}
+
+			// Set up mocks based on test case
+			if tc.getMachineError != nil {
+				mockK8sClient.On("GetMachineByHostID", mock.Anything, testHost.TenantId, testHost.ResourceId).
+					Return(capi.Machine{}, tc.getMachineError).Once()
+			} else if tc.machine != nil {
+				mockK8sClient.On("GetMachineByHostID", mock.Anything, testHost.TenantId, testHost.ResourceId).
+					Return(*tc.machine, nil).Once()
+
+				if tc.expectDeleteCluster && tc.machine.Spec.ClusterName != "" {
+					if tc.deleteClusterError != nil {
+						mockK8sClient.On("DeleteCluster", mock.Anything, testHost.TenantId, tc.machine.Spec.ClusterName).
+							Return(tc.deleteClusterError).Once()
+					} else {
+						mockK8sClient.On("DeleteCluster", mock.Anything, testHost.TenantId, tc.machine.Spec.ClusterName).
+							Return(nil).Once()
+					}
+				}
+			}
+
+			// Create inventory client with mocked k8s client
+			invClient := inventory.NewTestInventoryClient(mockK8sClient, mockClient)
+
+			// Create a channel to capture host events
+			hostEvents := make(chan events.Event, 1)
+
+			// Create the watch event that would come from the inventory service
+			watchEvent := &client.WatchEvents{
+				Event: &inventoryv1.SubscribeEventsResponse{
+					EventKind: inventoryv1.SubscribeEventsResponse_EVENT_KIND_DELETED,
+					Resource: &inventoryv1.Resource{
+						Resource: &inventoryv1.Resource_Host{
+							Host: testHost,
+						},
+					},
+				},
+			}
+
+			// Simulate the event being received
+			go func() {
+				invClient.InjectEvent(watchEvent)
+				invClient.CloseEvents()
+			}()
+
+			// Start watching hosts
+			invClient.WatchHosts(hostEvents)
+
+			// Wait for either the host event or mocked K8s interaction to complete
+			select {
+			case event := <-hostEvents:
+				assert.NotNil(t, event)
+			case <-time.After(500 * time.Millisecond):
+				t.Error("Timed out waiting for host deleted event or mocked K8s interaction")
+			}
+
+			// Verify all expectations were met
+			mockK8sClient.AssertExpectations(t)
+		})
+	}
+}
+
 func TestGetHostTrustedCompute(t *testing.T) {
 	mockClient := mocks.NewMockTenantAwareInventoryClient(t)
 	inventory.GetInventoryClientFunc = func(ctx context.Context, cfg client.InventoryClientConfig) (client.TenantAwareInventoryClient, error) {
@@ -351,21 +474,46 @@ func TestWatchHosts_DeleteClusterOnDeauthorizedHost(t *testing.T) {
 				CurrentState: tc.hostState,
 			}
 
-			// Set up mocks based on test case
+			// Set up mocks based on test case and signal completion via done channel when mocks are invoked
+			done := make(chan struct{}, 1)
 			if tc.hostState == computev1.HostState_HOST_STATE_UNTRUSTED {
 				if tc.getMachineError != nil {
 					mockK8sClient.On("GetMachineByHostID", mock.Anything, testHost.TenantId, testHost.ResourceId).
+						Run(func(args mock.Arguments) {
+							select {
+							case done <- struct{}{}:
+							default:
+							}
+						}).
 						Return(capi.Machine{}, tc.getMachineError).Once()
 				} else if tc.machine != nil {
 					mockK8sClient.On("GetMachineByHostID", mock.Anything, testHost.TenantId, testHost.ResourceId).
+						Run(func(args mock.Arguments) {
+							select {
+							case done <- struct{}{}:
+							default:
+							}
+						}).
 						Return(*tc.machine, nil).Once()
 
 					if tc.expectDeleteCluster && tc.machine.Spec.ClusterName != "" {
 						if tc.deleteClusterError != nil {
 							mockK8sClient.On("DeleteCluster", mock.Anything, testHost.TenantId, tc.machine.Spec.ClusterName).
+								Run(func(args mock.Arguments) {
+									select {
+									case done <- struct{}{}:
+									default:
+									}
+								}).
 								Return(tc.deleteClusterError).Once()
 						} else {
 							mockK8sClient.On("DeleteCluster", mock.Anything, testHost.TenantId, tc.machine.Spec.ClusterName).
+								Run(func(args mock.Arguments) {
+									select {
+									case done <- struct{}{}:
+									default:
+									}
+								}).
 								Return(nil).Once()
 						}
 					}
@@ -399,21 +547,19 @@ func TestWatchHosts_DeleteClusterOnDeauthorizedHost(t *testing.T) {
 			// Start watching hosts
 			invClient.WatchHosts(hostEvents)
 
-			// Give some time for the goroutine to process
-			time.Sleep(100 * time.Millisecond)
+			// Wait for either a host event to be emitted or for mocked K8s calls to run
+			select {
+			case event := <-hostEvents:
+				// Received an event from WatchHosts
+				assert.NotNil(t, event)
+			case <-done:
+				// Mock interactions completed (e.g., cluster deletion path)
+			case <-time.After(500 * time.Millisecond):
+				t.Error("Timed out waiting for host event or mocked K8s interaction")
+			}
 
 			// Verify all expectations were met
 			mockK8sClient.AssertExpectations(t)
-
-			// If we expect a regular event (not just deletion), check it was sent
-			if tc.hostState != computev1.HostState_HOST_STATE_UNTRUSTED {
-				select {
-				case event := <-hostEvents:
-					assert.NotNil(t, event)
-				case <-time.After(100 * time.Millisecond):
-					t.Error("Expected to receive a host event")
-				}
-			}
 		})
 	}
 }

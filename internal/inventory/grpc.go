@@ -226,6 +226,20 @@ func (c *InventoryClient) WatchHosts(hostEvents chan<- events.Event) {
 					}
 				case inventoryv1.SubscribeEventsResponse_EVENT_KIND_DELETED:
 					slog.Debug("host deleted event", "name", host.Name, "hostid", host.ResourceId)
+					// When a host is deleted, attempt to delete any cluster assigned to it.
+					if host.ResourceId != "" {
+						m, err := c.k8sclient.GetMachineByHostID(context.TODO(), host.TenantId, host.ResourceId)
+						if err != nil {
+							slog.Warn("failed to get machine by host id on host delete", "error", err, "hostId", host.ResourceId, "tenantId", host.TenantId)
+						} else if m.Spec.ClusterName != "" {
+							slog.Info("host deleted, deleting assigned cluster if one exists", "hostId", host.ResourceId, "tenantId", host.TenantId, "cluster", m.Spec.ClusterName)
+							if err := c.k8sclient.DeleteCluster(context.TODO(), host.TenantId, m.Spec.ClusterName); err != nil {
+								slog.Warn("failed to delete cluster on host delete", "error", err, "cluster", m.Spec.ClusterName, "tenantId", host.TenantId)
+							} else {
+								slog.Info("deleted cluster assigned to deleted host", "hostId", host.ResourceId, "tenantId", host.TenantId, "cluster", m.Spec.ClusterName)
+							}
+						}
+					}
 					hostEvents <- HostDeleted{
 						HostEventBase: HostEventBase{
 							HostId:    host.ResourceId,
