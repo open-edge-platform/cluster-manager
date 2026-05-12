@@ -17,7 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	capi "sigs.k8s.io/cluster-api/api/v1beta1"
+	capi "sigs.k8s.io/cluster-api/api/core/v1beta1"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/convert"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/core"
@@ -833,7 +833,7 @@ func TestGetV2Clusters400(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, rr.Code, "ServeHTTP() status = %v, want %v", rr.Code, http.StatusBadRequest)
 		expectedResponse := api.GetV2Clusters400JSONResponse{
 			N400BadRequestJSONResponse: api.N400BadRequestJSONResponse{
-				Message: ptr("parameter \"orderBy\" in query has an error: empty value is not allowed"),
+				Message: ptr("invalid orderBy field"),
 			},
 		}
 		require.Equal(t, expectedResponse, actualResponse, "GetV2Clusters() response = %v, want %v", actualResponse, expectedResponse)

@@ -11,5 +11,10 @@ import (
 
 // (PUT /v2/clusters/{name}/nodes)
 func (s *Server) PutV2ClustersNameNodes(ctx context.Context, request api.PutV2ClustersNameNodesRequestObject) (api.PutV2ClustersNameNodesResponseObject, error) {
-	return nil, NotImplementedError
+	errMsg := "Cluster node updates are not yet supported."
+	return api.PutV2ClustersNameNodes501JSONResponse{
+		N501NotImplementedJSONResponse: api.N501NotImplementedJSONResponse{
+			Message: &errMsg,
+		},
+	}, nil
 }
