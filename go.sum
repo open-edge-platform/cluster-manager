@@ -379,8 +379,8 @@ github.com/open-edge-platform/cluster-api-provider-intel v1.3.7 h1:7POHPix3ZKzfy
 github.com/open-edge-platform/cluster-api-provider-intel v1.3.7/go.mod h1:91YTJ7/juxSVVHoB5fd8NgkibyKRlTBbwS1Pjit/EHk=
 github.com/open-edge-platform/infra-core/inventory/v2 v2.35.1 h1:jBLsuc9+7FVW212d10cnaR+2p4XrTlgK3uWeJUMkwjY=
 github.com/open-edge-platform/infra-core/inventory/v2 v2.35.1/go.mod h1:wiWvyzTr13rOplddY7Mikmd46z5JR6sKDFdl2woEm1c=
-github.com/open-edge-platform/orch-library/go v0.6.4-0.20260504141454-171fffc735ae h1:YsH51Zef6stIwlbbMLLmzDve1N2CfR1KzUhRTml1nfo=
-github.com/open-edge-platform/orch-library/go v0.6.4-0.20260504141454-171fffc735ae/go.mod h1:4JmwDbbry87tUoQf2VQUUe6ecZA9uOnQU0nzScBOxjU=
+github.com/open-edge-platform/orch-library/go v0.6.4 h1:LRK01REF9S+M+Rowm7OLln9iOIMO/zAfzXCQVsP+awE=
+github.com/open-edge-platform/orch-library/go v0.6.4/go.mod h1:m8uUv9rr3vuJ69rVBvn9FWfe8K4m6zS9XGMxnEOBT7M=
 github.com/open-edge-platform/orch-library/go/dazl v0.5.4 h1:Rx/bSAZiLjEEBjUiJEzBvT0fQv5huT5FQ2Ke3IMUhiE=
 github.com/open-edge-platform/orch-library/go/dazl v0.5.4/go.mod h1:UiO3TOEqEuRT81OtgPsqR9LpB1887i5nk2TelhJksMY=
 github.com/open-policy-agent/opa v1.15.2 h1:dS9q+0Yvruq/VNvWJc5qCvCchn715OWc3HLHXn/UCCc=
