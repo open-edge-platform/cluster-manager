@@ -249,6 +249,9 @@ type ClusterNetwork struct {
 // ActiveProjectIdHeader defines model for ActiveProjectIdHeader.
 type ActiveProjectIdHeader = openapi_types.UUID
 
+// ProjectNamePath defines model for ProjectNamePath.
+type ProjectNamePath = string
+
 // N400BadRequest defines model for 400-BadRequest.
 type N400BadRequest = ProblemDetails
 
@@ -351,6 +354,91 @@ type GetV2ClustersNodeIdClusterdetailParams struct {
 	Activeprojectid ActiveProjectIdHeader `json:"Activeprojectid"`
 }
 
+// GetV2ProjectsProjectNameClustersParams defines parameters for GetV2ProjectsProjectNameClusters.
+type GetV2ProjectsProjectNameClustersParams struct {
+	// PageSize The maximum number of items to return.
+	PageSize *int `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+
+	// Offset Index of the first item to return. It is almost always used in conjunction with the 'pageSize' query.
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// OrderBy The ordering of the entries. "asc" and "desc" are valid values. If none is specified, "asc" is used.
+	//
+	// Supported fields:
+	// - name
+	// - kubernetesVersion
+	// - providerStatus
+	// - lifecyclePhase
+	OrderBy *string `form:"orderBy,omitempty" json:"orderBy,omitempty"`
+
+	// Filter Filters the entries based on the filter provided.
+	//
+	// Supported fields:
+	// - name
+	// - kubernetesVersion
+	// - providerStatus
+	// - lifecyclePhase
+	Filter *string `form:"filter,omitempty" json:"filter,omitempty"`
+}
+
+// GetV2ProjectsProjectNameClustersNameKubeconfigsParams defines parameters for GetV2ProjectsProjectNameClustersNameKubeconfigs.
+type GetV2ProjectsProjectNameClustersNameKubeconfigsParams struct {
+	Authorization string `json:"Authorization"`
+}
+
+// PutV2ProjectsProjectNameClustersNameNodesJSONBody defines parameters for PutV2ProjectsProjectNameClustersNameNodes.
+type PutV2ProjectsProjectNameClustersNameNodesJSONBody = []NodeSpec
+
+// DeleteV2ProjectsProjectNameClustersNameNodesNodeIdParams defines parameters for DeleteV2ProjectsProjectNameClustersNameNodesNodeId.
+type DeleteV2ProjectsProjectNameClustersNameNodesNodeIdParams struct {
+	// Force When set to true, force deletes the edge node.
+	Force *bool `form:"force,omitempty" json:"force,omitempty"`
+}
+
+// GetV2ProjectsProjectNameTemplatesParams defines parameters for GetV2ProjectsProjectNameTemplates.
+type GetV2ProjectsProjectNameTemplatesParams struct {
+	// Default When set to true, gets only the default template information
+	Default *bool `form:"default,omitempty" json:"default,omitempty"`
+
+	// PageSize The maximum number of items to return.
+	PageSize *int `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+
+	// Offset Index of the first item to return.
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// OrderBy The ordering of the entries.
+	OrderBy *string `form:"orderBy,omitempty" json:"orderBy,omitempty"`
+
+	// Filter Filters the entries based on the filter provided.
+	Filter          *string               `form:"filter,omitempty" json:"filter,omitempty"`
+	Activeprojectid ActiveProjectIdHeader `json:"Activeprojectid"`
+}
+
+// PostV2ProjectsProjectNameTemplatesParams defines parameters for PostV2ProjectsProjectNameTemplates.
+type PostV2ProjectsProjectNameTemplatesParams struct {
+	Activeprojectid ActiveProjectIdHeader `json:"Activeprojectid"`
+}
+
+// PutV2ProjectsProjectNameTemplatesNameDefaultParams defines parameters for PutV2ProjectsProjectNameTemplatesNameDefault.
+type PutV2ProjectsProjectNameTemplatesNameDefaultParams struct {
+	Activeprojectid ActiveProjectIdHeader `json:"Activeprojectid"`
+}
+
+// GetV2ProjectsProjectNameTemplatesNameVersionsParams defines parameters for GetV2ProjectsProjectNameTemplatesNameVersions.
+type GetV2ProjectsProjectNameTemplatesNameVersionsParams struct {
+	Activeprojectid ActiveProjectIdHeader `json:"Activeprojectid"`
+}
+
+// DeleteV2ProjectsProjectNameTemplatesNameVersionParams defines parameters for DeleteV2ProjectsProjectNameTemplatesNameVersion.
+type DeleteV2ProjectsProjectNameTemplatesNameVersionParams struct {
+	Activeprojectid ActiveProjectIdHeader `json:"Activeprojectid"`
+}
+
+// GetV2ProjectsProjectNameTemplatesNameVersionParams defines parameters for GetV2ProjectsProjectNameTemplatesNameVersion.
+type GetV2ProjectsProjectNameTemplatesNameVersionParams struct {
+	Activeprojectid ActiveProjectIdHeader `json:"Activeprojectid"`
+}
+
 // GetV2TemplatesParams defines parameters for GetV2Templates.
 type GetV2TemplatesParams struct {
 	// Default When set to true, gets only the default template information
@@ -406,6 +494,24 @@ type PutV2ClustersNameNodesJSONRequestBody = PutV2ClustersNameNodesJSONBody
 
 // PutV2ClustersNameTemplateJSONRequestBody defines body for PutV2ClustersNameTemplate for application/json ContentType.
 type PutV2ClustersNameTemplateJSONRequestBody = ClusterTemplateInfo
+
+// PostV2ProjectsProjectNameClustersJSONRequestBody defines body for PostV2ProjectsProjectNameClusters for application/json ContentType.
+type PostV2ProjectsProjectNameClustersJSONRequestBody = ClusterSpec
+
+// PutV2ProjectsProjectNameClustersNameLabelsJSONRequestBody defines body for PutV2ProjectsProjectNameClustersNameLabels for application/json ContentType.
+type PutV2ProjectsProjectNameClustersNameLabelsJSONRequestBody = ClusterLabels
+
+// PutV2ProjectsProjectNameClustersNameNodesJSONRequestBody defines body for PutV2ProjectsProjectNameClustersNameNodes for application/json ContentType.
+type PutV2ProjectsProjectNameClustersNameNodesJSONRequestBody = PutV2ProjectsProjectNameClustersNameNodesJSONBody
+
+// PutV2ProjectsProjectNameClustersNameTemplateJSONRequestBody defines body for PutV2ProjectsProjectNameClustersNameTemplate for application/json ContentType.
+type PutV2ProjectsProjectNameClustersNameTemplateJSONRequestBody = ClusterTemplateInfo
+
+// PostV2ProjectsProjectNameTemplatesJSONRequestBody defines body for PostV2ProjectsProjectNameTemplates for application/json ContentType.
+type PostV2ProjectsProjectNameTemplatesJSONRequestBody = TemplateInfo
+
+// PutV2ProjectsProjectNameTemplatesNameDefaultJSONRequestBody defines body for PutV2ProjectsProjectNameTemplatesNameDefault for application/json ContentType.
+type PutV2ProjectsProjectNameTemplatesNameDefaultJSONRequestBody = DefaultTemplateInfo
 
 // PostV2TemplatesJSONRequestBody defines body for PostV2Templates for application/json ContentType.
 type PostV2TemplatesJSONRequestBody = TemplateInfo

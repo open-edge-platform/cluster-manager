@@ -8,7 +8,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta1"
+	clusterv1beta2 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 )
 
 const (
@@ -124,6 +125,49 @@ func (c *ClusterTemplate) GetConditions() clusterv1.Conditions {
 // SetConditions sets the conditions on this object.
 func (c *ClusterTemplate) SetConditions(conditions clusterv1.Conditions) {
 	c.Status.Conditions = conditions
+}
+
+// GetV1Beta1Conditions returns the v1beta1-style conditions for deprecated CAPI helpers.
+func (c *ClusterTemplate) GetV1Beta1Conditions() clusterv1beta2.Conditions {
+	if len(c.Status.Conditions) == 0 {
+		return nil
+	}
+
+	conditions := make(clusterv1beta2.Conditions, len(c.Status.Conditions))
+	for i := range c.Status.Conditions {
+		conditions[i] = clusterv1beta2.Condition{
+			Type:               clusterv1beta2.ConditionType(c.Status.Conditions[i].Type),
+			Status:             c.Status.Conditions[i].Status,
+			Severity:           clusterv1beta2.ConditionSeverity(c.Status.Conditions[i].Severity),
+			LastTransitionTime: c.Status.Conditions[i].LastTransitionTime,
+			Reason:             c.Status.Conditions[i].Reason,
+			Message:            c.Status.Conditions[i].Message,
+		}
+	}
+
+	return conditions
+}
+
+// SetV1Beta1Conditions stores v1beta1-style conditions emitted by deprecated CAPI helpers.
+func (c *ClusterTemplate) SetV1Beta1Conditions(conditions clusterv1beta2.Conditions) {
+	if len(conditions) == 0 {
+		c.Status.Conditions = nil
+		return
+	}
+
+	converted := make(clusterv1.Conditions, len(conditions))
+	for i := range conditions {
+		converted[i] = clusterv1.Condition{
+			Type:               clusterv1.ConditionType(conditions[i].Type),
+			Status:             conditions[i].Status,
+			Severity:           clusterv1.ConditionSeverity(conditions[i].Severity),
+			LastTransitionTime: conditions[i].LastTransitionTime,
+			Reason:             conditions[i].Reason,
+			Message:            conditions[i].Message,
+		}
+	}
+
+	c.Status.Conditions = converted
 }
 
 // GetV1Beta2Conditions returns the set of conditions for this object.

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -109,6 +109,9 @@ clusterManager:
     clusterdomain: kind.internal
     username: admin
     inventory: inventory.orch-infra.svc.cluster.local:50051
+    # URL of the Tenancy Manager REST API used to resolve project names to UUIDs
+    # (post-Nexus-replacement; flag name `-nexus-api-url` retained for backward compat).
+    nexusApiUrl: "http://tenancy-manager.orch-iam.svc:8080"
 
   service:
     rest:
@@ -203,6 +206,33 @@ service:
     enabled: true
     type: ClusterIP
     port: 8111
+
+ingressRoute:
+  enabled: false
+  apiVersion: traefik.io/v1alpha1
+  name: cluster-manager-http
+  gatewayNamespace: orch-gateway
+  entryPoint: websecure
+  apiHostname: api.cluster.onprem
+  pathRegexp: ^/v2/projects/[^/]+/(clusters|templates)(/.*)?$
+  priority: 50
+  middlewares:
+    validateJwt:
+      name: validate-jwt
+      namespace: ""
+    secureHeaders:
+      name: secure-headers
+      namespace: ""
+  service:
+    name: cluster-manager
+    namespace: orch-cluster
+    port: 8080
+    scheme: http
+  tls:
+    secretName: tls-orch
+    options:
+      name: gateway-tls
+      namespace: ""
 
 
 openidc:

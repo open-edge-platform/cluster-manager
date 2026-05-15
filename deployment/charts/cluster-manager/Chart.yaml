@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 apiVersion: v2
@@ -16,8 +16,8 @@ type: application
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
-version: 2.2.12-dev
-appVersion: 2.2.12-dev
+version: 2.2.14-dev
+appVersion: 2.2.14-dev
 annotations:
-  revision: cf2994db84a57ca95c5ee40e17a25d9c57a26869
-  created: "2026-04-28T19:27:11Z"
+  revision: 1b411251d0aacd043faea4d705e0a0e2735c1dfa
+  created: "2026-05-12T08:49:28Z"

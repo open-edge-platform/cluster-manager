@@ -45,6 +45,7 @@ type Config struct {
 	ClusterDomain        string
 	Username             string
 	InventoryAddress     string
+	ProjectServiceURL    string
 }
 
 // ParseConfig parses the configuration from flags and environment variables
@@ -62,6 +63,7 @@ func ParseConfig() *Config {
 	clusterDomain := flag.String("clusterdomain", "kind.internal", "(optional) cluster domain")
 	userName := flag.String("username", "admin", "(optional) user")
 	inventoryAddress := flag.String("inventory-endpoint", "mi-inventory:50051", "(optional) inventory address")
+	projectServiceURL := flag.String("nexus-api-url", "", "(optional) URL of the Nexus project service used to resolve project names to UUIDs")
 	kubeconfigTTLHours := flag.Float64("kubeconfig-ttl-hours", 3.0, "(optional) default TTL for kubeconfig JWTs in hours")
 	flag.Parse()
 
@@ -77,6 +79,7 @@ func ParseConfig() *Config {
 		ClusterDomain:       *clusterDomain,
 		Username:            *userName,
 		InventoryAddress:    *inventoryAddress,
+		ProjectServiceURL:   *projectServiceURL,
 	}
 
 	if *prefixes != "" {
@@ -131,6 +134,13 @@ func (c *Config) Validate() error {
 	if !c.DisableInventory && c.InventoryAddress == "" {
 		slog.Error("inventory address is required to enable inventory integration")
 		return fmt.Errorf("inventory address is required to enable inventory integration")
+	}
+
+	if c.ProjectServiceURL != "" {
+		if _, err := url.ParseRequestURI(c.ProjectServiceURL); err != nil {
+			slog.Error("invalid project service url 'nexus-api-url' provided", "error", err)
+			return fmt.Errorf("invalid project service url provided: %w", err)
+		}
 	}
 
 	// TTL=0 expires immediately
