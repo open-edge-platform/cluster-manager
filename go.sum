@@ -95,8 +95,6 @@ github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 h1:PRxIJD8XjimM5aT
 github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936/go.mod h1:ttYvX5qlB+mlV1okblJqcSMtR4c52UKxDiX9GRBS8+Q=
 github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=
 github.com/dustin/go-humanize v1.0.1/go.mod h1:Mu1zIs6XwVuF/gI1OepvI0qD18qycQx+mFykh5fBlto=
-github.com/elliotchance/orderedmap v1.8.0 h1:TrOREecvh3JbS+NCgwposXG5ZTFHtEsQiCGOhPElnMw=
-github.com/elliotchance/orderedmap v1.8.0/go.mod h1:wsDwEaX5jEoyhbs7x93zk2H/qv0zwuhg4inXhDkYqys=
 github.com/emicklei/go-restful/v3 v3.13.0 h1:C4Bl2xDndpU6nJ4bc1jXd+uTmYPVUwkD6bFY/oTyCes=
 github.com/emicklei/go-restful/v3 v3.13.0/go.mod h1:6n3XBCmQQb25CM2LCACGz8ukIrRry+4bhvbpWn3mrbc=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
@@ -381,12 +379,10 @@ github.com/open-edge-platform/cluster-api-provider-intel v1.3.7 h1:7POHPix3ZKzfy
 github.com/open-edge-platform/cluster-api-provider-intel v1.3.7/go.mod h1:91YTJ7/juxSVVHoB5fd8NgkibyKRlTBbwS1Pjit/EHk=
 github.com/open-edge-platform/infra-core/inventory/v2 v2.35.1 h1:jBLsuc9+7FVW212d10cnaR+2p4XrTlgK3uWeJUMkwjY=
 github.com/open-edge-platform/infra-core/inventory/v2 v2.35.1/go.mod h1:wiWvyzTr13rOplddY7Mikmd46z5JR6sKDFdl2woEm1c=
-github.com/open-edge-platform/orch-library/go v0.6.4-0.20260331163258-bead22552759 h1:/MylPyaDQllnPSe0k8r9IB6k7elnGi1/9askIFbJxpY=
-github.com/open-edge-platform/orch-library/go v0.6.4-0.20260331163258-bead22552759/go.mod h1:qEGHc44CoKysPBKxLT+LYIOhI10ZZUEO0hH6S0suCdc=
+github.com/open-edge-platform/orch-library/go v0.6.4 h1:LRK01REF9S+M+Rowm7OLln9iOIMO/zAfzXCQVsP+awE=
+github.com/open-edge-platform/orch-library/go v0.6.4/go.mod h1:m8uUv9rr3vuJ69rVBvn9FWfe8K4m6zS9XGMxnEOBT7M=
 github.com/open-edge-platform/orch-library/go/dazl v0.5.4 h1:Rx/bSAZiLjEEBjUiJEzBvT0fQv5huT5FQ2Ke3IMUhiE=
 github.com/open-edge-platform/orch-library/go/dazl v0.5.4/go.mod h1:UiO3TOEqEuRT81OtgPsqR9LpB1887i5nk2TelhJksMY=
-github.com/open-edge-platform/orch-utils/tenancy-datamodel v1.2.2 h1:dcG+hO1F94nvF3BWYqfB6/wG8ERZIwJAlSCWW5vCS3w=
-github.com/open-edge-platform/orch-utils/tenancy-datamodel v1.2.2/go.mod h1:PEbcIDN/cTOpRWeIxKvnVqS3DRuwHSA1LyNgMQOfnGY=
 github.com/open-policy-agent/opa v1.15.2 h1:dS9q+0Yvruq/VNvWJc5qCvCchn715OWc3HLHXn/UCCc=
 github.com/open-policy-agent/opa v1.15.2/go.mod h1:c6SN+7jSsUcKJLQc5P4yhwx8YYDRbjpAiGkBOTqxaa4=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=
