@@ -36,6 +36,7 @@ jobs:
       run_docker_push: true
       run_helm_build: true
       run_helm_push: true
+      run_version_dev: true
       trivy_image_skip: |
         ghcr.io/github/github-mcp-server:latest,
         ghcr.io/github/gh-aw-mcpg:latest,
