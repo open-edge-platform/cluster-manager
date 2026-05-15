@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 #
 # SPDX-License-Identifier: Apache-2.0
 ---
@@ -6,8 +6,8 @@ apiVersion: v2
 name: cluster-template-crd
 description: A Helm chart for the ClusterTemplate CRD
 type: application
-version: 2.2.12
-appVersion: 2.2.12
+version: 2.2.14-dev
+appVersion: 2.2.14-dev
 annotations:
   revision: 1b411251d0aacd043faea4d705e0a0e2735c1dfa
   created: "2026-05-12T08:49:28Z"

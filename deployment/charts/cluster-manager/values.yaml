@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -107,8 +107,9 @@ clusterManager:
     clusterdomain: kind.internal
     username: admin
     inventory: inventory.orch-infra.svc.cluster.local:50051
-    # URL of the Nexus project service used to resolve project names to UUIDs
-    nexusApiUrl: "http://svc-iam-nexus-api-gw.orch-iam.svc.cluster.local:8082"
+    # URL of the Tenancy Manager REST API used to resolve project names to UUIDs
+    # (post-Nexus-replacement; flag name `-nexus-api-url` retained for backward compat).
+    nexusApiUrl: "http://tenancy-manager.orch-iam.svc:8080"
 
   service:
     rest:
