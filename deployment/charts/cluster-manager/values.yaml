@@ -80,6 +80,8 @@ clusterManager:
   containerSecurityContext:
     allowPrivilegeEscalation: false
     readOnlyRootFilesystem: true
+    runAsUser: 65532
+    runAsGroup: 65532
     seccompProfile:
       type: RuntimeDefault
     capabilities:
@@ -153,6 +155,8 @@ templateController:
   containerSecurityContext:
     allowPrivilegeEscalation: false
     readOnlyRootFilesystem: true
+    runAsUser: 65532
+    runAsGroup: 65532
     seccompProfile:
       type: RuntimeDefault
     capabilities:
@@ -250,6 +254,8 @@ openpolicyagent:
   security:
     allowPrivilegeEscalation: false
     readOnlyRootFilesystem: true
+    runAsUser: 65532
+    runAsGroup: 65532
     seccompProfile:
       type: RuntimeDefault
     capabilities:

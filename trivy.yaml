@@ -2,8 +2,13 @@
 # Copyright (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+# Point all trivy invocations (including CI) at the shared ignore file
+ignoreFile: .trivyignore
+
 scan:
   # Same as '--skip-dirs'
   # Default is empty
   skip-dirs:
+    - build/
     - gitleaks_baselines/
+    - vendor/
