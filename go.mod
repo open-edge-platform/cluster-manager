@@ -18,7 +18,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.28.3
 	github.com/onsi/gomega v1.40.0
 	github.com/open-edge-platform/cluster-api-provider-intel v1.3.7
-	github.com/open-edge-platform/infra-core/inventory/v2 v2.35.1
+	github.com/open-edge-platform/infra-core/inventory/v2 v2.35.5
 	github.com/open-edge-platform/orch-library/go v0.6.4
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.6.0
