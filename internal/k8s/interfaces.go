@@ -14,6 +14,8 @@ import (
 // K8sWrapperClient defines the interface for k8s client operations needed by other packages
 type K8sWrapperClient interface {
 	GetMachineByHostID(ctx context.Context, namespace, hostID string) (capi.Machine, error)
+	GetMachineByProviderHostID(ctx context.Context, namespace, hostID string) (capi.Machine, error)
+	GetCluster(ctx context.Context, namespace, name string) (*capi.Cluster, error)
 	DeleteCluster(ctx context.Context, namespace string, clusterName string) error
 	SetMachineLabels(ctx context.Context, namespace string, machineName string, newUserLabels map[string]string) error
 }

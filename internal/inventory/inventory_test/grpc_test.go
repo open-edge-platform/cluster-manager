@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	capi "sigs.k8s.io/cluster-api/api/core/v1beta1"
 
 	computev1 "github.com/open-edge-platform/infra-core/inventory/v2/pkg/api/compute/v1"
@@ -21,6 +22,7 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/internal/events"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/inventory"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
 	mocks "github.com/open-edge-platform/cluster-manager/v2/internal/mocks/client"
 	"github.com/open-edge-platform/infra-core/inventory/v2/pkg/client"
 )
@@ -289,8 +291,13 @@ func TestWatchHosts_DeleteClusterOnDeauthorizedHost(t *testing.T) {
 	cases := []struct {
 		name                string
 		hostState           computev1.HostState
+		eventKind           inventoryv1.SubscribeEventsResponse_EventKind
 		machine             *capi.Machine
+		fallbackMachine     *capi.Machine
+		cluster             *capi.Cluster
 		getMachineError     error
+		fallbackLookupError error
+		getClusterError     error
 		deleteClusterError  error
 		expectDeleteCluster bool
 		expectWarning       bool
@@ -298,9 +305,15 @@ func TestWatchHosts_DeleteClusterOnDeauthorizedHost(t *testing.T) {
 		{
 			name:      "deauthorized host with assigned cluster - successful deletion",
 			hostState: computev1.HostState_HOST_STATE_UNTRUSTED,
+			eventKind: inventoryv1.SubscribeEventsResponse_EVENT_KIND_UPDATED,
 			machine: &capi.Machine{
 				Spec: capi.MachineSpec{
 					ClusterName: "test-cluster",
+				},
+			},
+			cluster: &capi.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{labels.AutoCreatedLabelKey: "true"},
 				},
 			},
 			expectDeleteCluster: true,
@@ -308,6 +321,7 @@ func TestWatchHosts_DeleteClusterOnDeauthorizedHost(t *testing.T) {
 		{
 			name:      "deauthorized host with no assigned cluster",
 			hostState: computev1.HostState_HOST_STATE_UNTRUSTED,
+			eventKind: inventoryv1.SubscribeEventsResponse_EVENT_KIND_UPDATED,
 			machine: &capi.Machine{
 				Spec: capi.MachineSpec{
 					ClusterName: "", // No cluster assigned
@@ -318,16 +332,41 @@ func TestWatchHosts_DeleteClusterOnDeauthorizedHost(t *testing.T) {
 		{
 			name:                "deauthorized host - machine not found",
 			hostState:           computev1.HostState_HOST_STATE_UNTRUSTED,
+			eventKind:           inventoryv1.SubscribeEventsResponse_EVENT_KIND_UPDATED,
 			getMachineError:     errors.New("machine not found"),
+			fallbackLookupError: errors.New("machine not found"),
 			expectDeleteCluster: false,
 			expectWarning:       true,
 		},
 		{
+			name:      "deauthorized host fallback machine lookup succeeds",
+			hostState: computev1.HostState_HOST_STATE_UNTRUSTED,
+			eventKind: inventoryv1.SubscribeEventsResponse_EVENT_KIND_UPDATED,
+			getMachineError: errors.New("machine not found"),
+			fallbackMachine: &capi.Machine{
+				Spec: capi.MachineSpec{
+					ClusterName: "test-cluster",
+				},
+			},
+			cluster: &capi.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{labels.AutoCreatedLabelKey: "true"},
+				},
+			},
+			expectDeleteCluster: true,
+		},
+		{
 			name:      "deauthorized host - cluster deletion fails",
 			hostState: computev1.HostState_HOST_STATE_UNTRUSTED,
+			eventKind: inventoryv1.SubscribeEventsResponse_EVENT_KIND_UPDATED,
 			machine: &capi.Machine{
 				Spec: capi.MachineSpec{
 					ClusterName: "test-cluster",
+				},
+			},
+			cluster: &capi.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{labels.AutoCreatedLabelKey: "true"},
 				},
 			},
 			deleteClusterError:  errors.New("failed to delete cluster"),
@@ -335,8 +374,57 @@ func TestWatchHosts_DeleteClusterOnDeauthorizedHost(t *testing.T) {
 			expectWarning:       true,
 		},
 		{
-			name:                "authorized host - no cluster deletion",
+			name:      "deauthorized host assigned non auto-created cluster",
+			hostState: computev1.HostState_HOST_STATE_UNTRUSTED,
+			eventKind: inventoryv1.SubscribeEventsResponse_EVENT_KIND_UPDATED,
+			machine: &capi.Machine{
+				Spec: capi.MachineSpec{
+					ClusterName: "test-cluster",
+				},
+			},
+			cluster: &capi.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{},
+				},
+			},
+			expectDeleteCluster: false,
+		},
+		{
+			name:      "deleted event with auto-created cluster deletes cluster",
+			hostState: computev1.HostState_HOST_STATE_ONBOARDED,
+			eventKind: inventoryv1.SubscribeEventsResponse_EVENT_KIND_DELETED,
+			machine: &capi.Machine{
+				Spec: capi.MachineSpec{
+					ClusterName: "test-cluster",
+				},
+			},
+			cluster: &capi.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{labels.AutoCreatedLabelKey: "true"},
+				},
+			},
+			expectDeleteCluster: true,
+		},
+		{
+			name:      "deleted event with non auto-created cluster skips deletion",
+			hostState: computev1.HostState_HOST_STATE_ONBOARDED,
+			eventKind: inventoryv1.SubscribeEventsResponse_EVENT_KIND_DELETED,
+			machine: &capi.Machine{
+				Spec: capi.MachineSpec{
+					ClusterName: "test-cluster",
+				},
+			},
+			cluster: &capi.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{},
+				},
+			},
+			expectDeleteCluster: false,
+		},
+		{
+			name:                "authorized updated host - no cluster deletion",
 			hostState:           computev1.HostState_HOST_STATE_ONBOARDED,
+			eventKind:           inventoryv1.SubscribeEventsResponse_EVENT_KIND_UPDATED,
 			expectDeleteCluster: false,
 		},
 	}
@@ -352,24 +440,49 @@ func TestWatchHosts_DeleteClusterOnDeauthorizedHost(t *testing.T) {
 			}
 
 			// Set up mocks based on test case
-			if tc.hostState == computev1.HostState_HOST_STATE_UNTRUSTED {
+			cleanupAttempted := tc.hostState == computev1.HostState_HOST_STATE_UNTRUSTED ||
+				tc.eventKind == inventoryv1.SubscribeEventsResponse_EVENT_KIND_DELETED
+
+			if cleanupAttempted {
+				var resolvedMachine *capi.Machine
 				if tc.getMachineError != nil {
 					mockK8sClient.On("GetMachineByHostID", mock.Anything, testHost.TenantId, testHost.ResourceId).
 						Return(capi.Machine{}, tc.getMachineError).Once()
+
+					if tc.fallbackMachine != nil {
+						resolvedMachine = tc.fallbackMachine
+						mockK8sClient.On("GetMachineByProviderHostID", mock.Anything, testHost.TenantId, testHost.ResourceId).
+							Return(*tc.fallbackMachine, nil).Once()
+					} else if tc.fallbackLookupError != nil {
+						mockK8sClient.On("GetMachineByProviderHostID", mock.Anything, testHost.TenantId, testHost.ResourceId).
+							Return(capi.Machine{}, tc.fallbackLookupError).Once()
+					}
 				} else if tc.machine != nil {
+					resolvedMachine = tc.machine
 					mockK8sClient.On("GetMachineByHostID", mock.Anything, testHost.TenantId, testHost.ResourceId).
 						Return(*tc.machine, nil).Once()
+				}
 
-					if tc.expectDeleteCluster && tc.machine.Spec.ClusterName != "" {
+				if resolvedMachine != nil && resolvedMachine.Spec.ClusterName != "" {
+					clusterName := resolvedMachine.Spec.ClusterName
+					if tc.getClusterError != nil {
+						mockK8sClient.On("GetCluster", mock.Anything, testHost.TenantId, clusterName).
+							Return((*capi.Cluster)(nil), tc.getClusterError).Once()
+					} else {
+						mockK8sClient.On("GetCluster", mock.Anything, testHost.TenantId, clusterName).
+							Return(tc.cluster, nil).Once()
+					}
+
+					if tc.expectDeleteCluster {
 						if tc.deleteClusterError != nil {
-							mockK8sClient.On("DeleteCluster", mock.Anything, testHost.TenantId, tc.machine.Spec.ClusterName).
+							mockK8sClient.On("DeleteCluster", mock.Anything, testHost.TenantId, clusterName).
 								Return(tc.deleteClusterError).Once()
 						} else {
-							mockK8sClient.On("DeleteCluster", mock.Anything, testHost.TenantId, tc.machine.Spec.ClusterName).
+							mockK8sClient.On("DeleteCluster", mock.Anything, testHost.TenantId, clusterName).
 								Return(nil).Once()
 						}
 					}
-				}
+			}
 			}
 
 			// Create inventory client with mocked k8s client
@@ -381,7 +494,7 @@ func TestWatchHosts_DeleteClusterOnDeauthorizedHost(t *testing.T) {
 			// Create the watch event that would come from the inventory service
 			watchEvent := &client.WatchEvents{
 				Event: &inventoryv1.SubscribeEventsResponse{
-					EventKind: inventoryv1.SubscribeEventsResponse_EVENT_KIND_UPDATED, // Or CREATED
+					EventKind: tc.eventKind,
 					Resource: &inventoryv1.Resource{
 						Resource: &inventoryv1.Resource_Host{
 							Host: testHost,

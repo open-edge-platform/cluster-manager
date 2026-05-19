@@ -12,6 +12,7 @@ const (
 	DefaultLabelVal = "true"
 
 	PlatformPrefix               = "edge-orchestrator.intel.com"
+	AutoCreatedLabelKey          = PlatformPrefix + "/auto-created"
 	PrometheusMetricsUrlLabelKey = "prometheusMetricsURL"
 	PrometheusMetricsSubdomain   = "metrics-node"
 	TrustedComputeLabelKey       = "trusted-compute-compatible"
