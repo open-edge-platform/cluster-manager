@@ -9,5 +9,5 @@ type: application
 version: 2.2.14-dev
 appVersion: 2.2.14-dev
 annotations:
-  revision: ae0687475d12a8a294657571e04bb10ceda98e8c
-  created: "2026-05-16T05:24:06Z"
+  revision: e072244eb51ce195ec25a85c94928950cae8ecc6
+  created: "2026-05-19T12:12:04Z"
