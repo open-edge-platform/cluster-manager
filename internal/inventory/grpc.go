@@ -8,10 +8,13 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/events"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
 	computev1 "github.com/open-edge-platform/infra-core/inventory/v2/pkg/api/compute/v1"
 	inventoryv1 "github.com/open-edge-platform/infra-core/inventory/v2/pkg/api/inventory/v1"
 	osv1 "github.com/open-edge-platform/infra-core/inventory/v2/pkg/api/os/v1"
@@ -22,6 +25,7 @@ import (
 const (
 	clientName              = "ClusterManagerInventoryClient"
 	defaultInventoryTimeout = 5 * time.Second
+	autoCreatedLabelValue   = "true"
 )
 
 var (
@@ -194,25 +198,10 @@ func (c *InventoryClient) WatchHosts(hostEvents chan<- events.Event) {
 					slog.Warn("failed to validate host resource", "error", err)
 					continue
 				}
-				// delete the cluster assigned to deauth host if one exists
+				// Delete the assigned cluster only when it is explicitly marked as auto-created.
 				if host.CurrentState == computev1.HostState_HOST_STATE_UNTRUSTED {
 					slog.Info("host is deauthenticating, performing cleanup", "hostId", host.ResourceId, "tenantId", host.TenantId)
-					// get the name of cluster assigned to the host
-					machine, err := c.k8sclient.GetMachineByHostID(context.TODO(), host.TenantId, host.ResourceId)
-					if err != nil {
-						slog.Warn("failed to get machine by host id", "error", err, "hostId", host.ResourceId, "tenantId", host.TenantId)
-						continue
-					}
-					if machine.Spec.ClusterName != "" {
-						// TODO: for multi-node, if cluster replicas > 1, remove IntelMachineBinding and decrement replicas
-						// delete the cluster
-						slog.Info("deauthenticating host, deleting assigned cluster if one exists", "hostId", host.ResourceId, "tenantId", host.TenantId, "cluster", machine.Spec.ClusterName)
-						if err := c.k8sclient.DeleteCluster(context.TODO(), host.TenantId, machine.Spec.ClusterName); err != nil {
-							slog.Warn("failed to delete cluster", "error", err, "cluster", machine.Spec.ClusterName, "tenantId", host.TenantId)
-							continue
-						}
-						slog.Info("deleted cluster assigned to deauthenticating host", "hostId", host.ResourceId, "tenantId", host.TenantId, "cluster", machine.Spec.ClusterName)
-					}
+					c.cleanupHostAssignedCluster(context.TODO(), host, "host-state-untrusted")
 					continue
 				}
 				switch event.Event.EventKind {
@@ -226,6 +215,7 @@ func (c *InventoryClient) WatchHosts(hostEvents chan<- events.Event) {
 					}
 				case inventoryv1.SubscribeEventsResponse_EVENT_KIND_DELETED:
 					slog.Debug("host deleted event", "name", host.Name, "hostid", host.ResourceId)
+					c.cleanupHostAssignedCluster(context.TODO(), host, "host-event-deleted")
 					hostEvents <- HostDeleted{
 						HostEventBase: HostEventBase{
 							HostId:    host.ResourceId,
@@ -258,6 +248,90 @@ func (c *InventoryClient) WatchHosts(hostEvents chan<- events.Event) {
 			}
 		}
 	}()
+}
+
+func (c *InventoryClient) cleanupHostAssignedCluster(ctx context.Context, host *computev1.HostResource, reason string) {
+	machine, err := c.k8sclient.GetMachineByHostID(ctx, host.TenantId, host.ResourceId)
+	if err != nil {
+		if !isNotFoundErr(err) {
+			slog.Warn("failed to get machine by host id", "error", err, "hostId", host.ResourceId, "tenantId", host.TenantId, "reason", reason)
+			return
+		}
+
+		slog.Info("machine lookup by node ref missed, trying provider annotation fallback", "hostId", host.ResourceId, "tenantId", host.TenantId, "reason", reason)
+		machine, err = c.k8sclient.GetMachineByProviderHostID(ctx, host.TenantId, host.ResourceId)
+		if err != nil {
+			if isNotFoundErr(err) {
+				slog.Info("no machine found for host after fallback lookup, skipping cleanup", "hostId", host.ResourceId, "tenantId", host.TenantId, "reason", reason)
+				return
+			}
+			slog.Warn("failed fallback machine lookup by provider host id", "error", err, "hostId", host.ResourceId, "tenantId", host.TenantId, "reason", reason)
+			return
+		}
+
+		slog.Info("resolved machine via provider annotation fallback", "hostId", host.ResourceId, "tenantId", host.TenantId, "cluster", machine.Spec.ClusterName, "reason", reason)
+	}
+
+	clusterName := machine.Spec.ClusterName
+	if clusterName == "" {
+		slog.Debug("machine has no assigned cluster, skipping cleanup", "hostId", host.ResourceId, "tenantId", host.TenantId, "reason", reason)
+		return
+	}
+
+	cluster, err := c.k8sclient.GetCluster(ctx, host.TenantId, clusterName)
+	if err != nil {
+		if errors.Is(err, k8s.ErrClusterNotFound) || isNotFoundErr(err) {
+			slog.Info("assigned cluster already absent, skipping cleanup", "cluster", clusterName, "hostId", host.ResourceId, "tenantId", host.TenantId, "reason", reason)
+			return
+		}
+		slog.Warn("failed to fetch assigned cluster", "error", err, "cluster", clusterName, "hostId", host.ResourceId, "tenantId", host.TenantId, "reason", reason)
+		return
+	}
+
+	if cluster == nil {
+		slog.Warn("assigned cluster lookup returned nil", "cluster", clusterName, "hostId", host.ResourceId, "tenantId", host.TenantId, "reason", reason)
+		return
+	}
+
+	if !isAutoCreatedCluster(cluster.Labels) {
+		slog.Info("assigned cluster is not auto-created, skipping cleanup", "cluster", clusterName, "hostId", host.ResourceId, "tenantId", host.TenantId, "reason", reason)
+		return
+	}
+
+	// TODO: for multi-node, if cluster replicas > 1, remove IntelMachineBinding and decrement replicas
+	slog.Info("deleting assigned auto-created cluster", "cluster", clusterName, "hostId", host.ResourceId, "tenantId", host.TenantId, "reason", reason)
+	if err := c.k8sclient.DeleteCluster(ctx, host.TenantId, clusterName); err != nil {
+		if errors.Is(err, k8s.ErrClusterNotFound) || isNotFoundErr(err) {
+			slog.Info("assigned cluster already deleted", "cluster", clusterName, "hostId", host.ResourceId, "tenantId", host.TenantId, "reason", reason)
+			return
+		}
+		slog.Warn("failed to delete assigned cluster", "error", err, "cluster", clusterName, "tenantId", host.TenantId, "reason", reason)
+		return
+	}
+
+	slog.Info("deleted assigned auto-created cluster", "cluster", clusterName, "hostId", host.ResourceId, "tenantId", host.TenantId, "reason", reason)
+}
+
+func isAutoCreatedCluster(clusterLabels map[string]string) bool {
+	if clusterLabels == nil {
+		return false
+	}
+
+	v, exists := clusterLabels[labels.AutoCreatedLabelKey]
+	if !exists {
+		return false
+	}
+
+	isAutoCreated, err := strconv.ParseBool(v)
+	if err != nil {
+		return strings.EqualFold(v, autoCreatedLabelValue)
+	}
+
+	return isAutoCreated
+}
+
+func isNotFoundErr(err error) bool {
+	return strings.Contains(strings.ToLower(err.Error()), "not found")
 }
 
 func JsonStringToMap(jsonString string) (map[string]string, error) {

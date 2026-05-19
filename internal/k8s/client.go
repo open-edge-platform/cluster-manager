@@ -40,6 +40,7 @@ const (
 	rateLimiterBurst = "RATE_LIMITER_BURST"
 	defaultQPS       = 30
 	defaultBurst     = 100
+	hostIDAnnotation = "intelmachine.infrastructure.cluster.x-k8s.io/host-id"
 )
 
 var ErrDefaultTemplateNotFound = fmt.Errorf("default template not found")
@@ -441,6 +442,80 @@ func (c *Client) GetMachineByHostID(ctx context.Context, namespace, hostID strin
 		}
 	}
 	return capi.Machine{}, fmt.Errorf("machine with host ID %s not found", hostID)
+}
+
+// GetMachineByProviderHostID returns a machine by matching provider machine host-id annotation.
+func (c *Client) GetMachineByProviderHostID(ctx context.Context, namespace, hostID string) (capi.Machine, error) {
+	opts := metav1.ListOptions{}
+	unstructuredMachinesList, err := c.Dyn.Resource(machineResourceSchema).Namespace(namespace).List(ctx, opts)
+	if err != nil {
+		return capi.Machine{}, err
+	}
+
+	matched := []capi.Machine{}
+	for _, item := range unstructuredMachinesList.Items {
+		var machine capi.Machine
+		if err := convert.FromUnstructured(item, &machine); err != nil {
+			continue
+		}
+
+		providerMachineName := machine.Spec.InfrastructureRef.Name
+		providerMachineKind := machine.Spec.InfrastructureRef.Kind
+		if providerMachineName == "" || providerMachineKind == "" {
+			continue
+		}
+
+		providerHostID, ok := c.providerHostIDFromMachine(ctx, namespace, providerMachineKind, providerMachineName)
+		if !ok {
+			continue
+		}
+
+		if providerHostID == hostID {
+			matched = append(matched, machine)
+		}
+	}
+
+	if len(matched) == 1 {
+		return matched[0], nil
+	}
+
+	if len(matched) > 1 {
+		return capi.Machine{}, fmt.Errorf("multiple machines found with provider host ID %s", hostID)
+	}
+
+	return capi.Machine{}, fmt.Errorf("machine with provider host ID %s not found", hostID)
+}
+
+func (c *Client) providerHostIDFromMachine(ctx context.Context, namespace, kind, name string) (string, bool) {
+	var annotations map[string]string
+
+	switch kind {
+	case "IntelMachine":
+		providerMachine, err := c.IntelMachine(ctx, namespace, name)
+		if err != nil {
+			return "", false
+		}
+		annotations = providerMachine.Annotations
+	case "DockerMachine":
+		providerMachine, err := c.DockerMachine(ctx, namespace, name)
+		if err != nil {
+			return "", false
+		}
+		annotations = providerMachine.Annotations
+	default:
+		return "", false
+	}
+
+	if annotations == nil {
+		return "", false
+	}
+
+	hostID, found := annotations[hostIDAnnotation]
+	if !found || hostID == "" {
+		return "", false
+	}
+
+	return hostID, true
 }
 
 // GetMachines returns the machine with the given name in the given namespace for the given cluster
