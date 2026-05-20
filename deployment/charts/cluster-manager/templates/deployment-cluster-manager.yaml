@@ -134,6 +134,9 @@ spec:
         - name: OPA_PORT
           value: {{ .Values.openpolicyagent.port | quote }}
         {{- end}}
+        {{- with .Values.clusterManager.extraEnv }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- if .Values.openpolicyagent.enabled }}
       - name: openpolicyagent
         {{- with .Values.openpolicyagent }}

@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
+// keeping here for now just to test but move to orch-library if we want to reuse in other places, 
+// or remove if we decide to keep this logic in the manager  instead of the client
 package tenancyclient
 
 import (

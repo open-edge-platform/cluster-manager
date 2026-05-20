@@ -29,6 +29,13 @@ import (
 
 const controllerName = "cluster-manager"
 
+const (
+	tenancyRuntimeModeEnv = "TENANCY_RUNTIME_MODE"
+	modeAuto              = "auto"
+	modeLegacy            = "legacy"
+	modePoller            = "poller"
+)
+
 // version injected at build time
 var version string
 
@@ -110,6 +117,32 @@ func initializeMultitenancy(ctx context.Context, config *config.Config) {
 		os.Exit(2)
 	}
 
+	runtimeMode := strings.ToLower(strings.TrimSpace(os.Getenv(tenancyRuntimeModeEnv)))
+	if runtimeMode == "" {
+		runtimeMode = modeAuto
+	}
+
+	if runtimeMode == modeLegacy || runtimeMode == modeAuto {
+		if err := handler.Start(); err == nil {
+			slog.Info("multitenancy running in legacy watcher mode")
+			go func() {
+				<-ctx.Done()
+				handler.Stop()
+			}()
+			return
+		} else if runtimeMode == modeLegacy {
+			slog.Error("legacy watcher mode failed", "error", err)
+			os.Exit(2)
+		} else {
+			slog.Warn("legacy watcher mode unavailable, falling back to poller mode", "error", err)
+		}
+	}
+
+	if runtimeMode != modePoller && runtimeMode != modeAuto {
+		slog.Error("invalid tenancy runtime mode", "mode", runtimeMode, "allowed", []string{modeAuto, modeLegacy, modePoller})
+		os.Exit(2)
+	}
+
 	candidates := []string{}
 	if env := os.Getenv("TENANT_MANAGER_URL"); env != "" {
 		candidates = append(candidates, env)
@@ -147,6 +180,7 @@ func initializeMultitenancy(ctx context.Context, config *config.Config) {
 			slog.Error("tenancy poller stopped unexpectedly", "error", err)
 		}
 	}()
+	slog.Info("multitenancy running in poller mode", "mode", runtimeMode)
 }
 
 func initializeK8sClient() *k8s.Client {
