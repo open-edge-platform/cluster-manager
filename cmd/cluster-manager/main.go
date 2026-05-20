@@ -5,16 +5,18 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
+	"time"
 
-	"github.com/open-edge-platform/orch-library/go/pkg/tenancy"
-
+	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/labels"
@@ -22,6 +24,7 @@ import (
 	"github.com/open-edge-platform/cluster-manager/v2/internal/mocks"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/multitenancy"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/rest"
+	"github.com/open-edge-platform/cluster-manager/v2/internal/tenancyclient"
 )
 
 const controllerName = "cluster-manager"
@@ -107,13 +110,28 @@ func initializeMultitenancy(ctx context.Context, config *config.Config) {
 		os.Exit(2)
 	}
 
-	tenantManagerURL := os.Getenv("TENANT_MANAGER_URL")
-	if tenantManagerURL == "" {
-		tenantManagerURL = "http://tenancy-manager.orch-iam:8080"
+	candidates := []string{}
+	if env := os.Getenv("TENANT_MANAGER_URL"); env != "" {
+		candidates = append(candidates, env)
+	}
+	if config.ProjectServiceURL != "" {
+		candidates = append(candidates, config.ProjectServiceURL)
+	}
+	candidates = append(candidates,
+		"http://svc-iam-nexus-api-gw.orch-iam.svc.cluster.local:8082",
+		"http://tenancy-manager.orch-iam.svc:8080",
+	)
+
+	tenantManagerURL := pickReachableURL(candidates)
+	slog.Info("resolved tenancy manager url", "url", tenantManagerURL)
+
+	tokenProvider := func(ctx context.Context) (string, error) {
+		return auth.JwtTokenWithM2M(ctx, nil)
 	}
 
-	poller, err := tenancy.NewPoller(tenantManagerURL, controllerName, handler,
-		func(cfg *tenancy.PollerConfig) {
+	poller, err := tenancyclient.NewAuthPoller(tenantManagerURL, controllerName, handler,
+		tokenProvider,
+		func(cfg *tenancyclient.PollerConfig) {
 			cfg.OnError = func(err error, msg string) {
 				slog.Error("tenancy poller error", "msg", msg, "error", err)
 			}
@@ -125,7 +143,7 @@ func initializeMultitenancy(ctx context.Context, config *config.Config) {
 	}
 
 	go func() {
-		if err := poller.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+		if err := poller.Run(ctx); err != nil && err != context.Canceled {
 			slog.Error("tenancy poller stopped unexpectedly", "error", err)
 		}
 	}()
@@ -138,4 +156,39 @@ func initializeK8sClient() *k8s.Client {
 		os.Exit(3)
 	}
 	return k8sclient
+}
+
+func pickReachableURL(candidates []string) string {
+	timeout := 2 * time.Second
+	for _, c := range candidates {
+		if c == "" {
+			continue
+		}
+
+		u, err := url.Parse(c)
+		if err != nil || u.Host == "" {
+			continue
+		}
+
+		host := u.Host
+		if !strings.Contains(host, ":") {
+			if u.Scheme == "https" {
+				host += ":443"
+			} else {
+				host += ":80"
+			}
+		}
+
+		conn, err := net.DialTimeout("tcp", host, timeout)
+		if err == nil {
+			_ = conn.Close()
+			return c
+		}
+	}
+
+	if len(candidates) > 0 {
+		return candidates[0]
+	}
+
+	return ""
 }
