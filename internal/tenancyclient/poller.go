@@ -182,16 +182,8 @@ func (p *Poller) doGet(ctx context.Context, reqURL string) (*eventsResponse, err
         slog.Info("doGet request missing active project id header", "url", reqURL)
     }
 
-    // debug: surface whether Authorization header is set on the outgoing request
-    if ah := req.Header.Get("Authorization"); ah == "" {
-        slog.Info("doGet request missing Authorization header", "url", reqURL)
-    } else {
-        prefix := ah
-        if len(prefix) > 64 {
-            prefix = prefix[:64]
-        }
-        slog.Info("doGet request has Authorization header", "url", reqURL, "auth_prefix", prefix)
-    }
+    hasAuthHeader := req.Header.Get("Authorization") != ""
+    slog.Debug("doGet authorization header status", "url", reqURL, "authorization_header_present", hasAuthHeader)
 
     resp, err := p.client.Do(req)
     if err != nil {

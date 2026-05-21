@@ -22,7 +22,7 @@ import (
 
 func RunAuthServer() {
 	mockCmd := flag.NewFlagSet("mock-server", flag.ExitOnError)
-	mockType := mockCmd.String("type", "", "Type of mock server: keycloak or vault")
+	mockType := mockCmd.String("type", "", "Type of mock server: keycloak, vault or tenancy")
 	port := mockCmd.Int("port", 8080, "Port to listen on")
 
 	if err := mockCmd.Parse(os.Args[2:]); err != nil {
@@ -34,8 +34,10 @@ func RunAuthServer() {
 		runKeycloakMock(*port)
 	} else if *mockType == "vault" {
 		runVaultMock(*port)
+	} else if *mockType == "tenancy" {
+		runTenancyMock(*port)
 	} else {
-		slog.Error("Invalid mock type. Use -type=keycloak or -type=vault")
+		slog.Error("Invalid mock type. Use -type=keycloak, -type=vault or -type=tenancy")
 		os.Exit(1)
 	}
 }
@@ -267,4 +269,26 @@ func handleVaultSecret(w http.ResponseWriter, r *http.Request) {
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
+}
+
+// Tenancy Mock
+func runTenancyMock(port int) {
+	http.HandleFunc("/", handleTenancyMock)
+	http.HandleFunc("/health", handleHealth)
+
+	addr := fmt.Sprintf(":%d", port)
+	slog.Info("Starting Tenancy mock", "addr", addr)
+	if err := http.ListenAndServe(addr, nil); err != nil {
+		slog.Error("server failed", "error", err)
+		os.Exit(1)
+	}
+}
+
+func handleTenancyMock(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if envResponse := os.Getenv("TENANCY_MOCK_RESPONSE"); envResponse != "" {
+		_, _ = w.Write([]byte(envResponse))
+		return
+	}
+	_, _ = w.Write([]byte(`{"events":[],"lastEventId":0}`))
 }

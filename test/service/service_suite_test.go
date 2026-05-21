@@ -259,6 +259,214 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 		})
 	})
 
+	Context("Poller mode event handling integration", func() {
+		It("Should process replayed project-created event and set up project resources", func() {
+			// run poller event-handling integration test in isolation
+
+			projectID := uuid.New().String()
+			mockTenancyName := fmt.Sprintf("tenancy-mock-%d", time.Now().UnixNano())
+			tempDeploymentName := fmt.Sprintf("cluster-manager-poller-events-%d", time.Now().UnixNano())
+			tempLabel := tempDeploymentName
+			mockURL := fmt.Sprintf("http://%s.default.svc.cluster.local:8080", mockTenancyName)
+
+			defer func() {
+				_ = exec.Command("kubectl", "delete", "deployment", tempDeploymentName, "-n", "default", "--wait=false").Run()
+				_ = exec.Command("kubectl", "delete", "service", mockTenancyName, "-n", "default", "--wait=false").Run()
+				_ = exec.Command("kubectl", "delete", "deployment", mockTenancyName, "-n", "default", "--wait=false").Run()
+				_ = exec.Command("kubectl", "delete", "namespace", projectID, "--wait=false").Run()
+			}()
+
+			payload := fmt.Sprintf(`{"events":[{"id":1,"eventType":"created","resourceType":"project","resourceId":"%s","resourceName":"poller-it-project","orgId":null,"orgName":null,"folderId":null,"createdAt":"%s"}],"lastEventId":1}`,
+				projectID,
+				time.Now().UTC().Format(time.RFC3339Nano),
+			)
+
+			out, err := exec.Command("kubectl", "get", "deployment", "cluster-manager", "-n", "default", "-o", "json").Output()
+			Expect(err).ToNot(HaveOccurred(), "Failed to get base deployment")
+
+			var deploy map[string]interface{}
+			err = json.Unmarshal(out, &deploy)
+			Expect(err).ToNot(HaveOccurred())
+
+			spec := deploy["spec"].(map[string]interface{})
+			template := spec["template"].(map[string]interface{})
+			podSpec := template["spec"].(map[string]interface{})
+			containers := podSpec["containers"].([]interface{})
+			mainContainerIdx := -1
+			for i, c := range containers {
+				container, ok := c.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				name, _ := container["name"].(string)
+				if name == "cluster-manager" {
+					mainContainerIdx = i
+					break
+				}
+			}
+			Expect(mainContainerIdx).To(BeNumerically(">=", 0), "Failed to find cluster-manager container in base deployment")
+			mainContainer := containers[mainContainerIdx].(map[string]interface{})
+			cmImage, _ := mainContainer["image"].(string)
+			Expect(cmImage).ToNot(BeEmpty(), "Failed to extract image name from base deployment")
+
+			// Use the cluster-manager's built-in mock-server to act as the tenancy mock
+			mockManifest := fmt.Sprintf(`apiVersion: apps/v1
+kind: Deployment
+metadata:
+	name: %s
+	namespace: default
+spec:
+	replicas: 1
+	selector:
+		matchLabels:
+			app: %s
+	template:
+		metadata:
+			labels:
+				app: %s
+		spec:
+			containers:
+			- name: tenancy-mock
+				image: %s
+				imagePullPolicy: IfNotPresent
+				command: ["/cluster-manager", "mock-server", "-type=tenancy", "-port=8080"]
+				env:
+				- name: TENANCY_MOCK_RESPONSE
+					value: %q
+---
+apiVersion: v1
+kind: Service
+metadata:
+	name: %s
+	namespace: default
+spec:
+	selector:
+		app: %s
+	ports:
+	- port: 8080
+		targetPort: 8080
+`, mockTenancyName, mockTenancyName, mockTenancyName, cmImage, payload, mockTenancyName, mockTenancyName)
+
+			// Replace tabs with spaces so YAML indentation is valid, then write manifest to a temporary file
+			mockManifest = strings.ReplaceAll(mockManifest, "\t", "  ")
+			if err := os.WriteFile("/tmp/tenancy-mock.yaml", []byte(mockManifest), 0644); err != nil {
+				Fail(fmt.Sprintf("failed to write tenancy mock manifest: %v", err))
+			}
+
+			applyMock := exec.Command("kubectl", "apply", "-f", "/tmp/tenancy-mock.yaml")
+			out, err = applyMock.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred(), "Failed to apply tenancy mock resources: %s", string(out))
+
+			rolloutMock := exec.Command("kubectl", "rollout", "status", "deployment/"+mockTenancyName, "-n", "default", "--timeout=90s")
+			out, err = rolloutMock.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred(), "Tenancy mock deployment failed to start: %s", string(out))
+
+			metadata := deploy["metadata"].(map[string]interface{})
+			metadata["name"] = tempDeploymentName
+			metadata["resourceVersion"] = ""
+			metadata["uid"] = ""
+
+			spec = deploy["spec"].(map[string]interface{})
+			spec["replicas"] = float64(1)
+			spec["selector"] = map[string]interface{}{
+				"matchLabels": map[string]string{"app": tempLabel},
+			}
+
+			template = spec["template"].(map[string]interface{})
+			template["metadata"].(map[string]interface{})["labels"] = map[string]string{"app": tempLabel}
+
+			podSpec = template["spec"].(map[string]interface{})
+			delete(podSpec, "initContainers")
+
+			containers = podSpec["containers"].([]interface{})
+			mainContainerIdx = -1
+			for i, c := range containers {
+				container, ok := c.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				name, _ := container["name"].(string)
+				if name == "cluster-manager" {
+					mainContainerIdx = i
+					break
+				}
+			}
+			Expect(mainContainerIdx).To(BeNumerically(">=", 0), "Failed to find cluster-manager container in temp deployment")
+
+			mainContainer = containers[mainContainerIdx].(map[string]interface{})
+			env := mainContainer["env"].([]interface{})
+			args := mainContainer["args"].([]interface{})
+
+			upsertEnv := func(name, value string) {
+				for i, e := range env {
+					em := e.(map[string]interface{})
+					if em["name"] == name {
+						env[i] = map[string]interface{}{"name": name, "value": value}
+						return
+					}
+				}
+				env = append(env, map[string]interface{}{"name": name, "value": value})
+			}
+
+			upsertArg := func(flagName, value string) {
+				for i, a := range args {
+					s, ok := a.(string)
+					if !ok {
+						continue
+					}
+					if strings.HasPrefix(s, flagName+"=") || s == flagName {
+						args[i] = fmt.Sprintf("%s=%s", flagName, value)
+						return
+					}
+				}
+				args = append(args, fmt.Sprintf("%s=%s", flagName, value))
+			}
+
+			upsertEnv("DISABLE_MULTITENANCY", "false")
+			upsertEnv("TENANCY_RUNTIME_MODE", "poller")
+			upsertEnv("TENANT_MANAGER_URL", mockURL)
+			upsertArg("--disable-multi-tenancy", "false")
+			upsertArg("--disable-mt", "false")
+
+			mainContainer["env"] = env
+			mainContainer["args"] = args
+			containers[mainContainerIdx] = mainContainer
+			podSpec["containers"] = containers
+
+			deployJSON, err := json.Marshal(deploy)
+			Expect(err).ToNot(HaveOccurred())
+
+			applyCM := exec.Command("kubectl", "apply", "-f", "-")
+			applyCM.Stdin = bytes.NewReader(deployJSON)
+			out, err = applyCM.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred(), "Failed to apply temp poller deployment: %s", string(out))
+
+			rolloutCM := exec.Command("kubectl", "rollout", "status", "deployment/"+tempDeploymentName, "-n", "default", "--timeout=120s")
+			out, err = rolloutCM.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred(), "Temp poller deployment failed to start: %s", string(out))
+
+			Eventually(func() (string, error) {
+				logs, logErr := exec.Command("kubectl", "logs", "deployment/"+tempDeploymentName, "-n", "default", "--tail=200").CombinedOutput()
+				if logErr != nil {
+					return "", logErr
+				}
+				return string(logs), nil
+			}, 120*time.Second, 3*time.Second).Should(ContainSubstring("multitenancy running in poller mode"))
+
+			Eventually(func() error {
+				return exec.Command("kubectl", "get", "namespace", projectID).Run()
+			}, 120*time.Second, 3*time.Second).Should(Succeed())
+
+			Eventually(func() error {
+				return exec.Command("kubectl", "-n", projectID, "get", "secret", "pod-security-admission-config").Run()
+			}, 120*time.Second, 3*time.Second).Should(Succeed())
+
+			Eventually(func() error {
+				return exec.Command("kubectl", "-n", projectID, "get", "clustertemplates").Run()
+			}, 120*time.Second, 3*time.Second).Should(Succeed())
+		})
+	})
+
 	Context("CM is ready to serve API requests", func() {
 		var clusterName = "test-cluster"
 		var templateName string
@@ -916,7 +1124,10 @@ func getTokenFromClusterKeycloak() (string, error) {
 		fmt.Sprintf("%s_cl-rw", testTenantID.String()),
 		fmt.Sprintf("%s_cl-r", testTenantID.String()),
 	}
-	token := helpers.CreateTestJWT(time.Now().Add(1*time.Hour), roles)
+	token, err := helpers.CreateTestJWTWithError(time.Now().Add(1*time.Hour), roles)
+	if err != nil {
+		return "", err
+	}
 
 	return token, nil
 }
