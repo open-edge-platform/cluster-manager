@@ -144,6 +144,89 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 		})
 	})
 
+	Context("Poller mode smoke test", func() {
+		It("Should start isolated cluster-manager in poller mode when multitenancy is enabled", func() {
+			tempDeploymentName := fmt.Sprintf("cluster-manager-poller-smoke-%d", time.Now().UnixNano())
+			tempLabel := tempDeploymentName
+
+			defer func() {
+				_ = exec.Command("kubectl", "delete", "deployment", tempDeploymentName, "-n", "default", "--wait=false").Run()
+			}()
+
+			out, err := exec.Command("kubectl", "get", "deployment", "cluster-manager", "-n", "default", "-o", "json").Output()
+			Expect(err).ToNot(HaveOccurred(), "Failed to get base deployment")
+
+			var deploy map[string]interface{}
+			err = json.Unmarshal(out, &deploy)
+			Expect(err).ToNot(HaveOccurred())
+
+			metadata := deploy["metadata"].(map[string]interface{})
+			metadata["name"] = tempDeploymentName
+			metadata["resourceVersion"] = ""
+			metadata["uid"] = ""
+
+			spec := deploy["spec"].(map[string]interface{})
+			spec["replicas"] = float64(1)
+			spec["selector"] = map[string]interface{}{
+				"matchLabels": map[string]string{"app": tempLabel},
+			}
+
+			template := spec["template"].(map[string]interface{})
+			template["metadata"].(map[string]interface{})["labels"] = map[string]string{"app": tempLabel}
+
+			podSpec := template["spec"].(map[string]interface{})
+			delete(podSpec, "initContainers")
+
+			containers := podSpec["containers"].([]interface{})
+			mainContainer := containers[0].(map[string]interface{})
+			env := mainContainer["env"].([]interface{})
+
+			upsertEnv := func(name, value string) {
+				for i, e := range env {
+					em := e.(map[string]interface{})
+					if em["name"] == name {
+						env[i] = map[string]interface{}{"name": name, "value": value}
+						return
+					}
+				}
+				env = append(env, map[string]interface{}{"name": name, "value": value})
+			}
+
+			upsertEnv("DISABLE_MULTITENANCY", "false")
+			upsertEnv("TENANCY_RUNTIME_MODE", "poller")
+			// Intentionally unreachable endpoint keeps this smoke test isolated from shared tenancy services.
+			upsertEnv("TENANT_MANAGER_URL", "http://127.0.0.1:1")
+
+			mainContainer["env"] = env
+			containers[0] = mainContainer
+			podSpec["containers"] = containers
+
+			deployJSON, err := json.Marshal(deploy)
+			Expect(err).ToNot(HaveOccurred())
+
+			applyCmd := exec.Command("kubectl", "apply", "-f", "-")
+			applyCmd.Stdin = bytes.NewReader(deployJSON)
+			out, err = applyCmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred(), "Failed to apply temp poller deployment: %s", string(out))
+
+			rolloutCmd := exec.Command("kubectl", "rollout", "status", "deployment/"+tempDeploymentName, "-n", "default", "--timeout=90s")
+			out, err = rolloutCmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred(), "Temp poller deployment failed to start: %s", string(out))
+
+			Eventually(func() (string, error) {
+				logs, logErr := exec.Command("kubectl", "logs", "deployment/"+tempDeploymentName, "-n", "default", "--tail=200").CombinedOutput()
+				if logErr != nil {
+					return "", logErr
+				}
+				return string(logs), nil
+			}, 45*time.Second, 3*time.Second).Should(ContainSubstring("multitenancy running in poller mode"))
+
+			logs, err := exec.Command("kubectl", "logs", "deployment/"+tempDeploymentName, "-n", "default", "--tail=200").CombinedOutput()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(logs)).ToNot(ContainSubstring("multitenancy running in legacy watcher mode"))
+		})
+	})
+
 	Context("CM is ready to serve API requests", func() {
 		var clusterName = "test-cluster"
 		var templateName string
