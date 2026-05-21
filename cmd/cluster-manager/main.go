@@ -7,14 +7,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/auth"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
@@ -155,7 +152,7 @@ func initializeMultitenancy(ctx context.Context, config *config.Config) {
 		"http://tenancy-manager.orch-iam.svc:8080",
 	)
 
-	tenantManagerURL := pickReachableURL(candidates)
+	tenantManagerURL := tenancyclient.PickReachableURL(candidates)
 	slog.Info("resolved tenancy manager url", "url", tenantManagerURL)
 
 	tokenProvider := func(ctx context.Context) (string, error) {
@@ -190,39 +187,4 @@ func initializeK8sClient() *k8s.Client {
 		os.Exit(3)
 	}
 	return k8sclient
-}
-
-func pickReachableURL(candidates []string) string {
-	timeout := 2 * time.Second
-	for _, c := range candidates {
-		if c == "" {
-			continue
-		}
-
-		u, err := url.Parse(c)
-		if err != nil || u.Host == "" {
-			continue
-		}
-
-		host := u.Host
-		if !strings.Contains(host, ":") {
-			if u.Scheme == "https" {
-				host += ":443"
-			} else {
-				host += ":80"
-			}
-		}
-
-		conn, err := net.DialTimeout("tcp", host, timeout)
-		if err == nil {
-			_ = conn.Close()
-			return c
-		}
-	}
-
-	if len(candidates) > 0 {
-		return candidates[0]
-	}
-
-	return ""
 }
