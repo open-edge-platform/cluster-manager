@@ -19,7 +19,6 @@ import (
 
 const (
 	TenancyRuntimeModeEnv = "TENANCY_RUNTIME_MODE"
-	modeAuto              = "auto"
 	modeLegacy            = "legacy"
 	modePoller            = "poller"
 )
@@ -44,7 +43,7 @@ var (
 )
 
 // InitializeRuntime configures and starts multitenancy runtime behavior.
-// It supports legacy watcher mode, poller mode, and auto fallback.
+// It supports explicit legacy watcher mode and explicit poller mode.
 func InitializeRuntime(ctx context.Context, cfg *config.Config, controllerName string) error {
 	SetDefaultTemplate(cfg.DefaultTemplate)
 
@@ -59,42 +58,33 @@ func InitializeRuntime(ctx context.Context, cfg *config.Config, controllerName s
 
 	runtimeMode := strings.ToLower(strings.TrimSpace(os.Getenv(TenancyRuntimeModeEnv)))
 	if runtimeMode == "" {
-		runtimeMode = modeAuto
+		runtimeMode = modeLegacy
 	}
 
-	if runtimeMode == modeLegacy || runtimeMode == modeAuto {
-		if err := handler.Start(); err == nil {
-			slog.Info("multitenancy running in legacy watcher mode")
-			go func() {
-				<-ctx.Done()
-				handler.Stop()
-			}()
-			return nil
-		} else if runtimeMode == modeLegacy {
+	if runtimeMode != modeLegacy && runtimeMode != modePoller {
+		return fmt.Errorf("invalid tenancy runtime mode %q, allowed: %s, %s", runtimeMode, modeLegacy, modePoller)
+	}
+
+	if runtimeMode == modeLegacy {
+		if err := handler.Start(); err != nil {
 			return fmt.Errorf("legacy watcher mode failed: %w", err)
-		} else {
-			slog.Warn("legacy watcher mode unavailable, falling back to poller mode", "error", err)
 		}
+		slog.Info("multitenancy running in legacy watcher mode")
+		go func() {
+			<-ctx.Done()
+			handler.Stop()
+		}()
+		return nil
 	}
 
-	if runtimeMode != modePoller && runtimeMode != modeAuto {
-		return fmt.Errorf("invalid tenancy runtime mode %q, allowed: %s, %s, %s", runtimeMode, modeAuto, modeLegacy, modePoller)
+	tenantManagerURL := strings.TrimSpace(os.Getenv("TENANT_MANAGER_URL"))
+	if tenantManagerURL == "" {
+		tenantManagerURL = strings.TrimSpace(cfg.ProjectServiceURL)
 	}
-
-	candidates := []string{}
-	if env := os.Getenv("TENANT_MANAGER_URL"); env != "" {
-		candidates = append(candidates, env)
+	if tenantManagerURL == "" {
+		return fmt.Errorf("tenant manager url must be configured for %s mode via TENANT_MANAGER_URL or --nexus-api-url", runtimeMode)
 	}
-	if cfg.ProjectServiceURL != "" {
-		candidates = append(candidates, cfg.ProjectServiceURL)
-	}
-	candidates = append(candidates,
-		"http://svc-iam-nexus-api-gw.orch-iam.svc.cluster.local:8082",
-		"http://tenancy-manager.orch-iam.svc:8080",
-	)
-
-	tenantManagerURL := tenancyclient.PickReachableURL(candidates)
-	slog.Info("resolved tenancy manager url", "url", tenantManagerURL)
+	slog.Info("using configured tenancy manager url", "url", tenantManagerURL)
 
 	tokenProvider := func(ctx context.Context) (string, error) {
 		return auth.JwtTokenWithM2M(ctx, nil)

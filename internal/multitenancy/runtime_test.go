@@ -4,7 +4,6 @@ package multitenancy
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	libtenancy "github.com/open-edge-platform/orch-library/go/pkg/tenancy"
@@ -73,7 +72,7 @@ func TestInitializeRuntimeLegacyMode(t *testing.T) {
 	}
 }
 
-func TestInitializeRuntimeDefaultModeIsAutoAndUsesLegacyWhenAvailable(t *testing.T) {
+func TestInitializeRuntimeDefaultModeIsLegacy(t *testing.T) {
 	// Unset env to exercise default mode selection.
 	t.Setenv(TenancyRuntimeModeEnv, "")
 
@@ -90,7 +89,7 @@ func TestInitializeRuntimeDefaultModeIsAutoAndUsesLegacyWhenAvailable(t *testing
 		return handler, nil
 	}
 	newRuntimePoller = func(string, string, libtenancy.Handler, func(context.Context) (string, error), ...func(*tenancyclient.PollerConfig)) (runtimePoller, error) {
-		t.Fatal("poller constructor should not be called when default auto mode can use legacy")
+		t.Fatal("poller constructor should not be called when default mode is legacy")
 		return nil, nil
 	}
 
@@ -101,71 +100,6 @@ func TestInitializeRuntimeDefaultModeIsAutoAndUsesLegacyWhenAvailable(t *testing
 
 	if handler.startCalls != 1 {
 		t.Fatalf("handler.Start() calls = %d, want 1", handler.startCalls)
-	}
-}
-
-func TestInitializeRuntimeAutoUsesLegacyWhenAvailable(t *testing.T) {
-	t.Setenv(TenancyRuntimeModeEnv, modeAuto)
-
-	handler := &fakeRuntimeHandler{}
-
-	origNewHandler := newRuntimeHandler
-	origNewPoller := newRuntimePoller
-	t.Cleanup(func() {
-		newRuntimeHandler = origNewHandler
-		newRuntimePoller = origNewPoller
-	})
-
-	newRuntimeHandler = func() (runtimeHandler, error) {
-		return handler, nil
-	}
-	newRuntimePoller = func(string, string, libtenancy.Handler, func(context.Context) (string, error), ...func(*tenancyclient.PollerConfig)) (runtimePoller, error) {
-		t.Fatal("poller constructor should not be called when legacy starts in auto mode")
-		return nil, nil
-	}
-
-	cfg := &config.Config{DisableMultitenancy: false}
-	if err := InitializeRuntime(context.Background(), cfg, "cluster-manager"); err != nil {
-		t.Fatalf("InitializeRuntime() error = %v", err)
-	}
-
-	if handler.startCalls != 1 {
-		t.Fatalf("handler.Start() calls = %d, want 1", handler.startCalls)
-	}
-}
-
-func TestInitializeRuntimeAutoFallbackToPoller(t *testing.T) {
-	t.Setenv(TenancyRuntimeModeEnv, modeAuto)
-	t.Setenv("TENANT_MANAGER_URL", "http://127.0.0.1:1")
-
-	handler := &fakeRuntimeHandler{startErr: errors.New("legacy unavailable")}
-	pollerConstructed := false
-
-	origNewHandler := newRuntimeHandler
-	origNewPoller := newRuntimePoller
-	t.Cleanup(func() {
-		newRuntimeHandler = origNewHandler
-		newRuntimePoller = origNewPoller
-	})
-
-	newRuntimeHandler = func() (runtimeHandler, error) {
-		return handler, nil
-	}
-	newRuntimePoller = func(string, string, libtenancy.Handler, func(context.Context) (string, error), ...func(*tenancyclient.PollerConfig)) (runtimePoller, error) {
-		pollerConstructed = true
-		return &fakeRuntimePoller{}, nil
-	}
-
-	cfg := &config.Config{DisableMultitenancy: false}
-	if err := InitializeRuntime(context.Background(), cfg, "cluster-manager"); err != nil {
-		t.Fatalf("InitializeRuntime() error = %v", err)
-	}
-
-	if handler.startCalls != 1 {
-		t.Fatalf("handler.Start() calls = %d, want 1", handler.startCalls)
-	}
-	if !pollerConstructed {
-		t.Fatal("expected poller constructor to be called in auto fallback mode")
 	}
 }
 
@@ -232,5 +166,71 @@ func TestInitializeRuntimePollerModeUsesConfiguredURL(t *testing.T) {
 	}
 	if handler.startCalls != 0 {
 		t.Fatalf("handler.Start() calls = %d, want 0", handler.startCalls)
+	}
+}
+
+func TestInitializeRuntimePollerModeUsesEnvURLOverride(t *testing.T) {
+	t.Setenv(TenancyRuntimeModeEnv, modePoller)
+	t.Setenv("TENANT_MANAGER_URL", "http://env-tenancy-manager:8080")
+
+	handler := &fakeRuntimeHandler{}
+	wantURL := "http://env-tenancy-manager:8080"
+	gotURL := ""
+
+	origNewHandler := newRuntimeHandler
+	origNewPoller := newRuntimePoller
+	t.Cleanup(func() {
+		newRuntimeHandler = origNewHandler
+		newRuntimePoller = origNewPoller
+	})
+
+	newRuntimeHandler = func() (runtimeHandler, error) {
+		return handler, nil
+	}
+	newRuntimePoller = func(tenantManagerURL, _ string, _ libtenancy.Handler, _ func(context.Context) (string, error), _ ...func(*tenancyclient.PollerConfig)) (runtimePoller, error) {
+		gotURL = tenantManagerURL
+		return &fakeRuntimePoller{}, nil
+	}
+
+	cfg := &config.Config{DisableMultitenancy: false, ProjectServiceURL: "http://configured-tenancy-manager:8080"}
+	if err := InitializeRuntime(context.Background(), cfg, "cluster-manager"); err != nil {
+		t.Fatalf("InitializeRuntime() error = %v", err)
+	}
+
+	if gotURL != wantURL {
+		t.Fatalf("poller URL = %q, want %q", gotURL, wantURL)
+	}
+	if handler.startCalls != 0 {
+		t.Fatalf("handler.Start() calls = %d, want 0", handler.startCalls)
+	}
+}
+
+func TestInitializeRuntimePollerModeRequiresConfiguredURL(t *testing.T) {
+	t.Setenv(TenancyRuntimeModeEnv, modePoller)
+
+	handler := &fakeRuntimeHandler{}
+	pollerConstructed := false
+
+	origNewHandler := newRuntimeHandler
+	origNewPoller := newRuntimePoller
+	t.Cleanup(func() {
+		newRuntimeHandler = origNewHandler
+		newRuntimePoller = origNewPoller
+	})
+
+	newRuntimeHandler = func() (runtimeHandler, error) {
+		return handler, nil
+	}
+	newRuntimePoller = func(string, string, libtenancy.Handler, func(context.Context) (string, error), ...func(*tenancyclient.PollerConfig)) (runtimePoller, error) {
+		pollerConstructed = true
+		return &fakeRuntimePoller{}, nil
+	}
+
+	cfg := &config.Config{DisableMultitenancy: false}
+	if err := InitializeRuntime(context.Background(), cfg, "cluster-manager"); err == nil {
+		t.Fatal("InitializeRuntime() expected error for missing poller URL, got nil")
+	}
+	if pollerConstructed {
+		t.Fatal("poller constructor should not be called when no poller URL is configured")
 	}
 }

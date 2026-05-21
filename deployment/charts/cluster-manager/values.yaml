@@ -100,10 +100,18 @@ clusterManager:
     # Actual TTL can be limited by Keycloak's realm-level max token lifetime settings
     kubeconfig-ttl-hours: 3
 
-  # Optional env vars for multitenancy runtime behavior.
+  multitenancy:
+    # Choose multitenancy behavior at deployment time.
+    # Supported values: legacy, poller.
+    runtimeMode: legacy
+    # Optional temporary override for poller mode while request-time project lookup
+    # still depends on args.nexusApiUrl.
+    # Once tenancy-manager fully replaces nexus and is compatible with the project
+    # lookup API, remove this override and set args.nexusApiUrl directly instead.
+    tenantManagerUrl: ""
+
+  # Optional advanced env vars for poller-mode multitenancy behavior.
   # Examples:
-  # - name: TENANCY_RUNTIME_MODE
-  #   value: auto   # auto|legacy|poller (default: auto)
   # - name: TENANCY_MANAGER_EVENTS_PROJECT_PATH
   #   value: e2eTestProj
   # - name: TENANCY_MANAGER_ACTIVE_PROJECT_ID
@@ -118,7 +126,9 @@ clusterManager:
     username: admin
     inventory: inventory.orch-infra.svc.cluster.local:50051
     # URL of the project service used to resolve project names to UUIDs.
-    # Keep gateway URL as legacy-safe default for backward compatibility.
+    # Today this is also used by request-time middleware, so changing it affects more than
+    # just poller mode. Once tenancy-manager fully replaces nexus and remains compatible with
+    # the project lookup API, this value can point at tenancy-manager directly.
     nexusApiUrl: "http://svc-iam-nexus-api-gw.orch-iam.svc.cluster.local:8082"
 
   service:
