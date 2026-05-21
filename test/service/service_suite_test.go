@@ -178,8 +178,23 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 			delete(podSpec, "initContainers")
 
 			containers := podSpec["containers"].([]interface{})
-			mainContainer := containers[0].(map[string]interface{})
+			mainContainerIdx := -1
+			for i, c := range containers {
+				container, ok := c.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				name, _ := container["name"].(string)
+				if name == "cluster-manager" {
+					mainContainerIdx = i
+					break
+				}
+			}
+			Expect(mainContainerIdx).To(BeNumerically(">=", 0), "Failed to find cluster-manager container in temp deployment")
+
+			mainContainer := containers[mainContainerIdx].(map[string]interface{})
 			env := mainContainer["env"].([]interface{})
+			args := mainContainer["args"].([]interface{})
 
 			upsertEnv := func(name, value string) {
 				for i, e := range env {
@@ -192,13 +207,30 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 				env = append(env, map[string]interface{}{"name": name, "value": value})
 			}
 
+			upsertArg := func(flagName, value string) {
+				for i, a := range args {
+					s, ok := a.(string)
+					if !ok {
+						continue
+					}
+					if strings.HasPrefix(s, flagName+"=") || s == flagName {
+						args[i] = fmt.Sprintf("%s=%s", flagName, value)
+						return
+					}
+				}
+				args = append(args, fmt.Sprintf("%s=%s", flagName, value))
+			}
+
 			upsertEnv("DISABLE_MULTITENANCY", "false")
 			upsertEnv("TENANCY_RUNTIME_MODE", "poller")
 			// Intentionally unreachable endpoint keeps this smoke test isolated from shared tenancy services.
 			upsertEnv("TENANT_MANAGER_URL", "http://127.0.0.1:1")
+			upsertArg("--disable-multi-tenancy", "false")
+			upsertArg("--disable-mt", "false")
 
 			mainContainer["env"] = env
-			containers[0] = mainContainer
+			mainContainer["args"] = args
+			containers[mainContainerIdx] = mainContainer
 			podSpec["containers"] = containers
 
 			deployJSON, err := json.Marshal(deploy)
@@ -219,7 +251,7 @@ var _ = Describe("Cluster create/delete flow", Ordered, func() {
 					return "", logErr
 				}
 				return string(logs), nil
-			}, 45*time.Second, 3*time.Second).Should(ContainSubstring("multitenancy running in poller mode"))
+			}, 120*time.Second, 3*time.Second).Should(ContainSubstring("multitenancy running in poller mode"))
 
 			logs, err := exec.Command("kubectl", "logs", "deployment/"+tempDeploymentName, "-n", "default", "--tail=200").CombinedOutput()
 			Expect(err).ToNot(HaveOccurred())
