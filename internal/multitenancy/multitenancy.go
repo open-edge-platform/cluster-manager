@@ -7,8 +7,13 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"time"
 
+	activeWatcher "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/apis/projectactivewatcher.edge-orchestrator.intel.com/v1"
+	nexus "github.com/open-edge-platform/orch-utils/tenancy-datamodel/build/nexus-client"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
 
 	"github.com/open-edge-platform/orch-library/go/pkg/tenancy"
 
@@ -25,7 +30,10 @@ const (
 )
 
 var (
+	GetClusterConfigFunc  = rest.InClusterConfig
 	GetK8sClientFunc = k8s.New().WithInClusterConfig
+	GetNexusClientSetFunc = nexus.NewForConfig
+	nexusContextTimeout   = time.Second * 5
 
 	GetTemplatesFunc = func() ([]*v1alpha1.ClusterTemplate, error) {
 		return template.ReadDefaultTemplates()
@@ -40,10 +48,67 @@ var (
 
 // TenancyDatamodel implements tenancy.Handler and manages per-project k8s resources.
 type TenancyDatamodel struct {
+	nexus           *nexus.Clientset
 	k8s             *k8s.Client
 	templates       []*v1alpha1.ClusterTemplate
 	psaData         map[string][]byte
 	defaultTemplate string
+}
+
+func (t *TenancyDatamodel) Start() error {
+	if t.nexus == nil {
+		config, err := GetClusterConfigFunc()
+		if err != nil {
+			return fmt.Errorf("failed to get orch kubernetes config: %w", err)
+		}
+
+		nexusClient, err := GetNexusClientSetFunc(config)
+		if err != nil {
+			return fmt.Errorf("failed to create nexus client: %w", err)
+		}
+
+		t.nexus = nexusClient
+	}
+
+	t.nexus.SubscribeAll()
+
+	if err := t.addProjectWatcher(); err != nil {
+		return fmt.Errorf("failed to register '%s' as a project watcher: %w", appName, err)
+	}
+
+	if handler, err := t.nexus.TenancyMultiTenancy().Runtime().Orgs("*").Folders("*").Projects("*").
+		RegisterAddCallback(t.processRuntimeProjectsAdd); err != nil {
+		slog.Error("failed to register project add callback", "error", err)
+		return err
+	} else if err = verifySyncedFunc(handler); err != nil {
+		slog.Error("failed to verify project add handler synced", "error", err)
+		return err
+	}
+	slog.Info("subscribed to project add events")
+
+	if handler, err := t.nexus.TenancyMultiTenancy().Runtime().Orgs("*").Folders("*").Projects("*").
+		RegisterUpdateCallback(t.processRuntimeProjectsUpdate); err != nil {
+		slog.Error("failed to register project update callback", "error", err)
+		return err
+	} else if err = verifySyncedFunc(handler); err != nil {
+		slog.Error("failed to verify project update handler synced", "error", err)
+		return err
+	}
+	slog.Info("subscribed to project update events")
+
+	return nil
+}
+
+func (t *TenancyDatamodel) Stop() {
+	if t.nexus == nil {
+		return
+	}
+
+	t.nexus.UnsubscribeAll()
+
+	if err := t.deleteProjectWatcher(); err != nil {
+		slog.Warn("error deleting project watcher", "error", err)
+	}
 }
 
 // NewDatamodelClient creates a TenancyDatamodel ready to be used as a tenancy.Handler.
@@ -106,6 +171,62 @@ func (t *TenancyDatamodel) HandleEvent(ctx context.Context, event tenancy.Event)
 	}
 
 	return nil
+}
+
+func (t *TenancyDatamodel) processRuntimeProjectsAdd(project *nexus.RuntimeprojectRuntimeProject) {
+	slog.Debug("project add event received", "project", project.DisplayName())
+	if project.Spec.Deleted {
+		t.processRuntimeProjectsUpdate(nil, project)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), nexusContextTimeout)
+	defer cancel()
+
+	if _, err := project.AddActiveWatchers(ctx, &activeWatcher.ProjectActiveWatcher{
+		ObjectMeta: metav1.ObjectMeta{Name: appName},
+		Spec: activeWatcher.ProjectActiveWatcherSpec{
+			StatusIndicator: activeWatcher.StatusIndicationInProgress,
+			Message:         fmt.Sprintf("%s subscribed to project %s", appName, project.DisplayName()),
+			TimeStamp:       safeUnixTime(),
+		},
+	}); err != nil {
+		slog.Error("error creating watcher for project",
+			"app", appName,
+			"project_name", project.DisplayName(),
+			"project_id", string(project.UID))
+		return
+	}
+
+	if err := t.setupProject(ctx, string(project.UID), project.DisplayName()); err != nil {
+		slog.Error("creation of project cluster resources failed", "error", err)
+		updateWatcherStatus(project, activeWatcher.StatusIndicationError, "Error setting up cluster resources for project")
+		return
+	}
+
+	updateWatcherStatus(project, activeWatcher.StatusIndicationIdle, "Successfully created project")
+}
+
+func (t *TenancyDatamodel) processRuntimeProjectsUpdate(_, project *nexus.RuntimeprojectRuntimeProject) {
+	slog.Debug("project update event received", "project", project.DisplayName())
+	if !project.Spec.Deleted {
+		return
+	}
+	defer deleteActiveWatcher(project)
+
+	updateWatcherStatus(project, activeWatcher.StatusIndicationInProgress, "Deleting edge clusters")
+
+	ctx, cancel := context.WithTimeout(context.Background(), nexusContextTimeout)
+	defer cancel()
+
+	err := t.cleanupProject(ctx, string(project.UID), project.DisplayName())
+	if err != nil {
+		slog.Error("cleanup of project cluster resources failed", "error", err)
+		updateWatcherStatus(project, activeWatcher.StatusIndicationError, "Error cleaning up cluster resources for project")
+		return
+	}
+
+	updateWatcherStatus(project, activeWatcher.StatusIndicationIdle, "Successfully cleaned up project")
 }
 
 func (t *TenancyDatamodel) setupProject(ctx context.Context, projectId, projectName string) error {

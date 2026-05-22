@@ -128,12 +128,21 @@ spec:
           value: "{{ .Values.clusterManager.clientRateLimiter.qps }}"
         - name: RATE_LIMITER_BURST
           value: "{{ .Values.clusterManager.clientRateLimiter.burst }}"
+        - name: TENANCY_RUNTIME_MODE
+          value: {{ .Values.clusterManager.multitenancy.runtimeMode | quote }}
+        {{- if .Values.clusterManager.multitenancy.tenantManagerUrl }}
+        - name: TENANT_MANAGER_URL
+          value: {{ .Values.clusterManager.multitenancy.tenantManagerUrl | quote }}
+        {{- end }}
         {{- if .Values.openpolicyagent.enabled }}
         - name: OPA_ENABLED
           value: {{ .Values.openpolicyagent.enabled | quote }}
         - name: OPA_PORT
           value: {{ .Values.openpolicyagent.port | quote }}
         {{- end}}
+        {{- with .Values.clusterManager.extraEnv }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- if .Values.openpolicyagent.enabled }}
       - name: openpolicyagent
         {{- with .Values.openpolicyagent }}

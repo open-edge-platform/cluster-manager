@@ -132,16 +132,35 @@ func (m *MockKeycloakServer) generateMockJWT(ttl time.Duration) string {
 
 // CreateTestJWT creates a JWT token for testing with specified expiration and roles
 func CreateTestJWT(exp time.Time, roles []string) string {
+	token, err := CreateTestJWTWithError(exp, roles)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	return token
+}
+
+// CreateTestJWTWithError creates a JWT token for testing and returns retryable errors.
+func CreateTestJWTWithError(exp time.Time, roles []string) (string, error) {
 	if os.Getenv("USE_REMOTE_TOKEN_SERVER") != "1" {
 		if token, err := createLocalTestJWT(exp, roles); err == nil {
-			return token
+			return token, nil
 		}
 	}
 
-	return requestRemoteJWT(exp, roles)
+	return requestRemoteJWTWithError(exp, roles)
 }
 
 func requestRemoteJWT(exp time.Time, roles []string) string {
+	token, err := requestRemoteJWTWithError(exp, roles)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	return token
+}
+
+func requestRemoteJWTWithError(exp time.Time, roles []string) (string, error) {
 	rolesParam := url.QueryEscape(strings.Join(roles, ","))
 	expUnix := exp.Unix()
 
@@ -150,13 +169,13 @@ func requestRemoteJWT(exp time.Time, roles []string) string {
 
 	resp, err := http.Post(tokenURL, "application/x-www-form-urlencoded", strings.NewReader(body))
 	if err != nil {
-		panic(fmt.Sprintf("failed to get token from mock keycloak: %v", err))
+		return "", fmt.Errorf("failed to get token from mock keycloak: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		panic(fmt.Sprintf("token endpoint returned %d: %s", resp.StatusCode, string(bodyBytes)))
+		return "", fmt.Errorf("token endpoint returned %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	var tokenResp struct {
@@ -164,10 +183,10 @@ func requestRemoteJWT(exp time.Time, roles []string) string {
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		panic(fmt.Sprintf("failed to decode token response: %v", err))
+		return "", fmt.Errorf("failed to decode token response: %w", err)
 	}
 
-	return tokenResp.AccessToken
+	return tokenResp.AccessToken, nil
 }
 
 func createLocalTestJWT(exp time.Time, roles []string) (string, error) {

@@ -20,6 +20,7 @@ require (
 	github.com/open-edge-platform/cluster-api-provider-intel v1.3.7
 	github.com/open-edge-platform/infra-core/inventory/v2 v2.35.5
 	github.com/open-edge-platform/orch-library/go v0.6.4
+	github.com/open-edge-platform/orch-utils/tenancy-datamodel v1.2.2
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.6.0
 	google.golang.org/protobuf v1.36.11
@@ -39,6 +40,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 // indirect
+	github.com/elliotchance/orderedmap v1.8.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lestrrat-go/dsig v1.0.0 // indirect

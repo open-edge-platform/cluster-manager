@@ -5,15 +5,12 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-
-	"github.com/open-edge-platform/orch-library/go/pkg/tenancy"
 
 	"github.com/open-edge-platform/cluster-manager/v2/internal/config"
 	"github.com/open-edge-platform/cluster-manager/v2/internal/k8s"
@@ -64,7 +61,10 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	initializeMultitenancy(ctx, config)
+	if err := multitenancy.InitializeRuntime(ctx, config, controllerName); err != nil {
+		slog.Error("failed to initialize multitenancy", "error", err)
+		os.Exit(2)
+	}
 
 	k8sclient := initializeK8sClient()
 
@@ -92,43 +92,6 @@ func initializeSystemLabels(config *config.Config) {
 		slog.Info(fmt.Sprintf("overriding system labels prefixes with %v", config.SystemLabelsPrefixes))
 		labels.OverrideSystemPrefixes(config.SystemLabelsPrefixes)
 	}
-}
-
-func initializeMultitenancy(ctx context.Context, config *config.Config) {
-	multitenancy.SetDefaultTemplate(config.DefaultTemplate)
-
-	if config.DisableMultitenancy {
-		return
-	}
-
-	handler, err := multitenancy.NewDatamodelClient()
-	if err != nil {
-		slog.Error("failed to initialize tenancy datamodel client", "error", err)
-		os.Exit(2)
-	}
-
-	tenantManagerURL := os.Getenv("TENANT_MANAGER_URL")
-	if tenantManagerURL == "" {
-		tenantManagerURL = "http://tenancy-manager.orch-iam:8080"
-	}
-
-	poller, err := tenancy.NewPoller(tenantManagerURL, controllerName, handler,
-		func(cfg *tenancy.PollerConfig) {
-			cfg.OnError = func(err error, msg string) {
-				slog.Error("tenancy poller error", "msg", msg, "error", err)
-			}
-		},
-	)
-	if err != nil {
-		slog.Error("failed to create tenancy poller", "error", err)
-		os.Exit(2)
-	}
-
-	go func() {
-		if err := poller.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
-			slog.Error("tenancy poller stopped unexpectedly", "error", err)
-		}
-	}()
 }
 
 func initializeK8sClient() *k8s.Client {
