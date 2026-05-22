@@ -349,11 +349,19 @@ spec:
 
 			// Replace tabs with spaces so YAML indentation is valid, then write manifest to a temporary file
 			mockManifest = strings.ReplaceAll(mockManifest, "\t", "  ")
-			if err := os.WriteFile("/tmp/tenancy-mock.yaml", []byte(mockManifest), 0644); err != nil {
+			mockManifestFile, err := os.CreateTemp("", "tenancy-mock-*.yaml")
+			if err != nil {
+				Fail(fmt.Sprintf("failed to create tenancy mock manifest file: %v", err))
+			}
+			DeferCleanup(func() {
+				_ = os.Remove(mockManifestFile.Name())
+			})
+
+			if err := os.WriteFile(mockManifestFile.Name(), []byte(mockManifest), 0644); err != nil {
 				Fail(fmt.Sprintf("failed to write tenancy mock manifest: %v", err))
 			}
 
-			applyMock := exec.Command("kubectl", "apply", "-f", "/tmp/tenancy-mock.yaml")
+			applyMock := exec.Command("kubectl", "apply", "-f", mockManifestFile.Name())
 			out, err = applyMock.CombinedOutput()
 			Expect(err).ToNot(HaveOccurred(), "Failed to apply tenancy mock resources: %s", string(out))
 

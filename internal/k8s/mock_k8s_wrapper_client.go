@@ -40,6 +40,24 @@ func (_m *MockK8sWrapperClient) DeleteCluster(ctx context.Context, namespace str
 	return r0
 }
 
+// DeleteClusterForCleanup provides a mock function with given fields: ctx, namespace, clusterName, forceFinalize
+func (_m *MockK8sWrapperClient) DeleteClusterForCleanup(ctx context.Context, namespace string, clusterName string, forceFinalize bool) error {
+	ret := _m.Called(ctx, namespace, clusterName, forceFinalize)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteClusterForCleanup")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, bool) error); ok {
+		r0 = rf(ctx, namespace, clusterName, forceFinalize)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // MockK8sWrapperClient_DeleteCluster_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteCluster'
 type MockK8sWrapperClient_DeleteCluster_Call struct {
 	*mock.Call
@@ -124,6 +142,124 @@ func (_c *MockK8sWrapperClient_GetMachineByHostID_Call) Return(_a0 capi.Machine,
 }
 
 func (_c *MockK8sWrapperClient_GetMachineByHostID_Call) RunAndReturn(run func(context.Context, string, string) (capi.Machine, error)) *MockK8sWrapperClient_GetMachineByHostID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetMachineByProviderHostID provides a mock function with given fields: ctx, namespace, hostID
+func (_m *MockK8sWrapperClient) GetMachineByProviderHostID(ctx context.Context, namespace string, hostID string) (capi.Machine, error) {
+	ret := _m.Called(ctx, namespace, hostID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetMachineByProviderHostID")
+	}
+
+	var r0 capi.Machine
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (capi.Machine, error)); ok {
+		return rf(ctx, namespace, hostID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) capi.Machine); ok {
+		r0 = rf(ctx, namespace, hostID)
+	} else {
+		r0 = ret.Get(0).(capi.Machine)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespace, hostID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockK8sWrapperClient_GetMachineByProviderHostID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetMachineByProviderHostID'
+type MockK8sWrapperClient_GetMachineByProviderHostID_Call struct {
+	*mock.Call
+}
+
+// GetMachineByProviderHostID is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespace string
+//   - hostID string
+func (_e *MockK8sWrapperClient_Expecter) GetMachineByProviderHostID(ctx interface{}, namespace interface{}, hostID interface{}) *MockK8sWrapperClient_GetMachineByProviderHostID_Call {
+	return &MockK8sWrapperClient_GetMachineByProviderHostID_Call{Call: _e.mock.On("GetMachineByProviderHostID", ctx, namespace, hostID)}
+}
+
+func (_c *MockK8sWrapperClient_GetMachineByProviderHostID_Call) Run(run func(ctx context.Context, namespace string, hostID string)) *MockK8sWrapperClient_GetMachineByProviderHostID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockK8sWrapperClient_GetMachineByProviderHostID_Call) Return(_a0 capi.Machine, _a1 error) *MockK8sWrapperClient_GetMachineByProviderHostID_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockK8sWrapperClient_GetMachineByProviderHostID_Call) RunAndReturn(run func(context.Context, string, string) (capi.Machine, error)) *MockK8sWrapperClient_GetMachineByProviderHostID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetCluster provides a mock function with given fields: ctx, namespace, name
+func (_m *MockK8sWrapperClient) GetCluster(ctx context.Context, namespace string, name string) (*capi.Cluster, error) {
+	ret := _m.Called(ctx, namespace, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetCluster")
+	}
+
+	var r0 *capi.Cluster
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*capi.Cluster, error)); ok {
+		return rf(ctx, namespace, name)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *capi.Cluster); ok {
+		r0 = rf(ctx, namespace, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*capi.Cluster)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespace, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockK8sWrapperClient_GetCluster_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetCluster'
+type MockK8sWrapperClient_GetCluster_Call struct {
+	*mock.Call
+}
+
+// GetCluster is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespace string
+//   - name string
+func (_e *MockK8sWrapperClient_Expecter) GetCluster(ctx interface{}, namespace interface{}, name interface{}) *MockK8sWrapperClient_GetCluster_Call {
+	return &MockK8sWrapperClient_GetCluster_Call{Call: _e.mock.On("GetCluster", ctx, namespace, name)}
+}
+
+func (_c *MockK8sWrapperClient_GetCluster_Call) Run(run func(ctx context.Context, namespace string, name string)) *MockK8sWrapperClient_GetCluster_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockK8sWrapperClient_GetCluster_Call) Return(_a0 *capi.Cluster, _a1 error) *MockK8sWrapperClient_GetCluster_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockK8sWrapperClient_GetCluster_Call) RunAndReturn(run func(context.Context, string, string) (*capi.Cluster, error)) *MockK8sWrapperClient_GetCluster_Call {
 	_c.Call.Return(run)
 	return _c
 }

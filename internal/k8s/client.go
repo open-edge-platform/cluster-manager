@@ -5,6 +5,7 @@ package k8s
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -25,6 +26,7 @@ import (
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/rest"
@@ -40,10 +42,12 @@ const (
 	rateLimiterBurst = "RATE_LIMITER_BURST"
 	defaultQPS       = 30
 	defaultBurst     = 100
+	hostIDAnnotation = "intelmachine.infrastructure.cluster.x-k8s.io/host-id"
 )
 
 var ErrDefaultTemplateNotFound = fmt.Errorf("default template not found")
 var ErrClusterNotFound = fmt.Errorf("cluster not found")
+var ErrMachineNotFound = fmt.Errorf("machine not found")
 
 // K8s object schemas
 var (
@@ -78,6 +82,12 @@ var (
 		Group:    intelProvider.GroupVersion.Group,
 		Version:  intelProvider.GroupVersion.Version,
 		Resource: "intelmachines",
+	}
+
+	IntelClusterResourceSchema = schema.GroupVersionResource{
+		Group:    intelProvider.GroupVersion.Group,
+		Version:  intelProvider.GroupVersion.Version,
+		Resource: "intelclusters",
 	}
 
 	DockerMachineResourceSchema = schema.GroupVersionResource{
@@ -243,6 +253,195 @@ func (c *Client) DeleteCluster(ctx context.Context, namespace string, clusterNam
 	}
 
 	return c.Dyn.Resource(clusterResourceSchema).Namespace(namespace).Delete(ctx, clusterName, deleteOptions)
+}
+
+// DeleteClusterForCleanup runs the deletion sequence used by inventory cleanup.
+func (c *Client) DeleteClusterForCleanup(ctx context.Context, namespace, clusterName string, forceFinalize bool) error {
+	if err := c.UnpauseClusterIfPaused(ctx, namespace, clusterName); err != nil {
+		return fmt.Errorf("unpause cluster: %w", err)
+	}
+
+	if err := c.removeIntelMachineHostCleanupFinalizers(ctx, namespace, clusterName); err != nil {
+		return fmt.Errorf("remove IntelMachine host-cleanup finalizers: %w", err)
+	}
+
+	if err := c.DeleteCluster(ctx, namespace, clusterName); err != nil {
+		if errors.IsNotFound(err) {
+			return ErrClusterNotFound
+		}
+		return fmt.Errorf("delete cluster: %w", err)
+	}
+
+	if err := c.deleteReferencedIntelCluster(ctx, namespace, clusterName); err != nil {
+		slog.Warn("failed to delete referenced IntelCluster during assigned cluster cleanup", "error", err, "cluster", clusterName, "tenantId", namespace)
+	}
+
+	if forceFinalize {
+		if err := c.forceFinalizeClusterIfDeleting(ctx, namespace, clusterName); err != nil {
+			slog.Warn("failed to force finalize deleting assigned cluster", "error", err, "cluster", clusterName, "tenantId", namespace)
+		}
+	}
+
+	return nil
+}
+
+// UnpauseClusterIfPaused sets spec.paused=false when the cluster is currently paused.
+func (c *Client) UnpauseClusterIfPaused(ctx context.Context, namespace, name string) error {
+	clusterObj, err := c.Dyn.Resource(clusterResourceSchema).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return ErrClusterNotFound
+		}
+		return err
+	}
+
+	paused, found, err := unstructured.NestedBool(clusterObj.Object, "spec", "paused")
+	if err != nil {
+		return err
+	}
+	if !found || !paused {
+		return nil
+	}
+
+	patchData := []byte(`{"spec":{"paused":false}}`)
+	_, err = c.Dyn.Resource(clusterResourceSchema).Namespace(namespace).Patch(ctx, name, types.MergePatchType, patchData, metav1.PatchOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return ErrClusterNotFound
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (c *Client) removeIntelMachineHostCleanupFinalizers(ctx context.Context, namespace, clusterName string) error {
+	selector := fmt.Sprintf("cluster.x-k8s.io/cluster-name=%s", clusterName)
+	intelMachines, err := c.Dyn.Resource(IntelMachineResourceSchema).Namespace(namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	for _, item := range intelMachines.Items {
+		finalizers := item.GetFinalizers()
+		if len(finalizers) == 0 {
+			continue
+		}
+
+		updated := make([]string, 0, len(finalizers))
+		changed := false
+		for _, f := range finalizers {
+			if f == intelProvider.HostCleanupFinalizer {
+				changed = true
+				continue
+			}
+			updated = append(updated, f)
+		}
+		if !changed {
+			continue
+		}
+
+		patchBody, err := json.Marshal(map[string]any{"metadata": map[string]any{"finalizers": updated}})
+		if err != nil {
+			return err
+		}
+
+		if _, err := c.Dyn.Resource(IntelMachineResourceSchema).Namespace(namespace).Patch(ctx, item.GetName(), types.MergePatchType, patchBody, metav1.PatchOptions{}); err != nil {
+			if errors.IsNotFound(err) {
+				continue
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *Client) forceFinalizeClusterIfDeleting(ctx context.Context, namespace, clusterName string) error {
+	clusterObj, err := c.Dyn.Resource(clusterResourceSchema).Namespace(namespace).Get(ctx, clusterName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	deletionTimestamp, found, err := unstructured.NestedString(clusterObj.Object, "metadata", "deletionTimestamp")
+	if err != nil {
+		return err
+	}
+	if !found || deletionTimestamp == "" {
+		return nil
+	}
+
+	if finalizers := clusterObj.GetFinalizers(); len(finalizers) == 0 {
+		return nil
+	}
+
+	patchBody, err := json.Marshal(map[string]any{"metadata": map[string]any{"finalizers": []string{}}})
+	if err != nil {
+		return err
+	}
+
+	_, err = c.Dyn.Resource(clusterResourceSchema).Namespace(namespace).Patch(ctx, clusterName, types.MergePatchType, patchBody, metav1.PatchOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (c *Client) deleteReferencedIntelCluster(ctx context.Context, namespace, clusterName string) error {
+	cluster, err := c.GetCluster(ctx, namespace, clusterName)
+	if err != nil {
+		if err == ErrClusterNotFound {
+			return nil
+		}
+		return err
+	}
+	if cluster == nil || cluster.Spec.InfrastructureRef == nil || cluster.Spec.InfrastructureRef.Kind != "IntelCluster" || cluster.Spec.InfrastructureRef.Name == "" {
+		return nil
+	}
+
+	infraName := cluster.Spec.InfrastructureRef.Name
+	cli := c.Dyn.Resource(IntelClusterResourceSchema).Namespace(namespace)
+
+	infraObj, err := cli.Get(ctx, infraName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	if finalizers := infraObj.GetFinalizers(); len(finalizers) > 0 {
+		patchBody, err := json.Marshal(map[string]any{"metadata": map[string]any{"finalizers": []string{}}})
+		if err != nil {
+			return err
+		}
+		if _, err = cli.Patch(ctx, infraName, types.MergePatchType, patchBody, metav1.PatchOptions{}); err != nil {
+			if !errors.IsNotFound(err) {
+				return err
+			}
+		}
+	}
+
+	deletePolicy := metav1.DeletePropagationForeground
+	deleteOptions := metav1.DeleteOptions{PropagationPolicy: &deletePolicy}
+	if err = cli.Delete(ctx, infraName, deleteOptions); err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	return nil
 }
 
 // DeleteTemplates deletes all templates in the given namespace
@@ -440,7 +639,81 @@ func (c *Client) GetMachineByHostID(ctx context.Context, namespace, hostID strin
 			return machine, nil
 		}
 	}
-	return capi.Machine{}, fmt.Errorf("machine with host ID %s not found", hostID)
+	return capi.Machine{}, fmt.Errorf("%w: host ID %s", ErrMachineNotFound, hostID)
+}
+
+// GetMachineByProviderHostID returns a machine by matching provider machine host-id annotation.
+func (c *Client) GetMachineByProviderHostID(ctx context.Context, namespace, hostID string) (capi.Machine, error) {
+	opts := metav1.ListOptions{}
+	unstructuredMachinesList, err := c.Dyn.Resource(machineResourceSchema).Namespace(namespace).List(ctx, opts)
+	if err != nil {
+		return capi.Machine{}, err
+	}
+
+	matched := []capi.Machine{}
+	for _, item := range unstructuredMachinesList.Items {
+		var machine capi.Machine
+		if err := convert.FromUnstructured(item, &machine); err != nil {
+			continue
+		}
+
+		providerMachineName := machine.Spec.InfrastructureRef.Name
+		providerMachineKind := machine.Spec.InfrastructureRef.Kind
+		if providerMachineName == "" || providerMachineKind == "" {
+			continue
+		}
+
+		providerHostID, ok := c.providerHostIDFromMachine(ctx, namespace, providerMachineKind, providerMachineName)
+		if !ok {
+			continue
+		}
+
+		if providerHostID == hostID {
+			matched = append(matched, machine)
+		}
+	}
+
+	if len(matched) == 1 {
+		return matched[0], nil
+	}
+
+	if len(matched) > 1 {
+		return capi.Machine{}, fmt.Errorf("multiple machines found with provider host ID %s", hostID)
+	}
+
+	return capi.Machine{}, fmt.Errorf("%w: provider host ID %s", ErrMachineNotFound, hostID)
+}
+
+func (c *Client) providerHostIDFromMachine(ctx context.Context, namespace, kind, name string) (string, bool) {
+	var annotations map[string]string
+
+	switch kind {
+	case "IntelMachine":
+		providerMachine, err := c.IntelMachine(ctx, namespace, name)
+		if err != nil {
+			return "", false
+		}
+		annotations = providerMachine.Annotations
+	case "DockerMachine":
+		providerMachine, err := c.DockerMachine(ctx, namespace, name)
+		if err != nil {
+			return "", false
+		}
+		annotations = providerMachine.Annotations
+	default:
+		return "", false
+	}
+
+	if annotations == nil {
+		return "", false
+	}
+
+	hostID, found := annotations[hostIDAnnotation]
+	if !found || hostID == "" {
+		return "", false
+	}
+
+	return hostID, true
 }
 
 // GetMachines returns the machine with the given name in the given namespace for the given cluster
