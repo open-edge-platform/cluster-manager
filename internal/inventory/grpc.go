@@ -260,7 +260,7 @@ func (c *InventoryClient) cleanupHostAssignedCluster(ctx context.Context, host *
 
 	cluster, err := c.k8sclient.GetCluster(ctx, host.TenantId, clusterName)
 	if err != nil {
-		if errors.Is(err, k8s.ErrClusterNotFound) || isNotFoundErr(err) {
+		if errors.Is(err, k8s.ErrClusterNotFound) {
 			slog.Info("assigned cluster already absent, skipping cleanup", "cluster", clusterName, "hostId", host.ResourceId, "tenantId", host.TenantId, "reason", reason)
 			return
 		}
@@ -281,7 +281,7 @@ func (c *InventoryClient) cleanupHostAssignedCluster(ctx context.Context, host *
 	// TODO: for multi-node, if cluster replicas > 1, remove IntelMachineBinding and decrement replicas
 	slog.Info("deleting assigned cluster", "cluster", clusterName, "hostId", host.ResourceId, "tenantId", host.TenantId, "reason", reason, "checkAutocreateLabel", checkAutocreateLabel)
 	if err := c.k8sclient.DeleteClusterForCleanup(ctx, host.TenantId, clusterName, checkAutocreateLabel); err != nil {
-		if errors.Is(err, k8s.ErrClusterNotFound) || isNotFoundErr(err) {
+		if errors.Is(err, k8s.ErrClusterNotFound) {
 			slog.Info("assigned cluster already absent during cleanup", "cluster", clusterName, "hostId", host.ResourceId, "tenantId", host.TenantId, "reason", reason)
 			return
 		}
@@ -299,7 +299,7 @@ func (c *InventoryClient) resolveCleanupClusterName(ctx context.Context, host *c
 	if err == nil {
 		clusterName = machine.Spec.ClusterName
 	} else {
-		if !isNotFoundErr(err) {
+		if !errors.Is(err, k8s.ErrMachineNotFound) {
 			if !checkAutocreateLabel {
 				slog.Warn("failed to get machine by host id", "error", err, "hostId", host.ResourceId, "tenantId", host.TenantId, "reason", reason)
 				return "", false, false
@@ -314,7 +314,7 @@ func (c *InventoryClient) resolveCleanupClusterName(ctx context.Context, host *c
 			slog.Info("resolved machine via provider annotation fallback", "hostId", host.ResourceId, "tenantId", host.TenantId, "cluster", machine.Spec.ClusterName, "reason", reason)
 			clusterName = machine.Spec.ClusterName
 		} else if !checkAutocreateLabel {
-			if isNotFoundErr(err) {
+			if errors.Is(err, k8s.ErrMachineNotFound) {
 				slog.Info("no machine found for host after fallback lookup, skipping cleanup", "hostId", host.ResourceId, "tenantId", host.TenantId, "reason", reason)
 			} else {
 				slog.Warn("failed fallback machine lookup by provider host id", "error", err, "hostId", host.ResourceId, "tenantId", host.TenantId, "reason", reason)
@@ -359,10 +359,6 @@ func isAutoCreatedCluster(clusterLabels map[string]string) bool {
 	}
 
 	return isAutoCreated
-}
-
-func isNotFoundErr(err error) bool {
-	return strings.Contains(strings.ToLower(err.Error()), "not found")
 }
 
 func inferAutoCreatedClusterName(host *computev1.HostResource) string {

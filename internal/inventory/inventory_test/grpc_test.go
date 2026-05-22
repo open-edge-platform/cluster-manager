@@ -335,8 +335,8 @@ func TestWatchHosts_DeleteClusterOnDeauthorizedHost(t *testing.T) {
 			name:                "deauthorized host - machine not found",
 			hostState:           computev1.HostState_HOST_STATE_UNTRUSTED,
 			eventKind:           inventoryv1.SubscribeEventsResponse_EVENT_KIND_UPDATED,
-			getMachineError:     errors.New("machine not found"),
-			fallbackLookupError: errors.New("machine not found"),
+			getMachineError:     k8s.ErrMachineNotFound,
+			fallbackLookupError: k8s.ErrMachineNotFound,
 			expectDeleteCluster: false,
 			expectWarning:       true,
 		},
@@ -344,7 +344,7 @@ func TestWatchHosts_DeleteClusterOnDeauthorizedHost(t *testing.T) {
 			name:      "deauthorized host fallback machine lookup succeeds",
 			hostState: computev1.HostState_HOST_STATE_UNTRUSTED,
 			eventKind: inventoryv1.SubscribeEventsResponse_EVENT_KIND_UPDATED,
-			getMachineError: errors.New("machine not found"),
+			getMachineError: k8s.ErrMachineNotFound,
 			fallbackMachine: &capi.Machine{
 				Spec: capi.MachineSpec{
 					ClusterName: "test-cluster",
@@ -427,8 +427,8 @@ func TestWatchHosts_DeleteClusterOnDeauthorizedHost(t *testing.T) {
 			name:                "deleted event machine missing resolves derived cluster name",
 			hostState:           computev1.HostState_HOST_STATE_ONBOARDED,
 			eventKind:           inventoryv1.SubscribeEventsResponse_EVENT_KIND_DELETED,
-			getMachineError:     errors.New("machine not found"),
-			fallbackLookupError: errors.New("machine not found"),
+			getMachineError:     k8s.ErrMachineNotFound,
+			fallbackLookupError: k8s.ErrMachineNotFound,
 			fallbackClusterName: "cluster-host-12345678",
 			cluster: &capi.Cluster{
 				ObjectMeta: metav1.ObjectMeta{
@@ -441,8 +441,8 @@ func TestWatchHosts_DeleteClusterOnDeauthorizedHost(t *testing.T) {
 			name:                "deleted event machine missing resolves metadata cluster name",
 			hostState:           computev1.HostState_HOST_STATE_ONBOARDED,
 			eventKind:           inventoryv1.SubscribeEventsResponse_EVENT_KIND_DELETED,
-			getMachineError:     errors.New("machine not found"),
-			fallbackLookupError: errors.New("machine not found"),
+			getMachineError:     k8s.ErrMachineNotFound,
+			fallbackLookupError: k8s.ErrMachineNotFound,
 			hostMetadata:        `[{"key":"cluster-name","value":"from-metadata"}]`,
 			fallbackClusterName: "from-metadata",
 			cluster: &capi.Cluster{
@@ -469,8 +469,8 @@ func TestWatchHosts_DeleteClusterOnDeauthorizedHost(t *testing.T) {
 			name:                "deleted event inferred name skips cluster without auto-created label",
 			hostState:           computev1.HostState_HOST_STATE_ONBOARDED,
 			eventKind:           inventoryv1.SubscribeEventsResponse_EVENT_KIND_DELETED,
-			getMachineError:     errors.New("machine not found"),
-			fallbackLookupError: errors.New("machine not found"),
+			getMachineError:     k8s.ErrMachineNotFound,
+			fallbackLookupError: k8s.ErrMachineNotFound,
 			fallbackClusterName: "cluster-host-12345678",
 			cluster: &capi.Cluster{
 				ObjectMeta: metav1.ObjectMeta{

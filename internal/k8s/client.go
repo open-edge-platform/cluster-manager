@@ -47,6 +47,7 @@ const (
 
 var ErrDefaultTemplateNotFound = fmt.Errorf("default template not found")
 var ErrClusterNotFound = fmt.Errorf("cluster not found")
+var ErrMachineNotFound = fmt.Errorf("machine not found")
 
 // K8s object schemas
 var (
@@ -638,7 +639,7 @@ func (c *Client) GetMachineByHostID(ctx context.Context, namespace, hostID strin
 			return machine, nil
 		}
 	}
-	return capi.Machine{}, fmt.Errorf("machine with host ID %s not found", hostID)
+	return capi.Machine{}, fmt.Errorf("%w: host ID %s", ErrMachineNotFound, hostID)
 }
 
 // GetMachineByProviderHostID returns a machine by matching provider machine host-id annotation.
@@ -680,7 +681,7 @@ func (c *Client) GetMachineByProviderHostID(ctx context.Context, namespace, host
 		return capi.Machine{}, fmt.Errorf("multiple machines found with provider host ID %s", hostID)
 	}
 
-	return capi.Machine{}, fmt.Errorf("machine with provider host ID %s not found", hostID)
+	return capi.Machine{}, fmt.Errorf("%w: provider host ID %s", ErrMachineNotFound, hostID)
 }
 
 func (c *Client) providerHostIDFromMachine(ctx context.Context, namespace, kind, name string) (string, bool) {
